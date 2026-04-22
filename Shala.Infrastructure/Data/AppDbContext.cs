@@ -57,8 +57,44 @@ namespace Shala.Infrastructure.Data
         public DbSet<StudentDocumentFieldMatch> StudentDocumentFieldMatches => Set<StudentDocumentFieldMatch>();
         public DbSet<StudentDocumentSuggestion> StudentDocumentSuggestions => Set<StudentDocumentSuggestion>();
 
+
+        public DbSet<StudentFeeLedger> StudentFeeLedgers { get; set; }
+
+
+
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
+            builder.Entity<StudentFeeLedger>(entity =>
+            {
+                entity.ToTable("StudentFeeLedgers");
+
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.EntryType)
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.DebitAmount)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.Property(x => x.CreditAmount)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.Property(x => x.RunningBalance)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.Property(x => x.ReferenceNo)
+                    .HasMaxLength(100);
+
+                entity.Property(x => x.Remarks)
+                    .HasMaxLength(500);
+
+                entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId, x.EntryDate, x.Id });
+                entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+                entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FeeReceiptId });
+                entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentChargeId });
+            });
             base.OnModelCreating(builder);
 
             // =========================================================

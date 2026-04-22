@@ -29,4 +29,13 @@ public interface IFeeWebRepository
     Task<StudentFeeAssignmentResponse> UpdateAssignmentAsync(int assignmentId, UpdateStudentFeeAssignmentRequest request, CancellationToken cancellationToken = default);
     Task DeleteAssignmentAsync(int assignmentId, CancellationToken cancellationToken = default);
     Task<List<StudentChargeResponse>> GenerateChargesAsync(int assignmentId, CancellationToken cancellationToken = default);
+
+
+    Task<FeeDashboardResponse> GetDashboardAsync(
+        FeeDashboardRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<FeeLedgerDashboardResponse> GetFeeLedgerDashboardAsync(
+    FeeLedgerDashboardRequest request,
+    CancellationToken cancellationToken = default);
 }

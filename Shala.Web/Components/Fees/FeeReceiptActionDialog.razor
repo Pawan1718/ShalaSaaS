@@ -1,0 +1,82 @@
+﻿@using MudBlazor
+@using Shala.Web.Models.Fees
+@using Shala.Shared.Responses.Settings
+@using Shala.Web.Components.Fees
+@using Shala.Web.Repositories.Settings
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Fee Receipt</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (Model is null)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                Receipt preview is not available.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                    <MudStack Row="true"
+                              Justify="Justify.SpaceBetween"
+                              AlignItems="AlignItems.Center"
+                              Wrap="Wrap.Wrap">
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Preview</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Review, print, or close the receipt.
+                            </MudText>
+                        </div>
+
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Default"
+                                       Disabled="@(Model is null || !Model.AllowDownloadReceipt)">
+                                Download
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="@(Model is null || !Model.AllowPrintReceipt)"
+                                       OnClick="Print">
+                                Print
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+
+                <FeeReceiptPreview Model="Model" />
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Close">
+            Close
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public FeeReceiptPrintVm? Model { get; set; }
+    [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private async Task Print()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+}

@@ -1,13 +1,19 @@
 ﻿@page "/tenant/students/{StudentId:int}/admissions/{AdmissionId:int}/fees"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
+@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Shared.Requests.Fees
 @using Shala.Shared.Responses.Fees
 @using Shala.Web.Components.Fees
 @using Shala.Web.Models.Fees
 @using Shala.Web.Repositories.Fees
+@using Shala.Web.Repositories.Settings
+@using Shala.Shared.Responses.Settings
 
+
+
+@inject IBranchDocumentProfileWebRepository ProfileRepo
 @inject IFeeWebRepository FeeWebRepository
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -371,7 +377,8 @@ else
                     }
                     else
                     {
-                        <FeeReceiptsTable Receipts="_dashboard.Receipts" />
+                        <FeeReceiptsTable Receipts="_dashboard.Receipts"
+                                          OnViewReceipt="OpenReceiptFromListAsync" />
                     }
                 </MudPaper>
             </MudTabPanel>
@@ -562,9 +569,11 @@ else
 
         try
         {
-            await FeeWebRepository.CollectFeeAsync(request);
+            var response = await FeeWebRepository.CollectFeeAsync(request);
             Snackbar.Add("Fee collected successfully.", Severity.Success);
+
             await LoadAsync();
+            await OpenReceiptActionDialogAsync(response.Id);
         }
         catch (Exception ex)
         {
@@ -688,6 +697,119 @@ else
     {
         return value == default ? "-" : value.ToString("dd MMM yyyy");
     }
+    private async Task OpenReceiptActionDialogAsync(int receiptId)
+    {
+        try
+        {
+            var receipt = _dashboard.Receipts.FirstOrDefault(x => x.Id == receiptId);
+
+            if (receipt is null)
+            {
+                await LoadAsync();
+                receipt = _dashboard.Receipts.FirstOrDefault(x => x.Id == receiptId);
+            }
+
+            if (receipt is null)
+            {
+                Snackbar.Add("Receipt preview could not be loaded.", Severity.Warning);
+                return;
+            }
+
+            var profile = await ProfileRepo.GetAsync();
+
+            var allocations = receipt.Allocations?
+                .Where(x => x.AllocatedAmount != 0)
+                .ToList() ?? new List<FeeReceiptAllocationResponse>();
+
+            var lines = allocations
+                .Select(allocation =>
+                {
+                    var charge = _dashboard.Charges.FirstOrDefault(c => c.Id == allocation.StudentChargeId);
+
+                    return new FeeReceiptPrintLineVm
+                    {
+                        Label = charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
+                        FeeHeadName = null,
+                        DueDate = charge?.DueDate,
+                        Amount = allocation.AllocatedAmount
+                    };
+                })
+                .ToList();
+
+            var computedTotal = lines.Sum(x => x.Amount);
+
+            var printModel = new FeeReceiptPrintVm
+            {
+                ReceiptId = receipt.Id,
+                ReceiptNo = receipt.ReceiptNo,
+                ReceiptDate = receipt.ReceiptDate,
+                ReceiptTitle = "Fee Receipt",
+                ReceiptFooterNote = "This is a computer-generated receipt.",
+
+                // Keep safe placeholders for now until real student/admission detail DTO is added
+                StudentName = $"Student #{StudentId}",
+                AdmissionNo = $"Admission #{AdmissionId}",
+                ClassName = "-",
+                SectionName = null,
+                RollNo = null,
+                GuardianName = null,
+                Phone = null,
+
+                PaymentMode = GetPaymentModeText(receipt.PaymentMode),
+                TransactionReference = receipt.TransactionReference,
+                Remarks = receipt.Remarks,
+
+                ShowStudentDetailsInReceipt = true,
+                ShowFeeHeadInReceipt = true,
+                ShowAmountInWords = true,
+                AllowPrintReceipt = true,
+                AllowDownloadReceipt = true,
+
+                TotalAmount = receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal,
+                AmountInWords = $"{(receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal):N2} only",
+
+                Lines = lines
+            };
+
+            var parameters = new DialogParameters
+            {
+                [nameof(FeeReceiptActionDialog.Model)] = printModel,
+                [nameof(FeeReceiptActionDialog.Profile)] = profile
+            };
+
+            var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.ExtraLarge,
+                FullWidth = true,
+                CloseButton = true
+            };
+
+            await DialogService.ShowAsync<FeeReceiptActionDialog>(
+                "Fee Receipt",
+                parameters,
+                options);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+
+    private async Task OpenReceiptFromListAsync(FeeReceiptResponse receipt)
+    {
+        await OpenReceiptActionDialogAsync(receipt.Id);
+    }
+
+    private static string GetPaymentModeText(int paymentMode) => paymentMode switch
+    {
+        1 => "Cash",
+        2 => "UPI",
+        3 => "Bank Transfer",
+        4 => "Cheque",
+        5 => "Card",
+        _ => "Other"
+    };
 
     private static FeeSummaryVm BuildSummary(List<StudentChargeResponse> charges)
     {

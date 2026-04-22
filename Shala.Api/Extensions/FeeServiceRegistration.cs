@@ -22,6 +22,16 @@ public static class FeeServiceRegistration
         services.AddScoped<IFeeReceiptNumberGenerator, FeeReceiptNumberGenerator>();
         services.AddScoped<IFeeChargeGenerationService, FeeChargeGenerationService>();
 
+        services.AddScoped<IFeeDashboardService, FeeDashboardService>();
+
+        services.AddScoped<IFeeDashboardReadRepository, FeeDashboardReadRepository>();
+
+        services.AddScoped<IFeeLedgerService, FeeLedgerService>();
+        services.AddScoped<IFeeLedgerReadRepository, FeeLedgerReadRepository>();
+
+        services.AddScoped<IFeeLedgerPostingService, FeeLedgerPostingService>();
+        services.AddScoped<IFeeLedgerWriteRepository, FeeLedgerWriteRepository>();
+
         return services;
     }
 }

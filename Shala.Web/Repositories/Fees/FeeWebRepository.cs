@@ -1,322 +1,4 @@
-﻿//using Shala.Shared.Requests.Fees;
-//using Shala.Shared.Responses.Fees;
-//using Shala.Web.Services.Http;
-
-//namespace Shala.Web.Repositories.Fees;
-
-//public sealed class FeeWebRepository : IFeeWebRepository
-//{
-//    private readonly IHttpService _httpService;
-
-//    public FeeWebRepository(IHttpService httpService)
-//    {
-//        _httpService = httpService;
-//    }
-
-//    public async Task<List<FeeHeadResponse>> GetFeeHeadsAsync(
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<List<FeeHeadResponse>>(
-//            "api/fees/heads",
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse ?? new List<FeeHeadResponse>();
-//    }
-
-//    public async Task<FeeHeadResponse?> GetFeeHeadByIdAsync(
-//        int id,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<FeeHeadResponse>(
-//            $"api/fees/heads/{id}",
-//            cancellationToken);
-
-//        if (IsNotFound(response))
-//            return null;
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse;
-//    }
-
-//    public async Task<FeeHeadResponse> CreateFeeHeadAsync(
-//        CreateFeeHeadRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<CreateFeeHeadRequest, FeeHeadResponse>(
-//            "api/fees/heads",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-
-//        if (response.ServerResponse is null)
-//            throw new Exception("Fee head create response was empty.");
-
-//        return response.ServerResponse;
-//    }
-
-//    public async Task UpdateFeeHeadAsync(
-//        int id,
-//        UpdateFeeHeadRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PutAsync<UpdateFeeHeadRequest, bool>(
-//            $"api/fees/heads/{id}",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//    }
-
-//    public async Task DeleteFeeHeadAsync(
-//        int id,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.DeleteAsync(
-//            $"api/fees/heads/{id}",
-//            cancellationToken);
-
-//        EnsureDeleteSuccess(response);
-//    }
-
-//    public async Task<List<FeeStructureResponse>> GetFeeStructuresAsync(
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<List<FeeStructureResponse>>(
-//            "api/fees/structures",
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse ?? new List<FeeStructureResponse>();
-//    }
-
-//    public async Task<FeeStructureResponse?> GetFeeStructureByIdAsync(
-//        int id,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<FeeStructureResponse>(
-//            $"api/fees/structures/{id}",
-//            cancellationToken);
-
-//        if (IsNotFound(response))
-//            return null;
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse;
-//    }
-
-//    public async Task<FeeStructureResponse> CreateFeeStructureAsync(
-//        CreateFeeStructureRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<CreateFeeStructureRequest, FeeStructureResponse>(
-//            "api/fees/structures",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-
-//        if (response.ServerResponse is null)
-//            throw new Exception("Fee structure create response was empty.");
-
-//        return response.ServerResponse;
-//    }
-
-//    public async Task UpdateFeeStructureAsync(
-//        int id,
-//        UpdateFeeStructureRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PutAsync<UpdateFeeStructureRequest, bool>(
-//            $"api/fees/structures/{id}",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//    }
-
-//    public async Task DeleteFeeStructureAsync(
-//        int id,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.DeleteAsync(
-//            $"api/fees/structures/{id}",
-//            cancellationToken);
-
-//        EnsureDeleteSuccess(response);
-//    }
-
-//    public async Task<List<StudentChargeResponse>> GetStudentChargesAsync(
-//        int studentId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<List<StudentChargeResponse>>(
-//            $"api/fees/charges/student/{studentId}",
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse ?? new List<StudentChargeResponse>();
-//    }
-
-//    public async Task<List<FeeReceiptResponse>> GetStudentReceiptsAsync(
-//        int studentId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<List<FeeReceiptResponse>>(
-//            $"api/fees/receipts/student/{studentId}",
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse ?? new List<FeeReceiptResponse>();
-//    }
-
-//    public async Task<StudentFeeAssignmentResponse?> GetAssignmentAsync(
-//        int admissionId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.GetAsync<StudentFeeAssignmentResponse>(
-//            $"api/fees/assignments/admission/{admissionId}",
-//            cancellationToken);
-
-//        if (IsNotFound(response))
-//            return null;
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse;
-//    }
-
-//    public async Task<StudentFeeAssignmentResponse> AssignFeeStructureAsync(
-//        CreateStudentFeeAssignmentRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<CreateStudentFeeAssignmentRequest, StudentFeeAssignmentResponse>(
-//            "api/fees/assignments",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-
-//        if (response.ServerResponse is null)
-//            throw new Exception("Assignment response was empty.");
-
-//        return response.ServerResponse;
-//    }
-
-//    public async Task<StudentFeeAssignmentResponse> UpdateAssignmentAsync(
-//        int assignmentId,
-//        UpdateStudentFeeAssignmentRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PutAsync<UpdateStudentFeeAssignmentRequest, StudentFeeAssignmentResponse>(
-//            $"api/fees/assignments/{assignmentId}",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-
-//        if (response.ServerResponse is null)
-//            throw new Exception("Assignment update response was empty.");
-
-//        return response.ServerResponse;
-//    }
-
-//    public async Task DeleteAssignmentAsync(
-//        int assignmentId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.DeleteAsync(
-//            $"api/fees/assignments/{assignmentId}",
-//            cancellationToken);
-
-//        EnsureDeleteSuccess(response);
-//    }
-
-//    public async Task<List<StudentChargeResponse>> GenerateChargesAsync(
-//        int assignmentId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<object, List<StudentChargeResponse>>(
-//            $"api/fees/assignments/{assignmentId}/generate-charges",
-//            new { },
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//        return response.ServerResponse ?? new List<StudentChargeResponse>();
-//    }
-
-//    public async Task<FeeReceiptResponse> CollectFeeAsync(
-//        CreateFeeReceiptRequest request,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<CreateFeeReceiptRequest, FeeReceiptResponse>(
-//            "api/fees/receipts",
-//            request,
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-
-//        if (response.ServerResponse is null)
-//            throw new Exception("Fee receipt response was empty.");
-
-//        return response.ServerResponse;
-//    }
-
-//    public async Task CancelReceiptAsync(
-//        int receiptId,
-//        string? reason = null,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PostAsync<CancelFeeReceiptRequest, object>(
-//            $"api/fees/receipts/{receiptId}/cancel",
-//            new CancelFeeReceiptRequest { Reason = reason },
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//    }
-
-//    public async Task CancelChargeAsync(
-//        int chargeId,
-//        CancellationToken cancellationToken = default)
-//    {
-//        var response = await _httpService.PutAsync<object, bool>(
-//            $"api/fees/charges/{chargeId}/cancel",
-//            new { },
-//            cancellationToken);
-
-//        EnsureSuccess(response);
-//    }
-
-//    private static bool IsNotFound<T>(ServerResponseHelper<T> response)
-//    {
-//        return response.ResponseMessage?.StatusCode == System.Net.HttpStatusCode.NotFound;
-//    }
-
-//    private static void EnsureSuccess<T>(ServerResponseHelper<T> response)
-//    {
-//        if (response.IsSuccess || response.ResponseMessage?.IsSuccessStatusCode == true)
-//            return;
-
-//        var message = string.IsNullOrWhiteSpace(response.Message)
-//            ? $"Request failed with status code {(int)(response.ResponseMessage?.StatusCode ?? 0)}."
-//            : response.Message;
-
-//        throw new Exception(message);
-//    }
-
-//    private static void EnsureDeleteSuccess(ServerResponseHelper<object> response)
-//    {
-//        if (response.IsSuccess || response.ResponseMessage?.IsSuccessStatusCode == true)
-//            return;
-
-//        var message = string.IsNullOrWhiteSpace(response.Message)
-//            ? $"Request failed with status code {(int)(response.ResponseMessage?.StatusCode ?? 0)}."
-//            : response.Message;
-
-//        throw new Exception(message);
-//    }
-//}
-
+﻿
 
 
 
@@ -719,5 +401,46 @@ public sealed class FeeWebRepository : IFeeWebRepository
 
         value = default;
         return false;
+    }
+
+
+
+    public async Task<FeeDashboardResponse> GetDashboardAsync(
+     FeeDashboardRequest request,
+     CancellationToken cancellationToken = default)
+    {
+        var response = await _httpService.PostAsync<FeeDashboardRequest, FeeDashboardResponse>(
+            "api/fees/dashboard/search",
+            request,
+            cancellationToken);
+
+        EnsureSuccess(response);
+
+        var payload = await GetPayloadOrFallbackAsync<FeeDashboardResponse?>(response, null);
+
+        if (payload is null)
+            throw new Exception("Fee dashboard response was empty.");
+
+        return payload;
+
+    }
+
+
+    public async Task<FeeLedgerDashboardResponse> GetFeeLedgerDashboardAsync(
+    FeeLedgerDashboardRequest request,
+    CancellationToken cancellationToken = default)
+    {
+        var response = await _httpService.PostAsync<FeeLedgerDashboardRequest, FeeLedgerDashboardResponse>(
+            "api/fees/ledger/dashboard",
+            request,
+            cancellationToken);
+
+        EnsureSuccess(response);
+
+        var payload = await GetPayloadOrFallbackAsync<FeeLedgerDashboardResponse?>(response, null);
+        if (payload is null)
+            throw new Exception("Fee ledger dashboard response was empty.");
+
+        return payload;
     }
 }

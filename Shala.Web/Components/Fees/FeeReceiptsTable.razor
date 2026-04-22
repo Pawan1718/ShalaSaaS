@@ -3,8 +3,6 @@
 
 <MudStack Spacing="2">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-      
-
         <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
                 Receipts: @Receipts.Count()
@@ -47,6 +45,7 @@
                 <MudTh>Reference</MudTh>
                 <MudTh>Remarks</MudTh>
                 <MudTh class="text-end">Amount</MudTh>
+                <MudTh Align="right">Actions</MudTh>
             </HeaderContent>
 
             <RowTemplate>
@@ -94,6 +93,15 @@
                         @context.TotalAmount.ToString("N2")
                     </MudText>
                 </MudTd>
+
+                <MudTd DataLabel="Actions" Align="right">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Visibility"
+                               OnClick="@(() => ViewReceiptAsync(context))">
+                        View Receipt
+                    </MudButton>
+                </MudTd>
             </RowTemplate>
         </MudTable>
     }
@@ -129,6 +137,15 @@
 @code {
     [Parameter]
     public IEnumerable<FeeReceiptResponse> Receipts { get; set; } = Enumerable.Empty<FeeReceiptResponse>();
+
+    [Parameter]
+    public EventCallback<FeeReceiptResponse> OnViewReceipt { get; set; }
+
+    private async Task ViewReceiptAsync(FeeReceiptResponse receipt)
+    {
+        if (OnViewReceipt.HasDelegate)
+            await OnViewReceipt.InvokeAsync(receipt);
+    }
 
     private static string GetReceiptHint(FeeReceiptResponse receipt)
     {

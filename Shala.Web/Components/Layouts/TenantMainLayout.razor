@@ -132,24 +132,29 @@
                 Students
             </MudNavLink>
 
-            <MudNavLink Href="/tenant/settings/fees/structures"
+            <MudNavLink Href="/tenant/fees/dashboard"
                         Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.AccountBalanceWallet">
                 Fees
             </MudNavLink>
 
-            <MudNavLink Href="/tenant/settings/document-models"
+         @*    <MudNavLink Href="/tenant/settings/document-models"
                         Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.Description">
                 Documents
-            </MudNavLink>
+            </MudNavLink> *@
 
             <MudNavLink Href="/tenant/supplies/issues"
+                        Disabled="true"
                         Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.Inventory2">
                 Student Supplies
             </MudNavLink>
-
+            <MudNavLink Href="/tenant/ledger"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.MenuBook">
+                Ledger
+            </MudNavLink>
             <MudNavLink Disabled="true"
                         Icon="@Icons.Material.Filled.Assessment">
                 Reports
