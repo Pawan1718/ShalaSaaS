@@ -1,0 +1,181 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Models.Fees
+
+<MudDialog MaxWidth="MaxWidth.Large" FullWidth="true">
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">Collect Fee</MudText>
+
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="PayFull">
+                        Pay Full
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAll">
+                        Clear
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+
+            <MudTable Items="_rows" Dense="true" Hover="true" Bordered="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Select</MudTh>
+                    <MudTh>Charge</MudTh>
+                    <MudTh>Period</MudTh>
+                    <MudTh>Due Date</MudTh>
+                    <MudTh class="text-end">Balance</MudTh>
+                    <MudTh class="text-end">Pay Now</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>
+                        <MudCheckBox T="bool"
+                                     Value="context.Selected"
+                                     ValueChanged="@(value => OnSelectedChanged(context, value))" />
+                    </MudTd>
+                    <MudTd>@context.ChargeLabel</MudTd>
+                    <MudTd>@(string.IsNullOrWhiteSpace(context.PeriodLabel) ? "-" : context.PeriodLabel)</MudTd>
+                    <MudTd>@context.DueDate.ToString("dd MMM yyyy")</MudTd>
+                    <MudTd class="text-end">@context.BalanceAmount.ToString("N2")</MudTd>
+                    <MudTd class="text-end" Style="width:160px;">
+                        <MudNumericField T="decimal"
+                                         @bind-Value="context.PayNowAmount"
+                                         Min="0"
+                                         Max="@context.BalanceAmount"
+                                         Immediate="true"
+                                         Disabled="@(!context.Selected)" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudSelect T="int" Label="Payment Mode" @bind-Value="_paymentMode">
+                        <MudSelectItem T="int" Value="1">Cash</MudSelectItem>
+                        <MudSelectItem T="int" Value="2">UPI</MudSelectItem>
+                        <MudSelectItem T="int" Value="3">Bank Transfer</MudSelectItem>
+                        <MudSelectItem T="int" Value="4">Cheque</MudSelectItem>
+                        <MudSelectItem T="int" Value="5">Card</MudSelectItem>
+                        <MudSelectItem T="int" Value="6">Other</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Transaction Reference" @bind-Value="_transactionReference" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Remarks" @bind-Value="_remarks" />
+                </MudItem>
+            </MudGrid>
+
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Total Selected Amount: @GetSelectedTotal().ToString("N2")
+            </MudAlert>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Save Receipt</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public int StudentId { get; set; }
+    [Parameter] public int StudentAdmissionId { get; set; }
+    [Parameter] public List<StudentChargeResponse> Charges { get; set; } = new();
+
+    private List<CollectFeeRowVm> _rows = new();
+    private int _paymentMode = 1;
+    private string? _transactionReference;
+    private string? _remarks;
+
+    protected override void OnInitialized()
+    {
+        _rows = Charges
+            .Where(x => !x.IsCancelled && x.BalanceAmount > 0)
+            .OrderBy(x => x.DueDate)
+            .Select(x => new CollectFeeRowVm
+            {
+                StudentChargeId = x.Id,
+                ChargeLabel = x.ChargeLabel,
+                PeriodLabel = x.PeriodLabel,
+                DueDate = x.DueDate,
+                NetAmount = x.NetAmount,
+                PaidAmount = x.PaidAmount,
+                BalanceAmount = x.BalanceAmount,
+                Selected = false,
+                PayNowAmount = x.BalanceAmount
+            })
+            .ToList();
+    }
+
+    private void OnSelectedChanged(CollectFeeRowVm row, bool selected)
+    {
+        row.Selected = selected;
+
+        if (!selected)
+            row.PayNowAmount = 0;
+        else if (row.PayNowAmount <= 0)
+            row.PayNowAmount = row.BalanceAmount;
+    }
+
+    private decimal GetSelectedTotal()
+    {
+        return _rows
+            .Where(x => x.Selected && x.PayNowAmount > 0)
+            .Sum(x => x.PayNowAmount);
+    }
+
+    private void PayFull()
+    {
+        foreach (var row in _rows)
+        {
+            row.Selected = true;
+            row.PayNowAmount = row.BalanceAmount;
+        }
+    }
+
+    private void ClearAll()
+    {
+        foreach (var row in _rows)
+        {
+            row.Selected = false;
+            row.PayNowAmount = 0;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        var allocations = _rows
+            .Where(x => x.Selected && x.PayNowAmount > 0)
+            .Select(x => new FeeReceiptAllocationRequest
+            {
+                StudentChargeId = x.StudentChargeId,
+                AllocatedAmount = x.PayNowAmount
+            })
+            .ToList();
+
+        if (allocations.Count == 0)
+            return;
+
+        var request = new CreateFeeReceiptRequest
+        {
+            StudentId = StudentId,
+            StudentAdmissionId = StudentAdmissionId,
+            PaymentMode = _paymentMode,
+            TransactionReference = _transactionReference,
+            Remarks = _remarks,
+            Allocations = allocations
+        };
+
+        MudDialog.Close(DialogResult.Ok(request));
+    }
+}

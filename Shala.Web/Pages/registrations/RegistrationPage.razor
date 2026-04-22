@@ -1,0 +1,655 @@
+﻿@page "/student/registrations"
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Common
+@using Shala.Shared.Requests.Registration
+@using Shala.Shared.Responses.Registration
+@using Shala.Shared.Responses.Settings
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.Registration
+@using Shala.Web.Repositories.Settings
+@using Shala.Web.Repositories.TenantConfig
+
+@inject IRegistrationWebRepository Repo
+@inject IRegistrationFeeConfigurationWebRepository FeeConfigRepo
+@inject IRegistrationProspectusConfigurationWebRepository ProspectusConfigRepo
+@inject IBranchDocumentProfileWebRepository ProfileRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Registrations</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="page-header pa-4">
+        <MudStack Spacing="2">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap"
+                      Spacing="2">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-bold">Registration Management</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Manage student registrations, fees, and admission conversion.
+                    </MudText>
+                </div>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           Size="Size.Medium"
+                           Disabled="@(!_registrationModuleEnabled)"
+                           OnClick="OpenDialogAsync">
+                    Add Registration
+                </MudButton>
+            </MudStack>
+
+            @if (!_registrationModuleEnabled)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Dense="true">
+                    Registration module is inactive for this branch. You can view existing registrations, but add, edit, collect fee, convert and delete actions are disabled.
+                </MudAlert>
+            }
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="filter-card pa-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3 fw-semibold">Filters</MudText>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="8">
+                <MudTextField T="string"
+                              Label="Search registration"
+                              Placeholder="Search by registration no, name, guardian, phone"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              @bind-Value="_request.SearchText"
+                              Immediate="true"
+                              OnKeyDown="HandleSearchKeyDownAsync" />
+            </MudItem>
+
+            <MudItem xs="12" md="4" Class="d-flex align-end">
+                <MudStack Row="true" Spacing="1" Class="w-100">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Disabled="_loading"
+                               OnClick="SearchAsync">
+                        Search
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               Disabled="_loading"
+                               OnClick="ResetFiltersAsync">
+                        Reset
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="table-card pa-0">
+        <div class="table-toolbar">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Class="fw-semibold">Registrations</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Total records: @_totalCount
+                    </MudText>
+                </div>
+
+                <MudSelect T="int"
+                           Label="Rows"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Style="width:110px"
+                           Value="_request.PageSize"
+                           ValueChanged="OnPageSizeChangedAsync">
+                    <MudSelectItem T="int" Value="10">10</MudSelectItem>
+                    <MudSelectItem T="int" Value="25">25</MudSelectItem>
+                    <MudSelectItem T="int" Value="50">50</MudSelectItem>
+                    <MudSelectItem T="int" Value="100">100</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+        </div>
+
+        <MudDivider />
+
+        <MudTable T="RegistrationDto"
+                  Items="_items"
+                  Hover="true"
+                  Dense="true"
+                  Striped="true"
+                  Loading="_loading"
+                  Class="students-table">
+            <HeaderContent>
+                <MudTh>Reg. No</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Guardian</MudTh>
+                <MudTh>Phone</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Align="right">Actions</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Reg. No">
+                    <MudText Typo="Typo.body2" Class="fw-semibold">
+                        @(string.IsNullOrWhiteSpace(context.RegistrationNo) ? "-" : context.RegistrationNo)
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Date">
+                    @FormatDate(context.RegistrationDate)
+                </MudTd>
+
+                <MudTd DataLabel="Name">
+                    @GetFullName(context)
+                </MudTd>
+
+                <MudTd DataLabel="Guardian">
+                    @(string.IsNullOrWhiteSpace(context.GuardianName) ? "-" : context.GuardianName)
+                </MudTd>
+
+                <MudTd DataLabel="Phone">
+                    @(string.IsNullOrWhiteSpace(context.Phone) ? "-" : context.Phone)
+                </MudTd>
+
+                <MudTd DataLabel="Status">
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Variant="Variant.Filled"
+                             Color="@GetStatusColor(context.Status)">
+                        @GetStatusText(context)
+                    </MudChip>
+                </MudTd>
+
+                <MudTd DataLabel="Actions" Align="right">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                             Size="Size.Small"
+                             Color="Color.Default"
+                             Dense="true">
+                        <ChildContent>
+                            <MudMenuItem OnClick="@(() => ViewDetails(context.Id))">
+                                View Details
+                            </MudMenuItem>
+
+                            <MudMenuItem Disabled="@(!CanViewReceipt(context))"
+                                         OnClick="@(() => ViewReceipt(context))">
+                                View Receipt
+                            </MudMenuItem>
+
+                            <MudMenuItem Disabled="@IsEditDisabled(context)"
+                                         OnClick="@(() => EditAsync(context))">
+                                Edit
+                            </MudMenuItem>
+
+                            <MudMenuItem Disabled="@IsCollectFeeDisabled(context)"
+                                         OnClick="@(() => CollectFeeAsync(context))">
+                                Collect Fee
+                            </MudMenuItem>
+
+                            <MudMenuItem Disabled="@IsConvertDisabled(context)"
+                                         OnClick="@(() => OpenConvertDialogAsync(context))">
+                                Convert
+                            </MudMenuItem>
+
+                            <MudMenuItem Disabled="@IsDeleteDisabled(context)"
+                                         OnClick="@(() => ConfirmDeleteAsync(context.Id))">
+                                Delete
+                            </MudMenuItem>
+                        </ChildContent>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <div class="empty-state">
+                    <MudIcon Icon="@Icons.Material.Filled.HowToReg"
+                             Size="Size.Large"
+                             Color="Color.Default" />
+                    <MudText Typo="Typo.h6" Class="mt-2">No registrations found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Try changing the search or add your first registration.
+                    </MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudDivider />
+
+        <div class="table-footer">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Page @_request.PageNumber of @_totalPages
+                </MudText>
+
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Variant="Variant.Outlined"
+                               Disabled="@(_request.PageNumber <= 1 || _loading)"
+                               OnClick="PreviousPageAsync">
+                        Prev
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Disabled="@(_request.PageNumber >= _totalPages || _loading)"
+                               OnClick="NextPageAsync">
+                        Next
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </div>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private readonly PagedRequest _request = new()
+    {
+        PageNumber = 1,
+        PageSize = 10,
+        SortDescending = true
+    };
+
+    private List<RegistrationDto> _items = new();
+    private bool _loading;
+    private int _totalCount;
+    private int _totalPages = 1;
+    private bool _registrationModuleEnabled = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRegistrationModuleStatusAsync();
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task LoadRegistrationModuleStatusAsync()
+    {
+        try
+        {
+            var feeConfig = await FeeConfigRepo.GetAsync();
+            _registrationModuleEnabled = feeConfig?.IsRegistrationModuleEnabled ?? true;
+        }
+        catch
+        {
+            _registrationModuleEnabled = true;
+        }
+    }
+
+    private async Task LoadRegistrationsAsync()
+    {
+        if (_loading)
+            return;
+
+        try
+        {
+            _loading = true;
+
+            var response = await Repo.GetPagedAsync(_request);
+
+            _items = response?.Items ?? new List<RegistrationDto>();
+            _totalCount = response?.TotalCount ?? 0;
+            _totalPages = _request.PageSize <= 0
+                ? 1
+                : Math.Max(1, (int)Math.Ceiling((double)_totalCount / _request.PageSize));
+
+            if (_request.PageNumber > _totalPages)
+            {
+                _request.PageNumber = _totalPages;
+
+                response = await Repo.GetPagedAsync(_request);
+                _items = response?.Items ?? new List<RegistrationDto>();
+                _totalCount = response?.TotalCount ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            _items = new List<RegistrationDto>();
+            _totalCount = 0;
+            _totalPages = 1;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _request.PageNumber = 1;
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        _request.SearchText = null;
+        _request.PageNumber = 1;
+        _request.PageSize = 10;
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task OnPageSizeChangedAsync(int value)
+    {
+        if (value <= 0 || _request.PageSize == value)
+            return;
+
+        _request.PageSize = value;
+        _request.PageNumber = 1;
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_loading || _request.PageNumber <= 1)
+            return;
+
+        _request.PageNumber--;
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_loading || _request.PageNumber >= _totalPages)
+            return;
+
+        _request.PageNumber++;
+        await LoadRegistrationsAsync();
+    }
+
+    private async Task HandleSearchKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await SearchAsync();
+    }
+
+    private async Task OpenDialogAsync()
+    {
+        if (!_registrationModuleEnabled)
+        {
+            Snackbar.Add("Registration module is inactive for this branch.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await Dialog.ShowAsync<RegistrationForm>("New Registration");
+        var result = await dialog.Result;
+
+        if (result.Canceled)
+            return;
+
+        await LoadRegistrationsAsync();
+
+        var data = result.Data;
+        if (data is null)
+            return;
+
+        var receiptIdProperty = data.GetType().GetProperty("ReceiptId");
+        if (receiptIdProperty is null)
+            return;
+
+        var receiptIdValue = receiptIdProperty.GetValue(data);
+        if (receiptIdValue is int receiptId && receiptId > 0)
+        {
+            await ShowReceiptDialogAsync(receiptId);
+        }
+    }
+
+    private async Task EditAsync(RegistrationDto data)
+    {
+        if (!_registrationModuleEnabled)
+        {
+            Snackbar.Add("Registration module is inactive for this branch.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["Model"] = data
+        };
+
+        var dialog = await Dialog.ShowAsync<RegistrationForm>("Edit Registration", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadRegistrationsAsync();
+    }
+
+    private async Task CollectFeeAsync(RegistrationDto data)
+    {
+        if (!_registrationModuleEnabled)
+        {
+            Snackbar.Add("Registration module is inactive for this branch.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var feeConfig = await FeeConfigRepo.GetAsync();
+            var prospectusConfig = await ProspectusConfigRepo.GetAsync();
+
+            var parameters = new DialogParameters
+            {
+                ["DefaultAmount"] = feeConfig?.RegistrationFeeAmount ?? 0m,
+                ["IsMandatory"] = feeConfig?.IsRegistrationFeeMandatory ?? false,
+                ["IncludeProspectus"] = prospectusConfig?.IncludeProspectus ?? false,
+                ["IsProspectusMandatory"] = prospectusConfig?.IsProspectusMandatory ?? false,
+                ["ProspectusAmount"] = prospectusConfig?.ProspectusAmount ?? 0m,
+                ["ProspectusDisplayName"] = prospectusConfig?.ProspectusDisplayName ?? "Prospectus"
+            };
+
+            var dialog = await Dialog.ShowAsync<RegistrationFeeDialog>("Collect Registration Fee", parameters);
+            var result = await dialog.Result;
+
+            if (result.Canceled)
+                return;
+
+            if (result.Data is not CollectRegistrationFeeRequest feeRequest)
+                return;
+
+            var response = await Repo.CollectFeeAsync(data.Id, feeRequest);
+
+            Snackbar.Add($"Fee collected successfully. Receipt: {response.ReceiptNo}", Severity.Success);
+
+            await LoadRegistrationsAsync();
+
+            if (response.ReceiptId > 0)
+                await ShowReceiptDialogAsync(response.ReceiptId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void ViewReceipt(RegistrationDto data)
+    {
+        if (!CanViewReceipt(data))
+        {
+            Snackbar.Add("Receipt not available for this registration.", Severity.Warning);
+            return;
+        }
+
+        Navigation.NavigateTo($"/student/registrations/receipt/{data.LatestReceiptId!.Value}");
+    }
+
+    private void ViewDetails(int id)
+    {
+        Navigation.NavigateTo($"/student/registrations/details/{id}");
+    }
+
+    private async Task ShowReceiptDialogAsync(int receiptId)
+    {
+        RegistrationReceiptResponse? receipt = null;
+        BranchDocumentProfileResponse? profile = null;
+
+        try
+        {
+            if (receiptId > 0)
+                receipt = await Repo.GetReceiptAsync(receiptId);
+
+            profile = await ProfileRepo.GetAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+
+        var dialogParameters = new DialogParameters
+        {
+            ["ReceiptId"] = receiptId,
+            ["Receipt"] = receipt,
+            ["Profile"] = profile
+        };
+
+        var dialogOptions = new DialogOptions
+        {
+            MaxWidth = MaxWidth.ExtraLarge,
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        await Dialog.ShowAsync<RegistrationReceiptActionDialog>(
+            "Registration Receipt",
+            dialogParameters,
+            dialogOptions);
+    }
+
+    private async Task OpenConvertDialogAsync(RegistrationDto data)
+    {
+        if (!_registrationModuleEnabled)
+        {
+            Snackbar.Add("Registration module is inactive for this branch.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var parameters = new DialogParameters
+            {
+                ["Model"] = data
+            };
+
+            var dialog = await Dialog.ShowAsync<ConvertRegistrationDialog>("Convert Registration", parameters);
+            var result = await dialog.Result;
+
+            if (result.Canceled || result.Data is not ConvertRegistrationRequest request)
+                return;
+
+            var response = await Repo.ConvertAsync(data.Id, request);
+            Snackbar.Add($"Registration converted successfully. Admission No: {response.AdmissionNo}", Severity.Success);
+            await LoadRegistrationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(int id)
+    {
+        if (!_registrationModuleEnabled)
+        {
+            Snackbar.Add("Registration module is inactive for this branch.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Delete Registration",
+            ["Message"] = "Are you sure you want to delete this registration? This action cannot be undone.",
+            ["ConfirmText"] = "Delete",
+            ["CancelText"] = "Cancel",
+            ["ConfirmColor"] = Color.Error
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.ExtraSmall,
+            FullWidth = true
+        };
+
+        var dialog = await Dialog.ShowAsync<ConfirmDialog>("Confirm Delete", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await DeleteAsync(id);
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        try
+        {
+            await Repo.DeleteAsync(id);
+            Snackbar.Add("Registration deleted successfully.", Severity.Success);
+
+            if (_items.Count == 1 && _request.PageNumber > 1)
+                _request.PageNumber--;
+
+            await LoadRegistrationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static bool CanViewReceipt(RegistrationDto item) => item.LatestReceiptId.GetValueOrDefault() > 0;
+
+    private static bool IsConverted(RegistrationDto item) =>
+        string.Equals(item.Status, "Converted", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsEditDisabled(RegistrationDto item) =>
+        !_registrationModuleEnabled || IsConverted(item);
+
+    private bool IsCollectFeeDisabled(RegistrationDto item) =>
+        !_registrationModuleEnabled || item.FeePaid || IsConverted(item);
+
+    private bool IsConvertDisabled(RegistrationDto item) =>
+        !_registrationModuleEnabled || IsConverted(item) || !item.FeePaid;
+
+    private bool IsDeleteDisabled(RegistrationDto item) =>
+        !_registrationModuleEnabled || item.FeePaid || IsConverted(item);
+
+    private static string GetStatusText(RegistrationDto item)
+    {
+        if (IsConverted(item))
+            return "Converted";
+
+        if (item.FeePaid && string.IsNullOrWhiteSpace(item.Status))
+            return "Confirmed";
+
+        return string.IsNullOrWhiteSpace(item.Status) ? "Pending" : item.Status;
+    }
+
+    private static string GetFullName(RegistrationDto item) =>
+        string.IsNullOrWhiteSpace(item.FullName) ? "-" : item.FullName;
+
+    private static string FormatDate(DateTime value) =>
+        value == DateTime.MinValue ? "-" : value.ToString("dd MMM yyyy");
+
+    private static Color GetStatusColor(string? status)
+    {
+        return status?.Trim().ToLowerInvariant() switch
+        {
+            "pending" => Color.Warning,
+            "confirmed" => Color.Info,
+            "converted" => Color.Success,
+            "rejected" => Color.Error,
+            "cancelled" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

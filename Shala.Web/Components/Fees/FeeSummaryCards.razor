@@ -1,0 +1,226 @@
+﻿@using MudBlazor
+@using Shala.Web.Models.Fees
+
+<MudGrid Spacing="2">
+    <MudItem xs="12" sm="6" lg="3">
+        <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-radius:18px; border-left:6px solid var(--mud-palette-primary);">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total Planned</MudText>
+                    <MudText Typo="Typo.h5" Class="mt-1">@Summary.TotalAmount.ToString("N2")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        Total amount scheduled for this admission
+                    </MudText>
+                </div>
+
+                <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" lg="3">
+        <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-radius:18px; border-left:6px solid var(--mud-palette-success);">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Collected</MudText>
+                    <MudText Typo="Typo.h5" Class="mt-1">@Summary.TotalPaid.ToString("N2")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        Amount already received
+                    </MudText>
+                </div>
+
+                <MudAvatar Color="Color.Success" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.Payments" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" lg="3">
+        <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-radius:18px; border-left:6px solid var(--mud-palette-warning);">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText>
+                    <MudText Typo="Typo.h5" Class="mt-1">@Summary.TotalBalance.ToString("N2")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        Balance still left to collect
+                    </MudText>
+                </div>
+
+                <MudAvatar Color="Color.Warning" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.HourglassBottom" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" lg="3">
+        <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-radius:18px; border-left:6px solid var(--mud-palette-secondary);">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Discounts</MudText>
+                    <MudText Typo="Typo.h5" Class="mt-1">@Summary.TotalDiscount.ToString("N2")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        Concessions applied to charges
+                    </MudText>
+                </div>
+
+                <MudAvatar Color="Color.Secondary" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.LocalOffer" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudGrid Spacing="2" Class="mt-1">
+    <MudItem xs="12" lg="8">
+        <MudPaper Class="pa-4" Elevation="2" Style="border-radius:18px;">
+            <MudStack Spacing="2">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Collection Progress</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Overall collection progress across all installments
+                        </MudText>
+                    </div>
+
+                    <MudChip T="string"
+                             Variant="Variant.Filled"
+                             Color="@GetProgressColor()"
+                             Size="Size.Small">
+                        @GetProgressPercent().ToString("N0")%
+                    </MudChip>
+                </MudStack>
+
+                <MudProgressLinear Value="@GetProgressPercent()"
+                                   Color="@GetProgressColor()"
+                                   Rounded="true"
+                                   Size="Size.Large" />
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Installments</MudText>
+                            <MudText Typo="Typo.h6">@Summary.TotalInstallments</MudText>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Paid</MudText>
+                            <MudText Typo="Typo.h6">@Summary.PaidInstallments</MudText>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Partial</MudText>
+                            <MudText Typo="Typo.h6">@Summary.PartialInstallments</MudText>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText>
+                            <MudText Typo="Typo.h6">@Summary.PendingInstallments</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="4">
+        <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-radius:18px; background: linear-gradient(135deg, rgba(46,125,50,0.10), rgba(25,118,210,0.08));">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.subtitle1">Health Snapshot</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Quick overall state of this admission's fee collection
+                </MudText>
+
+                <MudDivider />
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2">Current State</MudText>
+                    <MudChip T="string"
+                             Variant="Variant.Filled"
+                             Size="Size.Small"
+                             Color="@GetHealthColor()">
+                        @GetHealthText()
+                    </MudChip>
+                </MudStack>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2">Balance Remaining</MudText>
+                    <MudText Typo="Typo.body2"><b>@Summary.TotalBalance.ToString("N2")</b></MudText>
+                </MudStack>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2">Collected So Far</MudText>
+                    <MudText Typo="Typo.body2"><b>@Summary.TotalPaid.ToString("N2")</b></MudText>
+                </MudStack>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2">Pending Installments</MudText>
+                    <MudText Typo="Typo.body2"><b>@Summary.PendingInstallments</b></MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter, EditorRequired]
+    public FeeSummaryVm Summary { get; set; } = new();
+
+    private double GetProgressPercent()
+    {
+        if (Summary.TotalAmount <= 0)
+            return 0;
+
+        var value = (Summary.TotalPaid / Summary.TotalAmount) * 100m;
+        value = Math.Min(100m, Math.Max(0m, value));
+        return (double)value;
+    }
+
+    private Color GetProgressColor()
+    {
+        var progress = GetProgressPercent();
+
+        if (progress >= 100) return Color.Success;
+        if (progress >= 50) return Color.Info;
+        if (progress > 0) return Color.Warning;
+        return Color.Default;
+    }
+
+    private string GetHealthText()
+    {
+        if (Summary.TotalInstallments == 0)
+            return "Not Started";
+
+        if (Summary.TotalBalance <= 0)
+            return "Settled";
+
+        if (Summary.TotalPaid > 0)
+            return "In Progress";
+
+        return "Pending";
+    }
+
+    private Color GetHealthColor()
+    {
+        if (Summary.TotalInstallments == 0)
+            return Color.Default;
+
+        if (Summary.TotalBalance <= 0)
+            return Color.Success;
+
+        if (Summary.TotalPaid > 0)
+            return Color.Info;
+
+        return Color.Warning;
+    }
+}

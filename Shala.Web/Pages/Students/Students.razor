@@ -1,0 +1,447 @@
+﻿@page "/tenant/students"
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Common
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+
+@inject IStudentRepository StudentRepository
+@inject IStudentLookupRepository StudentLookupRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Students</PageTitle>
+
+<MudStack Spacing="3">
+
+    <MudPaper Class="page-header pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">Student Management</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Manage student records, academic placement, and class-wise filtering.
+                </MudText>
+            </div>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       Size="Size.Medium"
+                       OnClick="GoToCreate">
+                Add Student
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="filter-card pa-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3 fw-semibold">Filters</MudText>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="4">
+                <MudTextField T="string"
+                              Label="Search student"
+                              Placeholder="Search by name, admission no, mobile"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              @bind-Value="_request.Search"
+                              Immediate="true" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="int?"
+                           Label="Academic Year"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           @bind-Value="_request.AcademicYearId">
+                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                    @foreach (var item in _academicYears)
+                    {
+                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="int?"
+                           Label="Class"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Value="_request.ClassId"
+                           ValueChanged="OnClassChanged">
+                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                    @foreach (var item in _classes)
+                    {
+                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="int?"
+                           Label="Section"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           @bind-Value="_request.SectionId"
+                           Disabled="@(!_request.ClassId.HasValue)">
+                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                    @foreach (var item in _sections)
+                    {
+                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="2" Class="d-flex align-end">
+                <MudStack Row="true" Spacing="1" Class="w-100">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               OnClick="SearchAsync">
+                        Search
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               OnClick="ResetFiltersAsync">
+                        Reset
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="table-card pa-0">
+        <div class="table-toolbar">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Class="fw-semibold">Students</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Total records: @_totalCount
+                    </MudText>
+                </div>
+
+                <MudSelect T="int"
+                           Label="Rows"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Dense="true"
+                           Style="width:110px"
+                           Value="_request.PageSize"
+                           ValueChanged="OnPageSizeChanged">
+                    <MudSelectItem T="int" Value="10">10</MudSelectItem>
+                    <MudSelectItem T="int" Value="25">25</MudSelectItem>
+                    <MudSelectItem T="int" Value="50">50</MudSelectItem>
+                    <MudSelectItem T="int" Value="100">100</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+        </div>
+
+        <MudDivider />
+
+        <MudTable T="StudentListItemResponse"
+                  Items="_students"
+                  Hover="true"
+                  Dense="true"
+                  Striped="true"
+                  Loading="_loading"
+                  Class="students-table">
+            <HeaderContent>
+                <MudTh>Admission No</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Gender</MudTh>
+                <MudTh>Mobile</MudTh>
+                <MudTh>Academic Year</MudTh>
+                <MudTh>Class</MudTh>
+                <MudTh>Section</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Align="Align.Right">Actions</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Admission No">
+                    <MudText Typo="Typo.body2" Class="fw-semibold">@context.AdmissionNo</MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Gender">@context.Gender</MudTd>
+                <MudTd DataLabel="Mobile">@context.Mobile</MudTd>
+                <MudTd DataLabel="Academic Year">@context.CurrentAcademicYear</MudTd>
+                <MudTd DataLabel="Class">@context.CurrentClass</MudTd>
+                <MudTd DataLabel="Section">@context.CurrentSection</MudTd>
+
+                <MudTd DataLabel="Status">
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Variant="Variant.Filled"
+                             Color="@GetStatusColor(context.Status)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+
+                <MudTd DataLabel="Actions" Align="Align.Right">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               EndIcon="@Icons.Material.Filled.ArrowForward"
+                               OnClick="@(() => GoToDetails(context.Id))">
+                        View
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <div class="empty-state">
+                    <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.h6" Class="mt-2">No students found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Try changing filters or add your first student.
+                    </MudText>
+                </div>
+            </NoRecordsContent>
+        </MudTable>
+
+        <MudDivider />
+
+        <div class="table-footer">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Page @_request.PageNumber of @_totalPages
+                </MudText>
+
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Variant="Variant.Outlined"
+                               Disabled="@(_request.PageNumber <= 1)"
+                               OnClick="PreviousPage">
+                        Prev
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               Disabled="@(_request.PageNumber >= _totalPages)"
+                               OnClick="NextPage">
+                        Next
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </div>
+    </MudPaper>
+
+</MudStack>
+
+@code {
+    private readonly StudentListRequest _request = new();
+    private List<StudentListItemResponse> _students = [];
+    private List<LookupItemResponse> _academicYears = [];
+    private List<LookupItemResponse> _classes = [];
+    private List<LookupItemResponse> _sections = [];
+    private bool _loading;
+    private int _totalCount;
+    private int _totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInitialDataAsync();
+    }
+
+    private async Task LoadInitialDataAsync()
+    {
+        try
+        {
+            _loading = true;
+
+            await Session.InitializeAsync();
+
+            if (!Session.TenantId.HasValue || !Session.BranchId.HasValue)
+            {
+                Snackbar.Add("Tenant or Branch context is missing.", Severity.Error);
+                return;
+            }
+
+    
+
+            await LoadLookupsAsync();
+            await LoadStudentsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        try
+        {
+            if (!Session.TenantId.HasValue || !Session.BranchId.HasValue)
+                return;
+
+            var tenantId = Session.TenantId.Value;
+            var branchId = Session.BranchId.Value;
+
+            var academicYearsResponse = await StudentLookupRepository.GetAcademicYearsAsync(tenantId);
+            _academicYears = academicYearsResponse?.Success == true && academicYearsResponse.Data is not null
+                ? academicYearsResponse.Data
+                : [];
+
+            var classesResponse = await StudentLookupRepository.GetClassesAsync(tenantId);
+            _classes = classesResponse?.Success == true && classesResponse.Data is not null
+                ? classesResponse.Data
+                : [];
+
+            if (_request.ClassId.HasValue)
+            {
+                var sectionsResponse = await StudentLookupRepository.GetSectionsByClassAsync(
+                    tenantId,
+                    branchId,
+                    _request.ClassId.Value);
+
+                _sections = sectionsResponse?.Success == true && sectionsResponse.Data is not null
+                    ? sectionsResponse.Data
+                    : [];
+            }
+            else
+            {
+                _sections = [];
+            }
+        }
+        catch (Exception ex)
+        {
+            _academicYears = [];
+            _classes = [];
+            _sections = [];
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task LoadStudentsAsync()
+    {
+        try
+        {
+            _loading = true;
+
+            var response = await StudentRepository.GetPagedAsync(_request);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _students = response.Data.Items.ToList();
+                _totalCount = response.Data.TotalCount;
+                _totalPages = Math.Max(1, (int)Math.Ceiling((double)_totalCount / _request.PageSize));
+            }
+            else
+            {
+                _students = [];
+                _totalCount = 0;
+                _totalPages = 1;
+                Snackbar.Add(response?.Message ?? "Failed to load students.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _students = [];
+            _totalCount = 0;
+            _totalPages = 1;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _request.PageNumber = 1;
+        await LoadStudentsAsync();
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        _request.Search = null;
+        _request.AcademicYearId = null;
+        _request.ClassId = null;
+        _request.SectionId = null;
+        _request.PageNumber = 1;
+        _sections = [];
+        await LoadStudentsAsync();
+    }
+
+    private async Task OnClassChanged(int? value)
+    {
+        _request.ClassId = value;
+        _request.SectionId = null;
+        _sections = [];
+
+        try
+        {
+            if (!value.HasValue || !Session.TenantId.HasValue || !Session.BranchId.HasValue)
+                return;
+
+            var response = await StudentLookupRepository.GetSectionsByClassAsync(
+                Session.TenantId.Value,
+                Session.BranchId.Value,
+                value.Value);
+
+            if (response?.Success == true && response.Data is not null)
+                _sections = response.Data;
+        }
+        catch (Exception ex)
+        {
+            _sections = [];
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OnPageSizeChanged(int value)
+    {
+        _request.PageSize = value;
+        _request.PageNumber = 1;
+        await LoadStudentsAsync();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (_request.PageNumber <= 1)
+            return;
+
+        _request.PageNumber--;
+        await LoadStudentsAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (_request.PageNumber >= _totalPages)
+            return;
+
+        _request.PageNumber++;
+        await LoadStudentsAsync();
+    }
+
+    private void GoToCreate()
+    {
+        Navigation.NavigateTo("/tenant/students/create");
+    }
+
+    private void GoToDetails(int id)
+    {
+        Navigation.NavigateTo($"/tenant/students/{id}");
+    }
+
+    private static Color GetStatusColor(string? status)
+    {
+        return status?.ToLower() switch
+        {
+            "active" => Color.Success,
+            "inactive" => Color.Warning,
+            "left" => Color.Error,
+            "suspended" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

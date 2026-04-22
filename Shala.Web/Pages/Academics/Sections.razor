@@ -1,0 +1,565 @@
+﻿@page "/students/setup/sections"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Academics
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Academics
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+
+@inject ISectionRepository SectionRepo
+@inject IStudentLookupRepository StudentLookupRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Sections</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="section-page">
+    <MudStack Spacing="4">
+
+        <MudPaper Elevation="0" Class="section-hero">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-700">Sections</MudText>
+                    <MudText Typo="Typo.body2" Class="hero-subtitle">
+                        Manage class-wise sections, capacity, and availability for each branch.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="LoadAsync">
+                        Refresh
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenCreateDialog">
+                        Add Section
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-primary">
+                    <MudText Typo="Typo.caption" Class="metric-label">Total Sections</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Count</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-success">
+                    <MudText Typo="Typo.caption" Class="metric-label">Active Sections</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Count(x => x.IsActive)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-neutral">
+                    <MudText Typo="Typo.caption" Class="metric-label">Inactive Sections</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Count(x => !x.IsActive)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-info">
+                    <MudText Typo="Typo.caption" Class="metric-label">Classes Covered</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Select(x => x.AcademicClassId).Distinct().Count()</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Elevation="0" Class="filter-panel">
+            <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+                <MudItem xs="12" md="8">
+                    <MudTextField T="string"
+                                  @bind-Value="_searchText"
+                                  Placeholder="Search by section or class..."
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true"
+                                  Clearable="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSelect T="string"
+                               Label="Filter Status"
+                               @bind-Value="_statusFilter"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense">
+                        <MudSelectItem Value="@("All")">All</MudSelectItem>
+                        <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+                        <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="table-shell">
+            <MudTable Items="FilteredItems"
+                      Hover="true"
+                      Dense="false"
+                      Loading="_loading"
+                      Breakpoint="Breakpoint.Md">
+
+                <HeaderContent>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Section</MudTh>
+                    <MudTh>Capacity</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh Align="Align.Right">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Class">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle2" Class="fw-600">@context.ClassName</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Class assignment
+                            </MudText>
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Section">
+                        <MudText Typo="Typo.subtitle2" Class="fw-600">@context.Name</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Capacity">
+                        @if (context.Capacity.HasValue)
+                        {
+                            <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+                                @context.Capacity.Value seats
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Not set</MudText>
+                        }
+                    </MudTd>
+
+                    <MudTd DataLabel="Status">
+                        @if (context.IsActive)
+                        {
+                            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                                Active
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Small">
+                                Inactive
+                            </MudChip>
+                        }
+                    </MudTd>
+
+                    <MudTd DataLabel="Actions" Align="Align.Right">
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                         OnClick="@(() => OpenEditDialog(context))">
+                                Edit
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                         Class="text-danger"
+                                         OnClick="@(() => OpenDeleteDialog(context))">
+                                Delete
+                            </MudMenuItem>
+                        </MudMenu>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.ViewModule" Size="Size.Large" />
+                        <MudText Typo="Typo.subtitle1">No sections found</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Create your first section to organize students by class.
+                        </MudText>
+                    </MudStack>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    </MudStack>
+</MudContainer>
+
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Icon="@(_isEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.AddCircle)"
+                       Color="Color.Primary"
+                       Size="Size.Medium" />
+            <div>
+                <MudText Typo="Typo.h6">@(_isEditMode ? "Edit Section" : "Create Section")</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Assign a section to a class and optionally set its capacity.
+                </MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3" Class="mt-4">
+
+            <MudSelect T="int"
+                       Label="Class"
+                       @bind-Value="_model.AcademicClassId"
+                       Variant="Variant.Outlined"
+                       Required="true">
+                @foreach (var item in _classLookup)
+                {
+                    <MudSelectItem Value="@item.Id">@item.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField T="string"
+                          Label="Section Name"
+                          @bind-Value="_model.Name"
+                          Variant="Variant.Outlined"
+                          Required="true" />
+
+            <MudNumericField T="int?"
+                             Label="Capacity"
+                             @bind-Value="_model.Capacity"
+                             Variant="Variant.Outlined"
+                             Min="0" />
+
+            <MudCheckBox T="bool"
+                         @bind-Value="_model.IsActive"
+                         Label="Keep this section active" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
+            @(_isEditMode ? "Update Section" : "Create Section")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .section-page {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+    }
+
+    .section-hero {
+        padding: 1.5rem;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(25,118,210,.10), rgba(156,39,176,.08));
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .hero-subtitle {
+        opacity: .78;
+        margin-top: .25rem;
+    }
+
+    .metric-card {
+        padding: 1.2rem;
+        border-radius: 20px;
+        height: 100%;
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .metric-primary {
+        background: linear-gradient(180deg, rgba(25,118,210,.10), rgba(25,118,210,.04));
+    }
+
+    .metric-success {
+        background: linear-gradient(180deg, rgba(46,125,50,.10), rgba(46,125,50,.04));
+    }
+
+    .metric-neutral {
+        background: linear-gradient(180deg, rgba(120,120,120,.10), rgba(120,120,120,.03));
+    }
+
+    .metric-info {
+        background: linear-gradient(180deg, rgba(2,136,209,.10), rgba(2,136,209,.04));
+    }
+
+    .metric-label {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        opacity: .72;
+    }
+
+    .metric-value {
+        font-weight: 700;
+        margin-top: .35rem;
+    }
+
+    .filter-panel {
+        padding: 1rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .table-shell {
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .fw-600 {
+        font-weight: 600;
+    }
+
+    .fw-700 {
+        font-weight: 700;
+    }
+
+    .text-danger {
+        color: var(--mud-palette-error) !important;
+    }
+</style>
+
+@code {
+    private List<SectionListItemResponse> _items = new();
+    private List<LookupItemResponse> _classLookup = new();
+
+    private bool _loading = true;
+    private string _searchText = string.Empty;
+    private string _statusFilter = "All";
+
+    private bool _dialogOpen;
+    private bool _isEditMode;
+
+    private SectionFormModel _model = new();
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        FullWidth = true,
+        MaxWidth = MaxWidth.Small,
+        CloseOnEscapeKey = true
+    };
+
+    private IEnumerable<SectionListItemResponse> FilteredItems =>
+        _items.Where(x =>
+            (string.IsNullOrWhiteSpace(_searchText) ||
+             x.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+             x.ClassName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)) &&
+            (_statusFilter == "All" ||
+             (_statusFilter == "Active" && x.IsActive) ||
+             (_statusFilter == "Inactive" && !x.IsActive)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+
+        if (Session.TenantId is null || Session.BranchId is null)
+        {
+            Snackbar.Add("Tenant or branch session not found.", Severity.Error);
+            return;
+        }
+
+        await LoadClassesAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+
+            var result = await SectionRepo.GetAllAsync(Session.TenantId!.Value, Session.BranchId!.Value);
+            _items = result?.Data?
+                .OrderBy(x => x.ClassName)
+                .ThenBy(x => x.Name)
+                .ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadClassesAsync()
+    {
+        try
+        {
+            var result = await StudentLookupRepository.GetClassesAsync(Session.TenantId!.Value);
+            _classLookup = result?.Data?.OrderBy(x => x.Name).ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void OpenCreateDialog()
+    {
+        _isEditMode = false;
+        _model = new SectionFormModel
+        {
+            IsActive = true
+        };
+        _dialogOpen = true;
+    }
+
+    private void OpenEditDialog(SectionListItemResponse item)
+    {
+        _isEditMode = true;
+        _model = new SectionFormModel
+        {
+            Id = item.Id,
+            AcademicClassId = item.AcademicClassId,
+            Name = item.Name,
+            Capacity = item.Capacity,
+            IsActive = item.IsActive
+        };
+        _dialogOpen = true;
+    }
+
+    private void CloseDialog()
+    {
+        _dialogOpen = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            if (Session.TenantId is null || Session.BranchId is null)
+            {
+                Snackbar.Add("Tenant or branch session not found.", Severity.Error);
+                return;
+            }
+
+            if (_model.AcademicClassId <= 0)
+            {
+                Snackbar.Add("Please select a class.", Severity.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.Name))
+            {
+                Snackbar.Add("Section name is required.", Severity.Warning);
+                return;
+            }
+
+            if (_isEditMode)
+            {
+                var req = new UpdateSectionRequest
+                {
+                    Id = _model.Id,
+            
+                    AcademicClassId = _model.AcademicClassId,
+                    Name = _model.Name.Trim(),
+                    Capacity = _model.Capacity,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await SectionRepo.UpdateAsync(req);
+
+                if (result?.Success == true)
+                {
+                    Snackbar.Add(result.Message ?? "Section updated successfully.", Severity.Success);
+                    _dialogOpen = false;
+                    await LoadAsync();
+                }
+                else
+                {
+                    Snackbar.Add(result?.Message ?? "Failed to update section.", Severity.Error);
+                }
+            }
+            else
+            {
+                var req = new CreateSectionRequest
+                {
+
+                    AcademicClassId = _model.AcademicClassId,
+                    Name = _model.Name.Trim(),
+                    Capacity = _model.Capacity,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await SectionRepo.CreateAsync(req);
+
+                if (result?.Success == true)
+                {
+                    Snackbar.Add(result.Message ?? "Section created successfully.", Severity.Success);
+                    _dialogOpen = false;
+                    await LoadAsync();
+                }
+                else
+                {
+                    Snackbar.Add(result?.Message ?? "Failed to create section.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OpenDeleteDialog(SectionListItemResponse item)
+    {
+        try
+        {
+            var parameters = new DialogParameters
+            {
+                ["Title"] = "Delete Section",
+                ["Message"] = $"Delete section '{item.Name}'?",
+                ["ConfirmText"] = "Delete",
+                ["CancelText"] = "Cancel",
+                ["ConfirmColor"] = Color.Error
+            };
+
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+                FullWidth = true
+            };
+
+            var dialog = await DialogService.ShowAsync<ConfirmDialog>("", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is null || result.Canceled)
+                return;
+
+            var deleteResult = await SectionRepo.DeleteAsync(item.Id);
+
+            if (deleteResult?.Success == true)
+            {
+                Snackbar.Add(deleteResult.Message ?? "Section deleted successfully.", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(deleteResult?.Message ?? "Failed to delete section.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private sealed class SectionFormModel
+    {
+        public int Id { get; set; }
+        public int AcademicClassId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int? Capacity { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

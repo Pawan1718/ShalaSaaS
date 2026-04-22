@@ -1,0 +1,203 @@
+﻿@* @using MudBlazor
+@using Shala.Shared.Responses
+@using Shala.Web.Repositories
+
+@inject ITenantRepository TenantRepository
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">@TenantName - Users</MudText>
+
+        @if (_isLoading)
+        {
+            @for (int i = 0; i < 4; i++)
+            {
+                <MudSkeleton Height="34px" Width="100%" Class="mb-2" />
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_users" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>Full Name</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Mobile</MudTh>
+                    <MudTh>Role</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Full Name">@context.FullName</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Mobile">@context.MobileNumber</MudTd>
+                    <MudTd DataLabel="Role">@context.Role</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Filled" Color="Color.Primary">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int TenantId { get; set; }
+    [Parameter] public string TenantName { get; set; } = string.Empty;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private List<TenantUserResponse> _users = new();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await TenantRepository.GetTenantUsersAsync(TenantId);
+
+        if (response.IsSuccess && response.ServerResponse is not null)
+        {
+            _users = response.ServerResponse;
+        }
+        else
+        {
+            _errorMessage = await response.GetBodyPartAsync();
+
+            if (string.IsNullOrWhiteSpace(_errorMessage))
+                _errorMessage = "Unable to load tenant users.";
+        }
+
+        _isLoading = false;
+    }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+} *@
+
+
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject ITenantRepository TenantRepository
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">@TenantName - Users</MudText>
+
+        @if (_isLoading)
+        {
+            <AppLoader Rows="4" RowHeight="34px" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <AppError Message="@_errorMessage" />
+        }
+        else if (_users is null || _users.Count == 0)
+        {
+            <AppEmptyState Title="No users found"
+                           Message="This tenant does not have any users yet."
+                           Icon="@Icons.Material.Filled.Group"
+                           IconColor="Color.Primary" />
+        }
+        else
+        {
+            <MudTable Items="_users"
+                      Dense="true"
+                      Hover="true"
+                      Breakpoint="Breakpoint.Sm"
+                      Striped="true">
+
+                <HeaderContent>
+                    <MudTh>Full Name</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Mobile</MudTh>
+                    <MudTh>Role</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Full Name">@context.FullName</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Mobile">@context.MobileNumber</MudTd>
+                    <MudTd DataLabel="Role">@context.Role</MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <AppEmptyState Title="No users found"
+                                   Message="This tenant does not have any users yet." />
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <AppButton OnClick="CloseClickAsync"
+                   Color="Color.Primary">
+            Close
+        </AppButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int TenantId { get; set; }
+    [Parameter] public string TenantName { get; set; } = string.Empty;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private List<TenantUserResponse> _users = new();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var response = await TenantRepository.GetTenantUsersAsync(TenantId);
+
+            if (response.IsSuccess && response.ServerResponse is not null)
+            {
+                _users = response.ServerResponse;
+            }
+            else
+            {
+                _users = new List<TenantUserResponse>();
+                _errorMessage = await response.GetBodyPartAsync();
+
+                if (string.IsNullOrWhiteSpace(_errorMessage))
+                    _errorMessage = "Unable to load tenant users.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _users = new List<TenantUserResponse>();
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CloseClickAsync(MouseEventArgs _)
+    {
+        MudDialog.Close();
+        await Task.CompletedTask;
+    }
+}

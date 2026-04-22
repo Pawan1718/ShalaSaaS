@@ -1,0 +1,106 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+
+    <!-- Top App Bar -->
+    <MudAppBar Elevation="1" Dense="true" Color="Color.Primary">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="ToggleDrawer"
+                       Class="mr-2" />
+
+        <MudText Typo="Typo.h6" Class="fw-bold cursor-pointer" OnClick="@(() => Nav.NavigateTo("/"))">
+            Shala SaaS
+        </MudText>
+
+        <MudSpacer />
+
+        <MudHidden Breakpoint="Breakpoint.MdAndDown">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Filled.AdminPanelSettings"
+                       OnClick='@(() => Nav.NavigateTo("/platform/login"))'>
+                Platform
+            </MudButton>
+
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Filled.School"
+                       OnClick='@(() => Nav.NavigateTo("/tenant/login"))'>
+                Tenant
+            </MudButton>
+        </MudHidden>
+    </MudAppBar>
+
+    <!-- Sidebar -->
+    <MudDrawer @bind-Open="_drawerOpen"
+               Elevation="1"
+               ClipMode="DrawerClipMode.Always"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md">
+
+        <MudDrawerHeader Class="pa-4">
+            <MudText Typo="Typo.h6">Navigation</MudText>
+        </MudDrawerHeader>
+
+        <MudNavMenu Dense="true">
+
+            <MudText Class="px-4 pt-2 pb-1 mud-secondary-text" Typo="Typo.caption">
+                PLATFORM
+            </MudText>
+
+            <MudNavLink Href="/platform/login"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Login">
+                Platform Login
+            </MudNavLink>
+
+            <MudNavLink Href="/platform/tenants"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Business">
+                Tenants
+            </MudNavLink>
+
+            <MudDivider Class="my-2" />
+
+            <MudText Class="px-4 pt-2 pb-1 mud-secondary-text" Typo="Typo.caption">
+                TENANT
+            </MudText>
+
+            <MudNavLink Href="/tenant/login"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.AccountCircle">
+                Tenant Login
+            </MudNavLink>
+
+            <MudNavLink Href="/tenant/users"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Group">
+                Tenant Users
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <!-- Main Body -->
+    <MudMainContent Class="pa-4 pa-md-6">
+        <MudContainer MaxWidth="MaxWidth.False">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

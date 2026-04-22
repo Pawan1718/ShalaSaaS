@@ -1,0 +1,305 @@
+﻿@using Shala.Shared.Responses.Registration
+@using Shala.Shared.Responses.Settings
+
+@if (Receipt is null)
+{
+    <div class="receipt-empty-state">
+        Receipt data unavailable.
+    </div>
+}
+else
+{
+    <div class="receipt-copy @CopyCssClass">
+        @if (ShowCopyLabel)
+        {
+            <div class="copy-label">@CopyLabel</div>
+        }
+
+        <div class="receipt-box">
+            <div class="receipt-header" style="@GetAccentBorderStyle()">
+                <div class="branding-left">
+                    @if (ShowLogo())
+                    {
+                        <img src="@Profile!.LogoUrl" alt="School Logo" class="receipt-logo" />
+                    }
+                    else
+                    {
+                        <div class="logo-placeholder">Logo</div>
+                    }
+                </div>
+
+                <div class="branding-center">
+                    <div class="school-name">@GetDisplayName()</div>
+
+                    @if (ShowAddressOrContact())
+                    {
+                        <div class="school-meta">
+                            @if (ShowAddress())
+                            {
+                                <div>@DisplayOrDash(Profile?.AddressLine)</div>
+                            }
+
+                            @if (ShowContactInfo())
+                            {
+                                <div>@BuildContactLine()</div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="branding-right">
+                    <div class="receipt-status-chip">PAID</div>
+                </div>
+            </div>
+
+            <div class="receipt-title">@GetReceiptTitle()</div>
+
+            <table class="receipt-info-table">
+                <tr>
+                    <td>
+                        <span class="label">Receipt No</span>
+                        <span class="value">@DisplayOrDash(Receipt.ReceiptNo)</span>
+                    </td>
+                    <td>
+                        <span class="label">Receipt Date</span>
+                        <span class="value">@FormatDate(Receipt.ReceiptDate)</span>
+                    </td>
+                </tr>
+
+                @if (ShowStudentDetails())
+                {
+                    <tr>
+                        <td>
+                            <span class="label">Student Name</span>
+                            <span class="value">@DisplayOrDash(Receipt.StudentName)</span>
+                        </td>
+                        <td>
+                            <span class="label">Guardian Name</span>
+                            <span class="value">@DisplayOrDash(Receipt.GuardianName)</span>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td>
+                            <span class="label">Phone</span>
+                            <span class="value">@DisplayOrDash(Receipt.Phone)</span>
+                        </td>
+                        <td>
+                            <span class="label">Registration Date</span>
+                            <span class="value">@FormatDate(Receipt.RegistrationDate)</span>
+                        </td>
+                    </tr>
+                }
+            </table>
+
+            @if (ShowFeeBreakup())
+            {
+                <table class="receipt-amount-table">
+                    <thead>
+                        <tr>
+                            <th>Particular</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Receipt.Lines is not null && Receipt.Lines.Any())
+                        {
+                            @foreach (var line in Receipt.Lines)
+                            {
+                                <tr>
+                                    <td>@DisplayOrDash(line.Label)</td>
+                                    <td class="text-end">@FormatCurrency(line.Amount)</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td>Total Amount</td>
+                                <td class="text-end">@FormatCurrency(GetTotalAmount())</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="receipt-total-card compact-total">
+                    <span>Total Amount</span>
+                    <strong>@FormatCurrency(GetTotalAmount())</strong>
+                </div>
+            }
+
+            <div class="receipt-total-only">
+                <b>Total: @FormatCurrency(GetTotalAmount())</b>
+            </div>
+
+            @if (ShowAmountInWords())
+            {
+                <div class="amount-in-words">
+                    <b>Amount in words:</b> @NumberToWords((long)GetTotalAmount()) Rupees Only
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(GetFooterNote()))
+            {
+                <div class="receipt-footer-note">
+                    @GetFooterNote()
+                </div>
+            }
+
+            @if (ShowSignature())
+            {
+                <div class="signature-block">
+                    <div class="signature-line"></div>
+                    <div>@GetSignatureLabel()</div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public RegistrationReceiptResponse? Receipt { get; set; }
+    [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
+
+    [Parameter] public string CopyLabel { get; set; } = "";
+    [Parameter] public bool ShowCopyLabel { get; set; }
+    [Parameter] public string CopyCssClass { get; set; } = "";
+
+    private bool ShowLogo()
+        => (Profile?.ShowLogo ?? true) && !string.IsNullOrWhiteSpace(Profile?.LogoUrl);
+
+    private bool ShowAddress()
+        => Profile?.ShowAddress ?? true;
+
+    private bool ShowContactInfo()
+        => Profile?.ShowContactInfo ?? true;
+
+    private bool ShowAddressOrContact()
+        => ShowAddress() || ShowContactInfo();
+
+    private bool ShowStudentDetails()
+        => Profile?.ShowStudentDetails ?? true;
+
+    private bool ShowFeeBreakup()
+        => Profile?.ShowFeeBreakup ?? true;
+
+    private bool ShowAmountInWords()
+        => Profile?.ShowAmountInWords ?? true;
+
+    private bool ShowSignature()
+        => Profile?.ShowSignature ?? true;
+
+    private string GetDisplayName()
+        => string.IsNullOrWhiteSpace(Profile?.DisplayName) ? "School Name" : Profile!.DisplayName!;
+
+    private string GetReceiptTitle()
+        => string.IsNullOrWhiteSpace(Profile?.ReceiptTitle) ? "Registration Receipt" : Profile!.ReceiptTitle!;
+
+    private string GetSignatureLabel()
+        => string.IsNullOrWhiteSpace(Profile?.SignatureLabel) ? "Authorized Signatory" : Profile!.SignatureLabel!;
+
+    private string GetFooterNote()
+        => Profile?.ReceiptFooterNote ?? string.Empty;
+
+    private string BuildContactLine()
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(Profile?.Phone))
+            parts.Add(Profile.Phone!);
+
+        if (!string.IsNullOrWhiteSpace(Profile?.Email))
+            parts.Add(Profile.Email!);
+
+        return parts.Count == 0 ? "-" : string.Join(" | ", parts);
+    }
+
+    private string GetAccentBorderStyle()
+    {
+        var color = string.IsNullOrWhiteSpace(Profile?.PrimaryColorHex)
+            ? "#1976d2"
+            : Profile!.PrimaryColorHex!;
+
+        return $"border-top: 4px solid {color};";
+    }
+
+    private decimal GetTotalAmount()
+    {
+        if (Receipt is null)
+            return 0m;
+
+        if (Receipt.TotalAmount > 0)
+            return Receipt.TotalAmount;
+
+        return Receipt.Lines?.Sum(x => x.Amount) ?? 0m;
+    }
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static string FormatDate(DateTime value)
+        => value == default ? "-" : value.ToString("dd MMM yyyy");
+
+    private static string FormatCurrency(decimal amount)
+        => $"₹ {amount:0.##}";
+
+    private static string NumberToWords(long number)
+    {
+        if (number == 0) return "Zero";
+        if (number < 0) return "Minus " + NumberToWords(Math.Abs(number));
+
+        string words = "";
+
+        if ((number / 10000000) > 0)
+        {
+            words += NumberToWords(number / 10000000) + " Crore ";
+            number %= 10000000;
+        }
+
+        if ((number / 100000) > 0)
+        {
+            words += NumberToWords(number / 100000) + " Lakh ";
+            number %= 100000;
+        }
+
+        if ((number / 1000) > 0)
+        {
+            words += NumberToWords(number / 1000) + " Thousand ";
+            number %= 1000;
+        }
+
+        if ((number / 100) > 0)
+        {
+            words += NumberToWords(number / 100) + " Hundred ";
+            number %= 100;
+        }
+
+        if (number > 0)
+        {
+            var unitsMap = new[]
+            {
+                "Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
+                "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen",
+                "Eighteen","Nineteen"
+            };
+
+            var tensMap = new[]
+            {
+                "Zero","Ten","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"
+            };
+
+            if (number < 20)
+                words += unitsMap[number];
+            else
+            {
+                words += tensMap[number / 10];
+                if ((number % 10) > 0)
+                    words += " " + unitsMap[number % 10];
+            }
+        }
+
+        return words.Trim();
+    }
+}

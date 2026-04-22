@@ -1,0 +1,160 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Repositories.Fees
+
+@inject IFeeWebRepository FeeWebRepository
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h6">
+                @(IsEdit ? "Update Fee Head" : "Create Fee Head")
+            </MudText>
+
+            <MudTextField T="string"
+                          Label="Name"
+                          @bind-Value="_model.Name"
+                          Required="true"
+                          Immediate="true"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField T="string"
+                          Label="Code"
+                          @bind-Value="_model.Code"
+                          Required="true"
+                          Immediate="true"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField T="string"
+                          Label="Description"
+                          @bind-Value="_model.Description"
+                          Lines="3"
+                          Variant="Variant.Outlined" />
+
+            <MudCheckBox T="bool"
+                         Label="Is Registration Fee"
+                         @bind-Value="_model.IsRegistrationFee" />
+
+            <MudCheckBox T="bool"
+                         Label="Is Active"
+                         @bind-Value="_model.IsActive" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text"
+                   OnClick="Cancel"
+                   Disabled="_saving">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SubmitAsync"
+                   Disabled="_saving">
+            @(IsEdit ? "Update" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public FeeHeadResponse? FeeHead { get; set; }
+
+    private bool _saving;
+    private FeeHeadFormModel _model = new();
+
+    protected override void OnInitialized()
+    {
+        if (IsEdit && FeeHead is not null)
+        {
+            _model = new FeeHeadFormModel
+            {
+                Id = FeeHead.Id,
+                Name = FeeHead.Name,
+                Code = FeeHead.Code,
+                Description = FeeHead.Description,
+                IsRegistrationFee = FeeHead.IsRegistrationFee,
+                IsActive = FeeHead.IsActive
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        if (_saving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            Snackbar.Add("Name is required.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Code))
+        {
+            Snackbar.Add("Code is required.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            _saving = true;
+
+            if (!IsEdit)
+            {
+                var request = new CreateFeeHeadRequest
+                {
+                    Name = _model.Name.Trim(),
+                    Code = _model.Code.Trim().ToUpperInvariant(),
+                    Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+                    IsRegistrationFee = _model.IsRegistrationFee,
+                    IsActive = _model.IsActive
+                };
+
+                await FeeWebRepository.CreateFeeHeadAsync(request);
+                Snackbar.Add("Fee head created successfully.", Severity.Success);
+            }
+            else
+            {
+                var request = new UpdateFeeHeadRequest
+                {
+                    Name = _model.Name.Trim(),
+                    Code = _model.Code.Trim().ToUpperInvariant(),
+                    Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+                    IsRegistrationFee = _model.IsRegistrationFee,
+                    IsActive = _model.IsActive
+                };
+
+                await FeeWebRepository.UpdateFeeHeadAsync(_model.Id, request);
+                Snackbar.Add("Fee head updated successfully.", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private sealed class FeeHeadFormModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsRegistrationFee { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

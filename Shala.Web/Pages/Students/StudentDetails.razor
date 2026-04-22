@@ -1,0 +1,637 @@
+﻿@page "/tenant/students/{Id:int}"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Academics
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.StudentRepo
+@using Shala.Web.Services.State
+
+
+@inject IStudentAdmissionRepository StudentAdmissionRepository
+@inject IStudentGuardianRepository StudentGuardianRepository
+@inject IStudentRepository StudentRepository
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ApiSession Session
+
+<PageTitle>Student Details</PageTitle>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-6 d-flex justify-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </MudPaper>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+}
+else if (_student is null)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true">Student not found.</MudAlert>
+}
+else
+{
+    <MudStack Spacing="3">
+        <AppCard Class="pa-4">
+            <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="GoBack">
+                    Back
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="EditStudent">
+                    Edit
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.School"
+                           OnClick="AddAdmission">
+                    Add Admission
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
+                           Disabled="@(!_student.Admissions.Any())"
+                           OnClick="OpenLatestAdmissionFees">
+                    Fees
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Description">
+                    Documents
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Warning">
+                    Mark Inactive
+                </MudButton>
+            </MudStack>
+        </AppCard>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="4">
+                <AppCard Class="pa-4 h-100">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudAvatar Size="Size.Large" Color="Color.Primary">
+                            @GetInitials(_student.FullName)
+                        </MudAvatar>
+
+                        <MudText Typo="Typo.h5" Align="Align.Center">@_student.FullName</MudText>
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">@_student.Status</MudChip>
+                    </MudStack>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr>
+                                <td><b>Admission No</b></td>
+                                <td>@(_student.AdmissionNo ?? "-")</td>
+                            </tr>
+                            <tr>
+                                <td><b>Gender</b></td>
+                                <td>@(_student.Gender ?? "-")</td>
+                            </tr>
+                            <tr>
+                                <td><b>Date of Birth</b></td>
+                                <td>@(_student.DateOfBirth == default ? "-" : _student.DateOfBirth.ToString("dd MMM yyyy"))</td>
+                            </tr>
+                            <tr>
+                                <td><b>Blood Group</b></td>
+                                <td>@(_student.BloodGroup ?? "-")</td>
+                            </tr>
+                            <tr>
+                                <td><b>Aadhaar No</b></td>
+                                <td>@(_student.AadhaarNo ?? "-")</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </AppCard>
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <MudStack Spacing="3">
+                    <AppCard Class="pa-4">
+                        <MudText Typo="Typo.h5" Class="mb-3">Contact Information</MudText>
+
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Mobile</MudText>
+                                <MudText Typo="Typo.body1">@(_student.Mobile ?? "-")</MudText>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Email</MudText>
+                                <MudText Typo="Typo.body1">@(_student.Email ?? "-")</MudText>
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Address</MudText>
+                                <MudText Typo="Typo.body1">@(_student.Address ?? "-")</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    </AppCard>
+
+                    <AppCard Class="pa-4">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                            <MudText Typo="Typo.h5">Guardians</MudText>
+
+                            <MudTooltip Text="@(_student.Guardians.Count >= 4 ? "Maximum 4 guardians allowed" : "Add guardian")">
+                                <span>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                   Color="Color.Primary"
+                                                   Size="Size.Large"
+                                                   Disabled="@(_student.Guardians.Count >= 4)"
+                                                   OnClick="OpenAddGuardianDialogAsync" />
+                                </span>
+                            </MudTooltip>
+                        </MudStack>
+
+                        @if (_student.Guardians.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true">
+                                No guardians found.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudGrid Spacing="2">
+                                @foreach (var guardian in _student.Guardians)
+                                {
+                                    <MudItem xs="12" md="6">
+                                        <MudPaper Outlined="true" Class="pa-4 h-100">
+                                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                                                <div>
+                                                    <MudText Typo="Typo.subtitle1" Class="fw-bold">@guardian.Name</MudText>
+
+                                                    @if (guardian.IsPrimary)
+                                                    {
+                                                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="mt-1 mb-2">
+                                                            Primary
+                                                        </MudChip>
+                                                    }
+
+                                                    <MudSimpleTable Dense="true">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td><b>Relation</b></td>
+                                                                <td>@guardian.RelationType</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><b>Mobile</b></td>
+                                                                <td>@guardian.Mobile</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><b>Email</b></td>
+                                                                <td>@(string.IsNullOrWhiteSpace(guardian.Email) ? "-" : guardian.Email)</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </MudSimpleTable>
+                                                </div>
+
+                                                <MudStack Row="true" Spacing="1">
+                                                    <MudTooltip Text="Edit guardian">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                                       Color="Color.Primary"
+                                                                       Size="Size.Small"
+                                                                       OnClick="@(() => OpenEditGuardianDialogAsync(guardian))" />
+                                                    </MudTooltip>
+
+                                                    <MudTooltip Text="@(_student.Guardians.Count <= 1 ? "At least one guardian is required" : "Remove guardian")">
+                                                        <span>
+                                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                                           Color="Color.Error"
+                                                                           Size="Size.Small"
+                                                                           Disabled="@(_student.Guardians.Count <= 1)"
+                                                                           OnClick="@(() => RemoveGuardianAsync(guardian))" />
+                                                        </span>
+                                                    </MudTooltip>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            </MudGrid>
+                        }
+                    </AppCard>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+
+        <AppCard Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <div>
+                    <MudText Typo="Typo.h5">Admission History</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Academic placements for this student
+                    </MudText>
+                </div>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddAdmission">
+                    Add Admission
+                </MudButton>
+            </MudStack>
+
+            @if (_student.Admissions is null || _student.Admissions.Count == 0)
+            {
+                <MudPaper Class="pa-8 d-flex flex-column align-center justify-center" Outlined="true">
+                    <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Large" Color="Color.Default" />
+                    <MudText Typo="Typo.body1" Class="mt-2">No admissions found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Add the first academic admission for this student.
+                    </MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="_student.Admissions.OrderByDescending(x => x.AdmissionDate)"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true">
+                    <HeaderContent>
+                        <MudTh>Academic Year</MudTh>
+                        <MudTh>Class</MudTh>
+                        <MudTh>Section</MudTh>
+                        <MudTh>Roll No</MudTh>
+                        <MudTh>Admission Date</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh Align="right"></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>@context.AcademicYear</MudTd>
+                        <MudTd>@context.ClassName</MudTd>
+                        <MudTd>@context.SectionName</MudTd>
+                        <MudTd>@(string.IsNullOrWhiteSpace(context.RollNo) ? "-" : context.RollNo)</MudTd>
+                        <MudTd>@context.AdmissionDate.ToString("dd MMM yyyy")</MudTd>
+                        <MudTd>
+                            <MudChip T="string"
+                                     Color="@(string.Equals(context.Status, "Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Default)"
+                                     Size="Size.Small">
+                                @context.Status
+                            </MudChip>
+                        </MudTd>
+                        <MudTd Align="right">
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Wrap="Wrap.Wrap">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
+                                           OnClick="@(() => OpenAdmissionFees(context))">
+                                    Fees
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Edit"
+                                           OnClick="@(() => EditAdmission(context))">
+                                    Edit
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Badge"
+                                           OnClick="@(() => OpenAssignSectionRollDialogAsync(context))">
+                                    Section / Roll
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           OnClick="@(() => OpenDeleteAdmissionDialogAsync(context))">
+                                    Delete
+                                </MudButton>
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </AppCard>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private StudentDetailsResponse? _student;
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadStudentAsync();
+    }
+
+    private async Task LoadStudentAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                _error = "Tenant context not found.";
+                return;
+            }
+
+            var response = await StudentRepository.GetByIdAsync(Id, Session.TenantId.Value);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _student = response.Data;
+
+                _breadcrumbs = new List<BreadcrumbItem>
+                {
+                    new("Students", href: "/tenant/students"),
+                    new(_student.FullName, href: null, disabled: true)
+                };
+            }
+            else
+            {
+                _error = response?.Message ?? "Failed to load student.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/tenant/students");
+    }
+
+    private void EditStudent()
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}/edit");
+    }
+
+    private void AddAdmission()
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}/admission");
+    }
+
+    private void EditAdmission(StudentAdmissionResponse admission)
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}/admission/{admission.Id}/edit");
+    }
+    private void OpenAdmissionFees(StudentAdmissionResponse admission)
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}/admissions/{admission.Id}/fees");
+    }
+
+    private void OpenLatestAdmissionFees()
+    {
+        if (_student is null || _student.Admissions is null || _student.Admissions.Count == 0)
+        {
+            Snackbar.Add("No admissions found for this student.", Severity.Warning);
+            return;
+        }
+
+        var latestAdmission = _student.Admissions
+            .OrderByDescending(x => x.AdmissionDate)
+            .First();
+
+        Navigation.NavigateTo($"/tenant/students/{Id}/admissions/{latestAdmission.Id}/fees");
+    }
+    private async Task OpenDeleteAdmissionDialogAsync(StudentAdmissionResponse admission)
+    {
+        if (_student is null)
+            return;
+
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null || Session.BranchId is null)
+            {
+                Snackbar.Add("Tenant or branch context not found.", Severity.Error);
+                return;
+            }
+
+            var parameters = new DialogParameters
+            {
+                ["Title"] = "Delete Admission",
+                ["Message"] = $"Are you sure you want to delete admission '{admission.AdmissionNo}'?",
+                ["ConfirmText"] = "Delete",
+                ["CancelText"] = "Cancel",
+                ["ConfirmColor"] = Color.Error
+            };
+
+            var dialog = await DialogService.ShowAsync<Shala.Web.Components.Dialogs.ConfirmDialog>("Confirm", parameters);
+            var result = await dialog.Result;
+
+            if (result == null || result.Canceled)
+                return;
+
+            var response = await StudentAdmissionRepository.DeleteAsync(
+        admission.Id,
+        Session.TenantId.Value,
+        Session.BranchId.Value);
+
+            if (response?.Success == true)
+            {
+                Snackbar.Add(response.Message ?? "Admission deleted successfully.", Severity.Success);
+                await LoadStudentAsync();
+            }
+            else
+            {
+                Snackbar.Add(response?.Message ?? "Failed to delete admission.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+    private async Task OpenAssignSectionRollDialogAsync(StudentAdmissionResponse admission)
+    {
+        var parameters = new DialogParameters
+        {
+            ["StudentAdmissionId"] = admission.Id
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.ExtraLarge
+        };
+
+        var dialog = await DialogService.ShowAsync<AssignSectionRollDialog>(
+            "Assign Section & Roll Number",
+            parameters,
+            options);
+
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+            await LoadStudentAsync();
+    }
+    private async Task OpenAddGuardianDialogAsync()
+    {
+        if (_student is null || _student.Guardians.Count >= 4)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["Model"] = new CreateGuardianRequest
+            {
+                Name = string.Empty,
+                RelationType = 3,
+                Mobile = string.Empty,
+                Email = null,
+                Occupation = null,
+                Address = null,
+                IsPrimary = _student.Guardians.Count == 0
+            },
+            ["IsEdit"] = false
+        };
+
+        var dialog = await DialogService.ShowAsync<GuardianDialog>("Add Guardian", parameters);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is null)
+            return;
+
+        var request = (CreateGuardianRequest)result.Data;
+        var response = await StudentGuardianRepository.AddAsync(_student.Id, request);
+
+        if (response?.Success == true)
+        {
+            Snackbar.Add("Guardian added successfully.", Severity.Success);
+            await LoadStudentAsync();
+        }
+        else
+        {
+            Snackbar.Add(response?.Message ?? "Failed to add guardian.", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditGuardianDialogAsync(GuardianResponse guardian)
+    {
+        if (_student is null)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["Model"] = new CreateGuardianRequest
+            {
+                Name = guardian.Name,
+                RelationType = MapRelationTypeToInt(guardian.RelationType),
+                Mobile = guardian.Mobile,
+                Email = guardian.Email,
+                IsPrimary = guardian.IsPrimary
+            },
+            ["IsEdit"] = true
+        };
+
+        var dialog = await DialogService.ShowAsync<GuardianDialog>("Edit Guardian", parameters);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is null)
+            return;
+
+        var request = (CreateGuardianRequest)result.Data;
+
+        var response = await StudentGuardianRepository.UpdateAsync(_student.Id, guardian.Id, request);
+
+        if (response?.Success == true)
+        {
+            Snackbar.Add("Guardian updated successfully.", Severity.Success);
+            await LoadStudentAsync();
+        }
+        else
+        {
+            Snackbar.Add(response?.Message ?? "Failed to update guardian.", Severity.Error);
+        }
+    }
+
+    private async Task RemoveGuardianAsync(GuardianResponse guardian)
+    {
+        if (_student is null || _student.Guardians.Count <= 1)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Remove Guardian",
+            ["Message"] = $"Are you sure you want to remove {guardian.Name}?",
+            ["ConfirmText"] = "Remove",
+            ["CancelText"] = "Cancel",
+            ["ConfirmColor"] = Color.Error
+        };
+
+        var dialog = await DialogService.ShowAsync<Shala.Web.Components.Dialogs.ConfirmDialog>("Confirm", parameters);
+        var result = await dialog.Result;
+
+        if (result == null || result.Canceled)
+            return;
+
+        var response = await StudentGuardianRepository.RemoveAsync(_student.Id, guardian.Id, _student.TenantId);
+
+        if (response?.Success == true)
+        {
+            Snackbar.Add("Guardian removed successfully.", Severity.Success);
+            await LoadStudentAsync();
+        }
+        else
+        {
+            Snackbar.Add(response?.Message ?? "Failed to remove guardian.", Severity.Error);
+        }
+    }
+
+    private static string GetInitials(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "S";
+
+        var parts = fullName
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(x => char.ToUpperInvariant(x[0]));
+
+        return string.Concat(parts);
+    }
+
+    private static int MapRelationTypeToInt(string relationType)
+    {
+        return relationType switch
+        {
+            "Father" => 1,
+            "Mother" => 2,
+            "Guardian" => 3,
+            _ => 4
+        };
+    }
+}

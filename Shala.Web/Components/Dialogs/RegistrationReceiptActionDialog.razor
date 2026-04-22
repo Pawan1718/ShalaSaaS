@@ -1,0 +1,205 @@
+﻿@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Shared.Responses.Registration
+@using Shala.Shared.Responses.Settings
+@using Shala.Web.Components.Receipts
+
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Registration Receipt</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Filled">
+                Registration saved and payment collected successfully.
+            </MudAlert>
+
+            @if (Receipt is null)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined">
+                    Receipt preview could not be loaded, but receipt actions are still available.
+                </MudAlert>
+            }
+            else
+            {
+                <MudPaper Class="pa-4 receipt-preview-dialog" Elevation="1">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true"
+                                  Justify="Justify.SpaceBetween"
+                                  AlignItems="AlignItems.Start"
+                                  Class="flex-wrap">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.h5" Class="fw-bold">
+                                    @GetReceiptTitle()
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Receipt No: @DisplayOrDash(Receipt.ReceiptNo)
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Receipt Date: @FormatDateTime(Receipt.ReceiptDate)
+                                </MudText>
+                            </MudStack>
+
+                            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled">
+                                Paid
+                            </MudChip>
+                        </MudStack>
+
+                        <MudDivider />
+
+                        <RegistrationReceiptCanvas TargetId="receipt-preview-dialog"
+                                                   Receipt="Receipt"
+                                                   Profile="Profile"
+                                                   Mode="ReceiptCanvasMode.SinglePreview"
+                                                   RootCssClass="receipt-preview-root" />
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   OnClick="CloseDialog">
+            Close
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Visibility"
+                   Disabled="@(!CanOpenReceiptPage)"
+                   OnClick="OpenReceiptPage">
+            View Receipt
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Print"
+                   Disabled="@(!CanPrintReceipt())"
+                   OnClick="OpenPrintPage">
+            Print Receipt
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   Disabled="@(!CanDownloadReceipt())"
+                   OnClick="OpenPdfPage">
+            PDF
+        </MudButton>
+
+        @if (!string.IsNullOrWhiteSpace(Receipt?.Phone))
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Share"
+                       OnClick="SendWhatsApp">
+                WhatsApp
+            </MudButton>
+        }
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.ListAlt"
+                   OnClick="BackToRegistrations">
+            Back to Registrations
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int ReceiptId { get; set; }
+    [Parameter] public RegistrationReceiptResponse? Receipt { get; set; }
+    [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool CanOpenReceiptPage => ReceiptId > 0;
+
+    private bool CanPrintReceipt()
+        => Receipt is not null && (Profile?.AllowPrintReceipt ?? true);
+
+    private bool CanDownloadReceipt()
+        => Receipt is not null && (Profile?.AllowDownloadReceipt ?? true);
+
+    private string GetReceiptTitle()
+        => string.IsNullOrWhiteSpace(Profile?.ReceiptTitle) ? "Registration Receipt" : Profile!.ReceiptTitle!;
+
+    private void CloseDialog()
+        => MudDialog.Close();
+
+    private void OpenReceiptPage()
+    {
+        if (!CanOpenReceiptPage)
+            return;
+
+        Navigation.NavigateTo($"/student/registrations/receipt/{ReceiptId}");
+        MudDialog.Close();
+    }
+
+    private void OpenPrintPage()
+    {
+        if (!CanPrintReceipt())
+            return;
+
+        Navigation.NavigateTo($"/student/registrations/receipt/{ReceiptId}?action=print", forceLoad: true);
+        MudDialog.Close();
+    }
+
+    private void OpenPdfPage()
+    {
+        if (!CanDownloadReceipt())
+            return;
+
+        Navigation.NavigateTo($"/student/registrations/receipt/{ReceiptId}?action=pdf", forceLoad: true);
+        MudDialog.Close();
+    }
+
+    private async Task SendWhatsApp()
+    {
+        if (Receipt is null || string.IsNullOrWhiteSpace(Receipt.Phone))
+            return;
+
+        var url = Navigation.ToAbsoluteUri($"/student/registrations/receipt/{ReceiptId}");
+
+        var msg =
+            $"Receipt No: {Receipt.ReceiptNo}\n" +
+            $"Student: {Receipt.StudentName}\n" +
+            $"Amount: ₹ {GetTotalAmount():0.##}\n" +
+            $"Date: {FormatDate(Receipt.ReceiptDate)}\n" +
+            $"View: {url}";
+
+        await JS.InvokeVoidAsync("registrationReceipt.sendWhatsApp", Receipt.Phone, msg);
+    }
+
+    private void BackToRegistrations()
+    {
+        Navigation.NavigateTo("/student/registrations");
+        MudDialog.Close();
+    }
+
+    private decimal GetTotalAmount()
+    {
+        if (Receipt is null)
+            return 0m;
+
+        if (Receipt.TotalAmount > 0)
+            return Receipt.TotalAmount;
+
+        return Receipt.Lines?.Sum(x => x.Amount) ?? 0m;
+    }
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static string FormatDate(DateTime value)
+        => value == default ? "-" : value.ToString("dd MMM yyyy");
+
+    private static string FormatDateTime(DateTime value)
+        => value == default ? "-" : value.ToString("dd MMM yyyy hh:mm tt");
+}

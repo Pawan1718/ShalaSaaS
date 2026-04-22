@@ -1,0 +1,710 @@
+﻿@page "/settings/registration-configuration"
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.TenantConfigSetting
+@using Shala.Shared.Responses.Registration
+@using Shala.Shared.Responses.TenantConfigSetting
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.Registration
+@using Shala.Web.Repositories.TenantConfig
+
+@inject IRegistrationFeeConfigurationWebRepository FeeRepository
+@inject IRegistrationReceiptConfigurationWebRepository ReceiptRepository
+@inject IRegistrationProspectusConfigurationWebRepository ProspectusRepository
+@inject IRegistrationFeeHeadLookupWebRepository FeeHeadLookupRepository
+@inject ISnackbar Snackbar
+
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Registration Configuration</PageTitle>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-6 rounded-xl">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Typo="Typo.body1">Loading registration configuration...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="pa-0">
+        <MudStack Spacing="3">
+
+            <!-- Header -->
+            <MudPaper Class="pa-5 rounded-xl" Outlined="true">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h4" Class="fw-bold">Registration Configuration</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                            Configure registration module availability, fee rules, receipt behavior, and prospectus settings.
+                        </MudText>
+                    </div>
+
+                    <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                        <MudChip T="string"
+                                 Color="@(_feeModel.IsRegistrationModuleEnabled ? Color.Success : Color.Error)"
+                                 Variant="Variant.Filled">
+                            Module @(_feeModel.IsRegistrationModuleEnabled ? "Active" : "Inactive")
+                        </MudChip>
+
+                        <MudChip T="string"
+                                 Color="@(_feeModel.IsActive ? Color.Success : Color.Default)"
+                                 Variant="Variant.Filled">
+                            Fee @(_feeModel.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+
+                        <MudChip T="string"
+                                 Color="@(_receiptModel.IsActive ? Color.Success : Color.Default)"
+                                 Variant="Variant.Filled">
+                            Receipt @(_receiptModel.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+
+                        <MudChip T="string"
+                                 Color="@(_prospectusModel.IsActive ? Color.Success : Color.Default)"
+                                 Variant="Variant.Filled">
+                            Prospectus @(_prospectusModel.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_formError))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled">
+                    @_formError
+                </MudAlert>
+            }
+
+            <!-- Module Control -->
+            <MudPaper Class="pa-4 rounded-xl" Outlined="true">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6" Class="fw-semibold">1. Registration Module Control</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        This is the master switch for the registration module.
+                    </MudText>
+
+                    <SettingOptionRow Title="Enable Registration Module"
+                                      Tooltip="Master switch for the entire registration module."
+                                      HelperText="When disabled, add, edit, collect fee, convert and delete actions are blocked for this branch. Existing records can still be viewed.">
+                        <MudSwitch T="bool"
+                                   @bind-Value="_feeModel.IsRegistrationModuleEnabled"
+                                   Color="Color.Primary" />
+                    </SettingOptionRow>
+
+                    @if (!_feeModel.IsRegistrationModuleEnabled)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Filled">
+                            Registration module is currently inactive. Existing records can still be viewed, but operational actions are blocked.
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <!-- Fee Settings -->
+            <MudPaper Class="pa-4 rounded-xl" Outlined="true">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6" Class="fw-semibold">2. Registration Fee Settings</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Configure fee collection rules for registration.
+                    </MudText>
+
+                    <SettingOptionRow Title="Enable Registration Fee"
+                                      Tooltip="Turn this on to apply registration fee rules for the branch."
+                                      HelperText="Master switch for registration fee settings.">
+                        <MudSwitch T="bool"
+                                   @bind-Value="_feeModel.IsActive"
+                                   Color="Color.Primary" />
+                    </SettingOptionRow>
+
+                    <SettingOptionRow Title="Fee Amount"
+                                      Tooltip="Default registration fee amount shown while collecting fee."
+                                      HelperText="Standard amount used for registration fee.">
+                        <MudNumericField T="decimal"
+                                         @bind-Value="_feeModel.RegistrationFeeAmount"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Min="0"
+                                         FullWidth="true"
+                                         Disabled="@(!_feeModel.IsActive)"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="₹" />
+                    </SettingOptionRow>
+
+                    <SettingOptionRow Title="Fee Head"
+                                      Tooltip="Maps registration fee to the appropriate accounting fee head."
+                                      HelperText="Optional financial mapping.">
+                        <MudSelect T="int?"
+                                   @bind-Value="_feeModel.RegistrationFeeHeadId"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   Clearable="true"
+                                   FullWidth="true"
+                                   Disabled="@(!_feeModel.IsActive)">
+                            @foreach (var item in _feeHeads)
+                            {
+                                <MudSelectItem T="int?" Value="@item.Id">
+                                    @($"{item.Name} ({item.Code})")
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </SettingOptionRow>
+
+                    <SettingOptionRow Title="Mandatory Fee"
+                                      Tooltip="If enabled, registration cannot be completed without collecting the fee."
+                                      HelperText="Use when registration fee is compulsory.">
+                        <MudSwitch T="bool"
+                                   @bind-Value="_feeModel.IsRegistrationFeeMandatory"
+                                   Color="Color.Primary"
+                                   Disabled="@(!_feeModel.IsActive)" />
+                    </SettingOptionRow>
+                </MudStack>
+            </MudPaper>
+
+            <!-- Receipt Settings -->
+            <MudPaper Class="pa-4 rounded-xl" Outlined="true">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h6" Class="fw-semibold">3. Receipt Settings</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Control receipt content, printing, download behavior, and preview.
+                        </MudText>
+                    </div>
+
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="8">
+                            <MudPaper Class="pa-4 rounded-xl h-100" Outlined="true">
+                                <MudStack Spacing="2">
+
+                                    <SettingOptionRow Title="Enable Receipt Settings"
+                                                      Tooltip="Master switch for receipt display and behavior settings."
+                                                      HelperText="Turns receipt customization on or off.">
+                                        <MudSwitch T="bool"
+                                                   @bind-Value="_receiptModel.IsActive"
+                                                   Color="Color.Primary" />
+                                    </SettingOptionRow>
+
+                                    <SettingOptionRow Title="Receipt Title"
+                                                      Tooltip="Displayed at the top of the generated receipt."
+                                                      HelperText="Example: Registration Receipt">
+                                        <MudTextField T="string"
+                                                      @bind-Value="_receiptModel.ReceiptTitle"
+                                                      Variant="Variant.Outlined"
+                                                      Margin="Margin.Dense"
+                                                      FullWidth="true"
+                                                      Disabled="@(!_receiptModel.IsActive)" />
+                                    </SettingOptionRow>
+
+                                    <SettingOptionRow Title="Receipt Footer Note"
+                                                      Tooltip="Shown at the bottom of the receipt."
+                                                      HelperText="Useful for disclaimer or thank-you message.">
+                                        <MudTextField T="string"
+                                                      @bind-Value="_receiptModel.ReceiptFooterNote"
+                                                      Variant="Variant.Outlined"
+                                                      Margin="Margin.Dense"
+                                                      FullWidth="true"
+                                                      Disabled="@(!_receiptModel.IsActive)" />
+                                    </SettingOptionRow>
+
+                                    @foreach (var item in GetReceiptOptions())
+                                    {
+                                        <SettingOptionRow Title="@item.Title"
+                                                          Tooltip="@item.Description"
+                                                          HelperText="@item.Helper">
+                                            <MudSwitch T="bool"
+                                                       Value="@item.Value"
+                                                       ValueChanged="@item.ValueChanged"
+                                                       Color="Color.Primary"
+                                                       Disabled="@(!_receiptModel.IsActive)" />
+                                        </SettingOptionRow>
+                                    }
+
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudPaper Class="pa-4 rounded-xl h-100" Outlined="true">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Primary" />
+                                        <MudText Typo="Typo.subtitle1" Class="fw-semibold">Receipt Preview</MudText>
+                                    </MudStack>
+
+                                    <MudDivider />
+
+                                    <MudText Typo="Typo.h6">@GetReceiptPreviewTitle()</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Receipt No: RCP-20260409-0001</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Receipt Date: 09 Apr 2026</MudText>
+
+                                    <MudDivider Class="my-2" />
+
+                                    @if (_receiptModel.ShowStudentDetailsInReceipt)
+                                    {
+                                        <MudText Typo="Typo.body2"><b>Student:</b> Aarav Sharma</MudText>
+                                        <MudText Typo="Typo.body2"><b>Guardian:</b> Rajesh Sharma</MudText>
+                                        <MudText Typo="Typo.body2"><b>Phone:</b> 9876543210</MudText>
+                                    }
+
+                                    <MudDivider Class="my-2" />
+
+                                    @if (_receiptModel.ShowFeeHeadInReceipt)
+                                    {
+                                        <MudText Typo="Typo.body2">Registration Fee - ₹ @_feeModel.RegistrationFeeAmount</MudText>
+
+                                        @if (_prospectusModel.IncludeProspectus && _prospectusModel.ShowProspectusInReceipt)
+                                        {
+                                            <MudText Typo="Typo.body2">
+                                                @GetProspectusDisplayName() - ₹ @_prospectusModel.ProspectusAmount
+                                            </MudText>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">Total Amount - ₹ @GetPreviewTotal()</MudText>
+                                    }
+
+                                    <MudDivider Class="my-2" />
+
+                                    <MudText Typo="Typo.subtitle2" Class="fw-bold">Total: ₹ @GetPreviewTotal()</MudText>
+
+                                    @if (_receiptModel.ShowAmountInWords)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Amount in words enabled
+                                        </MudText>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(_receiptModel.ReceiptFooterNote))
+                                    {
+                                        <MudDivider Class="my-2" />
+                                        <MudText Typo="Typo.caption">@_receiptModel.ReceiptFooterNote</MudText>
+                                    }
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                </MudStack>
+            </MudPaper>
+
+            <!-- Prospectus Settings -->
+            <MudPaper Class="pa-4 rounded-xl" Outlined="true">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6" Class="fw-semibold">4. Prospectus Settings</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Configure whether prospectus is available, chargeable, and visible in the receipt.
+                    </MudText>
+
+                    <SettingOptionRow Title="Enable Prospectus"
+                                      Tooltip="Allows prospectus to be included or sold during registration."
+                                      HelperText="Turn this on if your branch uses prospectus.">
+                        <MudSwitch T="bool"
+                                   @bind-Value="_prospectusModel.IncludeProspectus"
+                                   Color="Color.Primary" />
+                    </SettingOptionRow>
+
+                    <SettingOptionRow Title="Prospectus Module Active"
+                                      Tooltip="Master switch for all prospectus-related behavior."
+                                      HelperText="Disables internal prospectus logic when turned off.">
+                        <MudSwitch T="bool"
+                                   @bind-Value="_prospectusModel.IsActive"
+                                   Color="Color.Primary" />
+                    </SettingOptionRow>
+
+                    @if (_prospectusModel.IncludeProspectus)
+                    {
+                        <SettingOptionRow Title="Display Name"
+                                          Tooltip="Custom label shown in dialog and receipt instead of the default prospectus name."
+                                          HelperText="Example: Prospectus, Admission Kit, Form Book">
+                            <MudTextField T="string"
+                                          @bind-Value="_prospectusModel.ProspectusDisplayName"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          FullWidth="true"
+                                          Disabled="@(!_prospectusModel.IsActive)" />
+                        </SettingOptionRow>
+
+                        <SettingOptionRow Title="Prospectus Amount"
+                                          Tooltip="Default amount charged for prospectus."
+                                          HelperText="Used in collection and receipt display.">
+                            <MudNumericField T="decimal"
+                                             @bind-Value="_prospectusModel.ProspectusAmount"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             FullWidth="true"
+                                             Min="0"
+                                             Disabled="@(!_prospectusModel.IsActive)"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="₹" />
+                        </SettingOptionRow>
+
+                        <SettingOptionRow Title="Prospectus Fee Head"
+                                          Tooltip="Maps prospectus fee to the appropriate fee head."
+                                          HelperText="Optional accounting mapping.">
+                            <MudSelect T="int?"
+                                       @bind-Value="_prospectusModel.ProspectusFeeHeadId"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       Clearable="true"
+                                       FullWidth="true"
+                                       Disabled="@(!_prospectusModel.IsActive)">
+                                @foreach (var item in _feeHeads)
+                                {
+                                    <MudSelectItem T="int?" Value="@item.Id">
+                                        @($"{item.Name} ({item.Code})")
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        </SettingOptionRow>
+
+                        <SettingOptionRow Title="Mandatory Prospectus"
+                                          Tooltip="If enabled, prospectus is automatically included during registration."
+                                          HelperText="Use only when prospectus is compulsory.">
+                            <MudSwitch T="bool"
+                                       @bind-Value="_prospectusModel.IsProspectusMandatory"
+                                       Color="Color.Primary"
+                                       Disabled="@(!_prospectusModel.IsActive)" />
+                        </SettingOptionRow>
+
+                        <SettingOptionRow Title="Show Prospectus In Receipt"
+                                          Tooltip="Displays prospectus as a separate line item in the receipt."
+                                          HelperText="Recommended for better fee breakup visibility.">
+                            <MudSwitch T="bool"
+                                       @bind-Value="_prospectusModel.ShowProspectusInReceipt"
+                                       Color="Color.Primary"
+                                       Disabled="@(!_prospectusModel.IsActive)" />
+                        </SettingOptionRow>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <!-- Save Bar -->
+            <MudPaper Class="pa-4 rounded-xl sticky-save-bar" Outlined="true">
+                <MudStack Row="true"
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center"
+                          Wrap="Wrap.Wrap"
+                          Spacing="2">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Changes affect future registration, fee collection, and receipt behavior.
+                    </MudText>
+
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="ReloadAsync"
+                                   Disabled="_saving">
+                            Reload
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   OnClick="SaveAsync"
+                                   Disabled="_saving">
+                            @(_saving ? "Saving..." : "Save All")
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+        </MudStack>
+    </MudContainer>
+}
+
+@code {
+    private SaveRegistrationFeeConfigurationRequest _feeModel = new();
+    private SaveRegistrationReceiptConfigurationRequest _receiptModel = new();
+    private SaveRegistrationProspectusConfigurationRequest _prospectusModel = new();
+
+    private List<RegistrationFeeHeadLookupResponse> _feeHeads = new();
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _formError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _formError = null;
+
+        try
+        {
+            var feeHeadTask = FeeHeadLookupRepository.GetAsync();
+            var feeConfigTask = FeeRepository.GetAsync();
+            var receiptConfigTask = ReceiptRepository.GetAsync();
+            var prospectusConfigTask = ProspectusRepository.GetAsync();
+
+            await Task.WhenAll(feeHeadTask, feeConfigTask, receiptConfigTask, prospectusConfigTask);
+
+            _feeHeads = feeHeadTask.Result ?? new List<RegistrationFeeHeadLookupResponse>();
+
+            var feeConfig = feeConfigTask.Result;
+            var receiptConfig = receiptConfigTask.Result;
+            var prospectusConfig = prospectusConfigTask.Result;
+
+            _feeModel = feeConfig == null
+                ? new SaveRegistrationFeeConfigurationRequest
+                {
+                    IsRegistrationModuleEnabled = true,
+                    RegistrationFeeAmount = 0,
+                    IsRegistrationFeeMandatory = false,
+                    RegistrationFeeHeadId = null,
+                    IsActive = true
+                }
+                : new SaveRegistrationFeeConfigurationRequest
+                {
+                    IsRegistrationModuleEnabled = feeConfig.IsRegistrationModuleEnabled,
+                    RegistrationFeeAmount = feeConfig.RegistrationFeeAmount,
+                    IsRegistrationFeeMandatory = feeConfig.IsRegistrationFeeMandatory,
+                    RegistrationFeeHeadId = feeConfig.RegistrationFeeHeadId,
+                    IsActive = feeConfig.IsActive
+                };
+
+            _receiptModel = receiptConfig == null
+                ? new SaveRegistrationReceiptConfigurationRequest
+                {
+                    AllowPrintReceipt = true,
+                    AllowDownloadReceipt = true,
+                    AutoPrintAfterSave = false,
+                    ReceiptTitle = "Registration Receipt",
+                    ReceiptFooterNote = "This is a computer-generated receipt.",
+                    ShowStudentDetailsInReceipt = true,
+                    ShowFeeHeadInReceipt = true,
+                    ShowAmountInWords = true,
+                    IsActive = true
+                }
+                : new SaveRegistrationReceiptConfigurationRequest
+                {
+                    AllowPrintReceipt = receiptConfig.AllowPrintReceipt,
+                    AllowDownloadReceipt = receiptConfig.AllowDownloadReceipt,
+                    AutoPrintAfterSave = receiptConfig.AutoPrintAfterSave,
+                    ReceiptTitle = receiptConfig.ReceiptTitle,
+                    ReceiptFooterNote = receiptConfig.ReceiptFooterNote,
+                    ShowStudentDetailsInReceipt = receiptConfig.ShowStudentDetailsInReceipt,
+                    ShowFeeHeadInReceipt = receiptConfig.ShowFeeHeadInReceipt,
+                    ShowAmountInWords = receiptConfig.ShowAmountInWords,
+                    IsActive = receiptConfig.IsActive
+                };
+
+            _prospectusModel = prospectusConfig == null
+                ? new SaveRegistrationProspectusConfigurationRequest
+                {
+                    IncludeProspectus = false,
+                    ProspectusAmount = 0,
+                    IsProspectusMandatory = false,
+                    ProspectusFeeHeadId = null,
+                    ProspectusDisplayName = "Prospectus",
+                    ShowProspectusInReceipt = true,
+                    IsActive = true
+                }
+                : new SaveRegistrationProspectusConfigurationRequest
+                {
+                    IncludeProspectus = prospectusConfig.IncludeProspectus,
+                    ProspectusAmount = prospectusConfig.ProspectusAmount,
+                    IsProspectusMandatory = prospectusConfig.IsProspectusMandatory,
+                    ProspectusFeeHeadId = prospectusConfig.ProspectusFeeHeadId,
+                    ProspectusDisplayName = prospectusConfig.ProspectusDisplayName,
+                    ShowProspectusInReceipt = prospectusConfig.ShowProspectusInReceipt,
+                    IsActive = prospectusConfig.IsActive
+                };
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _formError = null;
+
+        if (_feeModel.RegistrationFeeAmount < 0)
+        {
+            _formError = "Registration fee amount cannot be negative.";
+            Snackbar.Add(_formError, Severity.Warning);
+            return;
+        }
+
+        if (_feeModel.IsActive && _feeModel.IsRegistrationFeeMandatory && _feeModel.RegistrationFeeAmount <= 0)
+        {
+            _formError = "Registration fee amount must be greater than zero when fee is mandatory.";
+            Snackbar.Add(_formError, Severity.Warning);
+            return;
+        }
+
+        if (_prospectusModel.ProspectusAmount < 0)
+        {
+            _formError = "Prospectus amount cannot be negative.";
+            Snackbar.Add(_formError, Severity.Warning);
+            return;
+        }
+
+        if (_prospectusModel.IncludeProspectus && string.IsNullOrWhiteSpace(_prospectusModel.ProspectusDisplayName))
+        {
+            _prospectusModel.ProspectusDisplayName = "Prospectus";
+        }
+
+        if (_prospectusModel.IsActive && _prospectusModel.IsProspectusMandatory && !_prospectusModel.IncludeProspectus)
+        {
+            _formError = "Prospectus cannot be mandatory when prospectus is not included.";
+            Snackbar.Add(_formError, Severity.Warning);
+            return;
+        }
+
+        if (!_prospectusModel.IncludeProspectus)
+        {
+            _prospectusModel.ProspectusAmount = 0;
+            _prospectusModel.ProspectusFeeHeadId = null;
+            _prospectusModel.IsProspectusMandatory = false;
+            _prospectusModel.ShowProspectusInReceipt = false;
+        }
+
+        _saving = true;
+
+        try
+        {
+            await FeeRepository.SaveAsync(_feeModel);
+            await ReceiptRepository.SaveAsync(_receiptModel);
+            await ProspectusRepository.SaveAsync(_prospectusModel);
+
+            Snackbar.Add("Registration configuration saved successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private decimal GetPreviewTotal()
+    {
+        var fee = _feeModel.IsActive ? _feeModel.RegistrationFeeAmount : 0m;
+        var prospectus = _prospectusModel.IncludeProspectus ? _prospectusModel.ProspectusAmount : 0m;
+        return fee + prospectus;
+    }
+
+    private string GetReceiptPreviewTitle()
+    {
+        return string.IsNullOrWhiteSpace(_receiptModel.ReceiptTitle)
+            ? "Registration Receipt"
+            : _receiptModel.ReceiptTitle;
+    }
+
+    private string GetProspectusDisplayName()
+    {
+        return string.IsNullOrWhiteSpace(_prospectusModel.ProspectusDisplayName)
+            ? "Prospectus"
+            : _prospectusModel.ProspectusDisplayName!;
+    }
+
+    private List<ReceiptOptionItem> GetReceiptOptions()
+    {
+        return new List<ReceiptOptionItem>
+        {
+            new ReceiptOptionItem
+            {
+                Title = "Allow Print Receipt",
+                Helper = "Enable printing from receipt actions.",
+                Description = "Controls whether users can print the receipt.",
+                Value = _receiptModel.AllowPrintReceipt,
+                ValueChanged = value =>
+                {
+                    _receiptModel.AllowPrintReceipt = value;
+                    return Task.CompletedTask;
+                }
+            },
+            new ReceiptOptionItem
+            {
+                Title = "Allow Download Receipt",
+                Helper = "Enable receipt download action.",
+                Description = "Controls whether users can download the generated receipt.",
+                Value = _receiptModel.AllowDownloadReceipt,
+                ValueChanged = value =>
+                {
+                    _receiptModel.AllowDownloadReceipt = value;
+                    return Task.CompletedTask;
+                }
+            },
+            new ReceiptOptionItem
+            {
+                Title = "Auto Print After Save",
+                Helper = "Automatically trigger printing after successful fee collection.",
+                Description = "Useful for front-desk or counter workflows.",
+                Value = _receiptModel.AutoPrintAfterSave,
+                ValueChanged = value =>
+                {
+                    _receiptModel.AutoPrintAfterSave = value;
+                    return Task.CompletedTask;
+                }
+            },
+            new ReceiptOptionItem
+            {
+                Title = "Show Student Details In Receipt",
+                Helper = "Display student, guardian, and phone details.",
+                Description = "Turn off for compact receipts.",
+                Value = _receiptModel.ShowStudentDetailsInReceipt,
+                ValueChanged = value =>
+                {
+                    _receiptModel.ShowStudentDetailsInReceipt = value;
+                    return Task.CompletedTask;
+                }
+            },
+            new ReceiptOptionItem
+            {
+                Title = "Show Fee Head In Receipt",
+                Helper = "Display fee lines such as registration fee and prospectus.",
+                Description = "Recommended for a clear breakdown.",
+                Value = _receiptModel.ShowFeeHeadInReceipt,
+                ValueChanged = value =>
+                {
+                    _receiptModel.ShowFeeHeadInReceipt = value;
+                    return Task.CompletedTask;
+                }
+            },
+            new ReceiptOptionItem
+            {
+                Title = "Show Amount In Words",
+                Helper = "Display total amount in words in receipt.",
+                Description = "Useful for formal printed receipts.",
+                Value = _receiptModel.ShowAmountInWords,
+                ValueChanged = value =>
+                {
+                    _receiptModel.ShowAmountInWords = value;
+                    return Task.CompletedTask;
+                }
+            }
+        };
+    }
+
+    private sealed class ReceiptOptionItem
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Helper { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool Value { get; set; }
+        public Func<bool, Task> ValueChanged { get; set; } = _ => Task.CompletedTask;
+    }
+}

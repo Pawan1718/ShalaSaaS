@@ -1,0 +1,495 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Shared.Responses.Students
+@using Shala.Shared.Responses.Academics
+@using Shala.Web.Models.Fees
+@using Shala.Web.Repositories.Fees
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Services.State
+
+@inject IFeeWebRepository FeeWebRepository
+@inject IAcademicYearRepository AcademicYearRepository
+@inject IAcademicClassRepository AcademicClassRepository
+@inject ApiSession ApiSession
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h6">
+                @GetTitle()
+            </MudText>
+
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudSelect T="int"
+                               Label="Academic Year"
+                               @bind-Value="_model.AcademicYearId"
+                               Disabled="IsReadOnly || _loadingLookups"
+                               Variant="Variant.Outlined">
+                        @foreach (var year in _academicYears)
+                        {
+                            <MudSelectItem T="int" Value="@year.Id">
+                                @year.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSelect T="int"
+                               Label="Academic Class"
+                               @bind-Value="_model.AcademicClassId"
+                               Disabled="IsReadOnly || _loadingLookups"
+                               Variant="Variant.Outlined">
+                        @foreach (var academicClass in _academicClasses)
+                        {
+                            <MudSelectItem T="int" Value="@academicClass.Id">
+                                @academicClass.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudCheckBox T="bool"
+                                 Label="Is Active"
+                                 @bind-Value="_model.IsActive"
+                                 Disabled="IsReadOnly" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Structure Name"
+                                  @bind-Value="_model.Name"
+                                  Disabled="IsReadOnly"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Description"
+                                  @bind-Value="_model.Description"
+                                  Disabled="IsReadOnly"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider />
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">Structure Items</MudText>
+
+                @if (!IsReadOnly)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AddItem">
+                        Add Item
+                    </MudButton>
+                }
+            </MudStack>
+
+            <MudTable Items="_model.Items"
+                      Dense="true"
+                      Hover="true"
+                      Bordered="true"
+                      Striped="true"
+                      Breakpoint="Breakpoint.Md">
+                <HeaderContent>
+                    <MudTh>Fee Head</MudTh>
+                    <MudTh>Label</MudTh>
+                    <MudTh>Amount</MudTh>
+                    <MudTh>Frequency</MudTh>
+                    <MudTh>Start</MudTh>
+                    <MudTh>End</MudTh>
+                    <MudTh>Due Day</MudTh>
+                    <MudTh>Apply Type</MudTh>
+                    <MudTh>Optional</MudTh>
+                    <MudTh>Active</MudTh>
+                    @if (!IsReadOnly)
+                    {
+                        <MudTh>Action</MudTh>
+                    }
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>
+                        <MudSelect T="int"
+                                   Value="context.FeeHeadId"
+                                   ValueChanged="@(value => OnFeeHeadChanged(context, value))"
+                                   Disabled="IsReadOnly"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense">
+                            @foreach (var feeHead in AvailableFeeHeads.Where(x => x.IsActive))
+                            {
+                                <MudSelectItem T="int" Value="@feeHead.Id">
+                                    @feeHead.Name
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudTd>
+
+                    <MudTd>
+                        <MudTextField T="string"
+                                      Value="context.Label"
+                                      ValueChanged="@(value => context.Label = value ?? string.Empty)"
+                                      Disabled="IsReadOnly"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudNumericField T="decimal"
+                                         Value="context.Amount"
+                                         ValueChanged="@(value => context.Amount = value)"
+                                         Min="0"
+                                         Disabled="IsReadOnly"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudSelect T="int"
+                                   Value="context.FrequencyType"
+                                   ValueChanged="@(value => context.FrequencyType = value)"
+                                   Disabled="IsReadOnly"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense">
+                            <MudSelectItem T="int" Value="1">One Time</MudSelectItem>
+                            <MudSelectItem T="int" Value="2">Monthly</MudSelectItem>
+                            <MudSelectItem T="int" Value="3">Quarterly</MudSelectItem>
+                            <MudSelectItem T="int" Value="4">Yearly</MudSelectItem>
+                            <MudSelectItem T="int" Value="5">Custom</MudSelectItem>
+                        </MudSelect>
+                    </MudTd>
+
+                    <MudTd>
+                        <MudNumericField T="int?"
+                                         Value="context.StartMonth"
+                                         ValueChanged="@(value => context.StartMonth = value)"
+                                         Min="1"
+                                         Max="12"
+                                         Disabled="IsReadOnly"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudNumericField T="int?"
+                                         Value="context.EndMonth"
+                                         ValueChanged="@(value => context.EndMonth = value)"
+                                         Min="1"
+                                         Max="12"
+                                         Disabled="IsReadOnly"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudNumericField T="int?"
+                                         Value="context.DueDay"
+                                         ValueChanged="@(value => context.DueDay = value)"
+                                         Min="1"
+                                         Max="31"
+                                         Disabled="IsReadOnly"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudSelect T="int"
+                                   Value="context.ApplyType"
+                                   ValueChanged="@(value => context.ApplyType = value)"
+                                   Disabled="IsReadOnly"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense">
+                            <MudSelectItem T="int" Value="1">First Admission Only</MudSelectItem>
+                            <MudSelectItem T="int" Value="2">Every Year</MudSelectItem>
+                            <MudSelectItem T="int" Value="3">One Time</MudSelectItem>
+                        </MudSelect>
+                    </MudTd>
+
+                    <MudTd>
+                        <MudCheckBox T="bool"
+                                     Value="context.IsOptional"
+                                     ValueChanged="@(value => context.IsOptional = value)"
+                                     Disabled="IsReadOnly" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudCheckBox T="bool"
+                                     Value="context.IsActive"
+                                     ValueChanged="@(value => context.IsActive = value)"
+                                     Disabled="IsReadOnly" />
+                    </MudTd>
+
+                    @if (!IsReadOnly)
+                    {
+                        <MudTd>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => RemoveItem(context))" />
+                        </MudTd>
+                    }
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        No structure items added yet.
+                    </MudAlert>
+                </NoRecordsContent>
+            </MudTable>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel" Disabled="_saving">
+            @(IsReadOnly ? "Close" : "Cancel")
+        </MudButton>
+
+        @if (!IsReadOnly)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SubmitAsync"
+                       Disabled="_saving || _loadingLookups">
+                @(_model.Id > 0 ? "Update" : "Save")
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public bool IsReadOnly { get; set; }
+    [Parameter] public FeeStructureResponse? Structure { get; set; }
+    [Parameter] public List<FeeHeadResponse> AvailableFeeHeads { get; set; } = new();
+
+    private bool _saving;
+    private bool _loadingLookups;
+    private FeeStructureFormVm _model = new();
+
+    private List<AcademicYearListItemResponse> _academicYears = new();
+    private List<AcademicClassListItemResponse> _academicClasses = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Structure is not null)
+        {
+            _model = new FeeStructureFormVm
+            {
+                Id = Structure.Id,
+                AcademicYearId = Structure.AcademicYearId,
+                AcademicClassId = Structure.AcademicClassId,
+                Name = Structure.Name,
+                Description = Structure.Description,
+                IsActive = Structure.IsActive,
+                Items = Structure.Items.Select(x => new FeeStructureItemFormVm
+                {
+                    Id = x.Id,
+                    FeeHeadId = x.FeeHeadId,
+                    Label = x.Label,
+                    Amount = x.Amount,
+                    FrequencyType = x.FrequencyType,
+                    StartMonth = x.StartMonth,
+                    EndMonth = x.EndMonth,
+                    DueDay = x.DueDay,
+                    ApplyType = x.ApplyType,
+                    IsOptional = x.IsOptional,
+                    IsActive = x.IsActive
+                }).ToList()
+            };
+        }
+
+        if (!IsReadOnly && !_model.Items.Any())
+            AddItem();
+
+        await LoadLookupsAsync();
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        try
+        {
+            _loadingLookups = true;
+
+            await ApiSession.InitializeAsync();
+
+            var tenantId = ApiSession.TenantId;
+            if (!tenantId.HasValue || tenantId.Value <= 0)
+            {
+                Snackbar.Add("Tenant context not found.", Severity.Error);
+                return;
+            }
+
+            var academicYearResponse = await AcademicYearRepository.GetAllAsync(tenantId.Value);
+            if (academicYearResponse?.Success == true && academicYearResponse.Data is not null)
+                _academicYears = academicYearResponse.Data;
+
+            var academicClassResponse = await AcademicClassRepository.GetAllAsync(tenantId.Value);
+            if (academicClassResponse?.Success == true && academicClassResponse.Data is not null)
+                _academicClasses = academicClassResponse.Data;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load academic year/class data. {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingLookups = false;
+        }
+    }
+
+    private string GetTitle()
+    {
+        if (IsReadOnly)
+            return "View Fee Structure";
+
+        return _model.Id > 0 ? "Update Fee Structure" : "Create Fee Structure";
+    }
+
+    private void AddItem()
+    {
+        _model.Items.Add(new FeeStructureItemFormVm
+        {
+            FrequencyType = 1,
+            ApplyType = 2,
+            IsActive = true
+        });
+    }
+
+    private void RemoveItem(FeeStructureItemFormVm item)
+    {
+        _model.Items.Remove(item);
+    }
+
+    private void OnFeeHeadChanged(FeeStructureItemFormVm item, int feeHeadId)
+    {
+        item.FeeHeadId = feeHeadId;
+
+        if (string.IsNullOrWhiteSpace(item.Label))
+        {
+            var selected = AvailableFeeHeads.FirstOrDefault(x => x.Id == feeHeadId);
+            if (selected is not null)
+                item.Label = selected.Name;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SubmitAsync()
+    {
+        if (_saving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            Snackbar.Add("Structure name is required.", Severity.Warning);
+            return;
+        }
+
+        if (_model.AcademicYearId <= 0)
+        {
+            Snackbar.Add("Academic year is required.", Severity.Warning);
+            return;
+        }
+
+        if (_model.AcademicClassId <= 0)
+        {
+            Snackbar.Add("Academic class is required.", Severity.Warning);
+            return;
+        }
+
+        if (_model.Items.Count == 0)
+        {
+            Snackbar.Add("At least one item is required.", Severity.Warning);
+            return;
+        }
+
+        if (_model.Items.Any(x => x.FeeHeadId <= 0))
+        {
+            Snackbar.Add("Please select fee head for all items.", Severity.Warning);
+            return;
+        }
+
+        if (_model.Items.Any(x => string.IsNullOrWhiteSpace(x.Label)))
+        {
+            Snackbar.Add("Please enter label for all items.", Severity.Warning);
+            return;
+        }
+
+        if (_model.Items.Any(x => x.Amount <= 0))
+        {
+            Snackbar.Add("Amount must be greater than zero for all items.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            _saving = true;
+
+            if (_model.Id == 0)
+            {
+                var request = new CreateFeeStructureRequest
+                {
+                    AcademicYearId = _model.AcademicYearId,
+                    AcademicClassId = _model.AcademicClassId,
+                    Name = _model.Name.Trim(),
+                    Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+                    IsActive = _model.IsActive,
+                    Items = _model.Items.Select(MapRequestItem).ToList()
+                };
+
+                await FeeWebRepository.CreateFeeStructureAsync(request);
+                Snackbar.Add("Fee structure created successfully.", Severity.Success);
+            }
+            else
+            {
+                var request = new UpdateFeeStructureRequest
+                {
+                    Id = _model.Id,
+                    AcademicYearId = _model.AcademicYearId,
+                    AcademicClassId = _model.AcademicClassId,
+                    Name = _model.Name.Trim(),
+                    Description = string.IsNullOrWhiteSpace(_model.Description) ? null : _model.Description.Trim(),
+                    IsActive = _model.IsActive,
+                    Items = _model.Items.Select(MapRequestItem).ToList()
+                };
+
+                await FeeWebRepository.UpdateFeeStructureAsync(_model.Id, request);
+                Snackbar.Add("Fee structure updated successfully.", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static FeeStructureItemRequest MapRequestItem(FeeStructureItemFormVm item)
+    {
+        return new FeeStructureItemRequest
+        {
+            FeeHeadId = item.FeeHeadId,
+            Label = item.Label.Trim(),
+            Amount = item.Amount,
+            FrequencyType = item.FrequencyType,
+            StartMonth = item.StartMonth,
+            EndMonth = item.EndMonth,
+            DueDay = item.DueDay,
+            ApplyType = item.ApplyType,
+            IsOptional = item.IsOptional,
+            IsActive = item.IsActive
+        };
+    }
+}

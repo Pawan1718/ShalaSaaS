@@ -1,0 +1,163 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.StudentDocument
+@using Shala.Web.Repositories.StudentDocuments
+
+@inject IDocumentModelWebRepository Repo
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Filled">
+                    @_error
+                </MudAlert>
+            }
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Name" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Required="true" Disabled="_saving" @bind-Value="Model.Name" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Code" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Required="true" Disabled="_saving" @bind-Value="Model.Code" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Description" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Lines="2" Disabled="_saving" @bind-Value="Model.Description" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string" Label="Allowed File Types" HelperText="Example: pdf,jpg,jpeg,png" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Disabled="_saving" @bind-Value="Model.AllowedFileTypes" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudNumericField T="int?" Label="Max File Size (KB)" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Disabled="_saving" @bind-Value="Model.MaxFileSizeInKb" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudNumericField T="int" Label="Display Order" Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Disabled="_saving" @bind-Value="Model.DisplayOrder" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Required Fields JSON" HelperText='Example: ["StudentName","FatherName","Dob"]' Variant="Variant.Outlined" Margin="Margin.Dense" FullWidth="true" Lines="3" Disabled="_saving" @bind-Value="Model.RequiredFieldsJson" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSwitch T="bool" @bind-Value="Model.IsRequired" Disabled="_saving" Color="Color.Primary" Label="Required Document" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSwitch T="bool" @bind-Value="Model.IsAiValidationEnabled" Disabled="_saving" Color="Color.Primary" Label="AI Validation Enabled" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSwitch T="bool" @bind-Value="Model.BlockAdmissionOnMismatch" Disabled="_saving" Color="Color.Primary" Label="Block Admission On Mismatch" />
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel" Disabled="_saving">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving">
+            @(_saving ? "Saving..." : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public CreateDocumentModelRequest Model { get; set; } = new();
+    [Parameter] public int EditId { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+
+    private bool _saving;
+    private string? _error;
+
+    private async Task SaveAsync()
+    {
+        if (_saving)
+            return;
+
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(Model.Name))
+        {
+            _error = "Name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Model.Code))
+        {
+            _error = "Code is required.";
+            return;
+        }
+
+        _saving = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            if (IsEdit)
+            {
+                await Repo.UpdateAsync(new UpdateDocumentModelRequest
+                {
+                    Id = EditId,
+                    Name = Model.Name,
+                    Code = Model.Code,
+                    Description = Model.Description,
+                    IsRequired = Model.IsRequired,
+                    IsAiValidationEnabled = Model.IsAiValidationEnabled,
+                    BlockAdmissionOnMismatch = Model.BlockAdmissionOnMismatch,
+                    AllowedFileTypes = Model.AllowedFileTypes,
+                    MaxFileSizeInKb = Model.MaxFileSizeInKb,
+                    RequiredFieldsJson = Model.RequiredFieldsJson,
+                    DisplayOrder = Model.DisplayOrder
+                });
+            }
+            else
+            {
+                await Repo.CreateAsync(new CreateDocumentModelRequest
+                {
+                    Name = Model.Name,
+                    Code = Model.Code,
+                    Description = Model.Description,
+                    IsRequired = Model.IsRequired,
+                    IsAiValidationEnabled = Model.IsAiValidationEnabled,
+                    BlockAdmissionOnMismatch = Model.BlockAdmissionOnMismatch,
+                    AllowedFileTypes = Model.AllowedFileTypes,
+                    MaxFileSizeInKb = Model.MaxFileSizeInKb,
+                    RequiredFieldsJson = Model.RequiredFieldsJson,
+                    DisplayOrder = Model.DisplayOrder
+                });
+            }
+
+            Snackbar.Add(IsEdit ? "Document model updated successfully." : "Document model created successfully.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void Cancel()
+    {
+        if (_saving)
+            return;
+
+        MudDialog.Cancel();
+    }
+}

@@ -1,0 +1,115 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="_model" OnValidSubmit="Submit">
+            <DataAnnotationsValidator />
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Guardian Name"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_model.Name"
+                                  For="@(() => _model.Name)"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int"
+                               Label="Relation"
+                               Variant="Variant.Outlined"
+                               @bind-Value="_model.RelationType">
+                        <MudSelectItem Value="1">Father</MudSelectItem>
+                        <MudSelectItem Value="2">Mother</MudSelectItem>
+                        <MudSelectItem Value="3">Guardian</MudSelectItem>
+                        <MudSelectItem Value="4">Other</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Mobile"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_model.Mobile"
+                                  For="@(() => _model.Mobile)"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_model.Email"
+                                  For="@(() => _model.Email)" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Occupation"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_model.Occupation"
+                                  For="@(() => _model.Occupation)" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Address"
+                                  Variant="Variant.Outlined"
+                                  Lines="3"
+                                  @bind-Value="_model.Address"
+                                  For="@(() => _model.Address)" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudCheckBox T="bool"
+                                 Label="Primary Guardian"
+                                 @bind-Value="_model.IsPrimary" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">
+            @(_isEdit ? "Update" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public CreateGuardianRequest Model { get; set; } = new();
+    [Parameter] public bool IsEdit { get; set; }
+
+    private CreateGuardianRequest _model = new();
+    private bool _isEdit;
+
+    protected override void OnInitialized()
+    {
+        _model = new CreateGuardianRequest
+        {
+            Name = Model.Name,
+            RelationType = Model.RelationType,
+            Mobile = Model.Mobile,
+            Email = Model.Email,
+            Occupation = Model.Occupation,
+            Address = Model.Address,
+            IsPrimary = Model.IsPrimary
+        };
+    }
+
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

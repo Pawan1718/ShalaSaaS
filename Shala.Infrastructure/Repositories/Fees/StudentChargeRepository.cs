@@ -1,0 +1,89 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Shala.Application.Repositories.Fees;
+using Shala.Domain.Entities.Fees;
+using Shala.Infrastructure.Data;
+
+namespace Shala.Infrastructure.Repositories.Fees;
+
+public class StudentChargeRepository : GenericRepository<StudentCharge>, IStudentChargeRepository
+{
+    public StudentChargeRepository(AppDbContext context) : base(context)
+    {
+    }
+
+    public async Task<List<StudentCharge>> GetByStudentIdAsync(
+        int studentId,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _table
+            .Include(x => x.FeeHead)
+            .Include(x => x.StudentAdmission)
+            .Include(x => x.Allocations)
+            .Where(x =>
+                x.StudentId == studentId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId)
+            .OrderBy(x => x.DueDate)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<StudentCharge>> GetByAssignmentIdAsync(
+        int studentFeeAssignmentId,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _table
+            .Include(x => x.FeeHead)
+            .Include(x => x.Allocations)
+            .Where(x =>
+                x.StudentFeeAssignmentId == studentFeeAssignmentId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId)
+            .OrderBy(x => x.DueDate)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<StudentCharge?> GetByIdAsync(
+        int id,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _table
+            .Include(x => x.FeeHead)
+            .Include(x => x.Student)
+            .Include(x => x.StudentAdmission)
+            .Include(x => x.StudentFeeAssignment)
+            .Include(x => x.Allocations)
+            .FirstOrDefaultAsync(
+                x => x.Id == id &&
+                     x.TenantId == tenantId &&
+                     x.BranchId == branchId,
+                cancellationToken);
+    }
+
+    public async Task AddRangeAsync(
+        List<StudentCharge> entities,
+        CancellationToken cancellationToken = default)
+    {
+        await _table.AddRangeAsync(entities, cancellationToken);
+    }
+
+    public Task DeleteRangeAsync(
+        IEnumerable<StudentCharge> charges,
+        CancellationToken cancellationToken = default)
+    {
+        var chargeList = charges.ToList();
+
+        if (chargeList.Any(x => x.PaidAmount > 0))
+            throw new InvalidOperationException("Paid charges cannot be deleted.");
+
+        _table.RemoveRange(chargeList);
+        return Task.CompletedTask;
+    }
+}

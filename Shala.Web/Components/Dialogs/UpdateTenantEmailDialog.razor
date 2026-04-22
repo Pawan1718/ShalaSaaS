@@ -1,0 +1,179 @@
+﻿@* @using MudBlazor
+@using Shala.Shared.Requests
+@using Shala.Web.Repositories
+
+@inject ITenantRepository TenantRepository
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">Current Email: @CurrentEmail</MudText>
+
+        <MudTextField @bind-Value="_model.NewEmail"
+                      Label="New Email"
+                      Variant="Variant.Outlined"
+                      FullWidth="true" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync" Variant="Variant.Filled" Color="Color.Primary">
+            Update
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int TenantId { get; set; }
+    [Parameter] public string CurrentEmail { get; set; } = string.Empty;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private UpdateTenantAdminEmailRequest _model = new();
+
+    protected override void OnInitialized()
+    {
+        _model.NewEmail = CurrentEmail;
+    }
+
+    private async Task SubmitAsync()
+    {
+        var response = await TenantRepository.UpdateTenantAdminEmailAsync(TenantId, _model);
+
+        if (response.IsSuccess)
+        {
+            Snackbar.Add("Email updated successfully", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            var body = await response.GetBodyPartAsync();
+            Snackbar.Add(string.IsNullOrWhiteSpace(body) ? "Failed to update email" : body, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+} *@
+
+
+
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests
+@using Shala.Shared.Requests.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject ITenantRepository TenantRepository
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            Current Email: @CurrentEmail
+        </MudText>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <AppError Message="@_errorMessage" Class="mb-3" />
+        }
+
+        <AppTextField @bind-Value="_model.NewEmail"
+                      Label="New Email"
+                      Placeholder="Enter new admin email"
+                      InputType="InputType.Email"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Email"
+                      Required="true"
+                      RequiredError="New email is required" />
+    </DialogContent>
+
+    <DialogActions>
+        <AppButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   OnClick="CancelClickAsync"
+                   Disabled="_isSubmitting">
+            Cancel
+        </AppButton>
+
+        <AppButton OnClick="SubmitClickAsync"
+                   Color="Color.Primary"
+                   Disabled="_isSubmitting">
+            @if (_isSubmitting)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" />
+                <span>Updating...</span>
+            }
+            else
+            {
+                <span>Update</span>
+            }
+        </AppButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int TenantId { get; set; }
+    [Parameter] public string CurrentEmail { get; set; } = string.Empty;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private UpdateTenantAdminEmailRequest _model = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    protected override void OnInitialized()
+    {
+        _model.NewEmail = CurrentEmail;
+    }
+
+    private async Task SubmitClickAsync(MouseEventArgs _)
+    {
+        if (string.IsNullOrWhiteSpace(_model.NewEmail))
+        {
+            _errorMessage = "New email is required.";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            return;
+        }
+
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var response = await TenantRepository.UpdateTenantAdminEmailAsync(TenantId, _model);
+
+            if (response.IsSuccess)
+            {
+                Snackbar.Add("Email updated successfully", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                var body = await response.GetBodyPartAsync();
+                _errorMessage = string.IsNullOrWhiteSpace(body) ? "Failed to update email" : body;
+                Snackbar.Add(_errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task CancelClickAsync(MouseEventArgs _)
+    {
+        MudDialog.Cancel();
+        await Task.CompletedTask;
+    }
+}

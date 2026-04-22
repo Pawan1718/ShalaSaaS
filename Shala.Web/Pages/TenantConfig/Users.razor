@@ -1,0 +1,79 @@
+﻿@page "/tenant/users"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using MudBlazor
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.TenantRepo
+
+@inject TenantUserRepository UserRepo
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Users</PageTitle>
+
+<AppPageHeader Title="Users"
+               Subtitle="Manage your staff users">
+    <Actions>
+        <AppButton StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenCreateDialog">
+            Add User
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+<AppCard>
+    <MudTable Items="_users" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Role</MudTh>
+            <MudTh>Default Branch</MudTh>
+            <MudTh>Allowed Branches</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@string.Join(", ", context.Roles)</MudTd>
+            <MudTd>@context.DefaultBranchName</MudTd>
+            <MudTd>@string.Join(", ", context.AllowedBranchNames)</MudTd>
+        </RowTemplate>
+    </MudTable>
+</AppCard>
+
+@code {
+    private List<UserListItemResponse> _users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        var res = await UserRepo.GetUsersAsync();
+
+        if (res.IsSuccess && res.ServerResponse != null)
+            _users = res.ServerResponse;
+        else
+            Snackbar.Add("Failed to load users", Severity.Error);
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var dialog = await DialogService.ShowAsync<CreateTenantUserDialog>(
+            "Create User",
+            new DialogOptions
+            {
+                FullWidth = true,
+                MaxWidth = MaxWidth.Medium
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadUsers();
+    }
+}

@@ -1,0 +1,175 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Platform
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string"
+                                  Label="Branch Name"
+                                  Value="_model.Name"
+                                  ValueChanged="OnBranchNameChanged"
+                                  Required="true"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string"
+                                  Label="Branch Code"
+                                  Value="_branchCode"
+                                  ValueChanged="OnBranchCodeChanged"
+                                  ReadOnly="@(!IsEdit)"
+                                  Disabled="@(!IsEdit)"
+                                  HelperText="@(IsEdit ? "You can update branch code in edit mode" : "Auto-generated on create")"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string" Label="Email" @bind-Value="_model.Email" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string" Label="Phone" @bind-Value="_model.Phone" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Address Line 1" @bind-Value="_model.AddressLine1" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Address Line 2" @bind-Value="_model.AddressLine2" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudTextField T="string" Label="City" @bind-Value="_model.City" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudTextField T="string" Label="State" @bind-Value="_model.State" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudTextField T="string" Label="Pincode" @bind-Value="_model.Pincode" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField T="string" Label="Principal Name" @bind-Value="_model.PrincipalName" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudSwitch T="bool" Label="Main Branch" @bind-Value="_model.IsMainBranch" Color="Color.Primary" />
+                </MudItem>
+
+                <MudItem xs="12" sm="3">
+                    <MudSwitch T="bool" Label="Active" @bind-Value="_model.IsActive" Color="Color.Success" />
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="HandleSubmitAsync">
+            @(IsEdit ? "Update" : "Create")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public CreateBranchRequest Model { get; set; } = new();
+    [Parameter] public string ExistingCode { get; set; } = string.Empty;
+    private CreateBranchRequest _model = new();
+    private string _branchCode = "BRANCH";
+
+    protected override void OnInitialized()
+    {
+        _model = new CreateBranchRequest
+        {
+            TenantId = Model.TenantId,
+            Name = Model.Name,
+            Email = Model.Email,
+            Phone = Model.Phone,
+            AddressLine1 = Model.AddressLine1,
+            AddressLine2 = Model.AddressLine2,
+            City = Model.City,
+            State = Model.State,
+            Pincode = Model.Pincode,
+            PrincipalName = Model.PrincipalName,
+            IsMainBranch = Model.IsMainBranch,
+            IsActive = Model.IsActive
+        };
+
+        _branchCode = IsEdit
+      ? ExistingCode
+      : GeneratePreviewCode(_model.Name);
+    }
+
+    private Task OnBranchNameChanged(string value)
+    {
+        _model.Name = value ?? string.Empty;
+
+        if (!IsEdit)
+            _branchCode = GeneratePreviewCode(_model.Name);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnBranchCodeChanged(string value)
+    {
+        _branchCode = value ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleSubmitAsync()
+    {
+        _model.Name = _model.Name?.Trim() ?? string.Empty;
+        _model.Email = string.IsNullOrWhiteSpace(_model.Email) ? null : _model.Email.Trim();
+        _model.Phone = string.IsNullOrWhiteSpace(_model.Phone) ? null : _model.Phone.Trim();
+        _model.AddressLine1 = string.IsNullOrWhiteSpace(_model.AddressLine1) ? null : _model.AddressLine1.Trim();
+        _model.AddressLine2 = string.IsNullOrWhiteSpace(_model.AddressLine2) ? null : _model.AddressLine2.Trim();
+        _model.City = string.IsNullOrWhiteSpace(_model.City) ? null : _model.City.Trim();
+        _model.State = string.IsNullOrWhiteSpace(_model.State) ? null : _model.State.Trim();
+        _model.Pincode = string.IsNullOrWhiteSpace(_model.Pincode) ? null : _model.Pincode.Trim();
+        _model.PrincipalName = string.IsNullOrWhiteSpace(_model.PrincipalName) ? null : _model.PrincipalName.Trim();
+
+        MudDialog.Close(DialogResult.Ok(new BranchUpsertDialogResult
+        {
+            CreateRequest = _model,
+            Code = _branchCode?.Trim().ToUpperInvariant() ?? string.Empty
+        }));
+
+        return Task.CompletedTask;
+    }
+
+    private static string GeneratePreviewCode(string? branchName)
+    {
+        if (string.IsNullOrWhiteSpace(branchName))
+            return "BRANCH";
+
+        var words = branchName
+            .Trim()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        if (words.Count >= 2)
+            return string.Concat(words.Select(w => char.ToUpperInvariant(w[0])));
+
+        var cleaned = new string(branchName.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(cleaned) ? "BRANCH" : (cleaned.Length <= 6 ? cleaned : cleaned[..6]);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public class BranchUpsertDialogResult
+    {
+        public CreateBranchRequest CreateRequest { get; set; } = new();
+        public string Code { get; set; } = string.Empty;
+    }
+}

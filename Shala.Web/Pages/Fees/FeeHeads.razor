@@ -1,0 +1,275 @@
+﻿@page "/tenant/settings/fees/heads"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Fees
+@using Shala.Web.Repositories.Fees
+
+@inject IFeeWebRepository FeeWebRepository
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Fee Heads</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <div>
+                <MudText Typo="Typo.h5">Fee Heads</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Manage fee heads like Admission Fee, Tuition Fee, Annual Fee.
+                </MudText>
+            </div>
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="LoadAsync"
+                           Disabled="_loading">
+                    Refresh
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenCreateDialogAsync"
+                           Disabled="_loading">
+                    Add Fee Head
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField T="string"
+                          Label="Search"
+                          Placeholder="Search by name or code"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          Value="_searchText"
+                          ValueChanged="OnSearchChanged"
+                          Class="flex-grow-1" />
+
+            <MudSwitch T="bool"
+                       Label="Show inactive"
+                       Color="Color.Primary"
+                       @bind-Value="_showInactive" />
+        </MudStack>
+
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-6">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_filteredFeeHeads"
+                      Dense="true"
+                      Hover="true"
+                      Bordered="true"
+                      Striped="true">
+
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>Registration Fee</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh class="text-end">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.Code</MudTd>
+                    <MudTd>@(string.IsNullOrWhiteSpace(context.Description) ? "-" : context.Description)</MudTd>
+                    <MudTd>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Filled"
+                                 Color="@(context.IsRegistrationFee ? Color.Info : Color.Default)">
+                            @(context.IsRegistrationFee ? "Yes" : "No")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Filled"
+                                 Color="@(context.IsActive ? Color.Success : Color.Error)">
+                            @(context.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd Class="text-end">
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => OpenEditDialogAsync(context.Id))" />
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ConfirmDeleteAsync(context.Id, context.Name))" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        No fee heads found.
+                    </MudAlert>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudPaper>
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private string _searchText = string.Empty;
+    private bool _showInactive;
+    private List<FeeHeadResponse> _feeHeads = new();
+    private List<FeeHeadResponse> _filteredFeeHeads = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            _feeHeads = await FeeWebRepository.GetFeeHeadsAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value ?? string.Empty;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<FeeHeadResponse> query = _feeHeads;
+
+        if (!_showInactive)
+            query = query.Where(x => x.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var term = _searchText.Trim();
+
+            query = query.Where(x =>
+                x.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                x.Code.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(x.Description) &&
+                 x.Description.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _filteredFeeHeads = query
+            .OrderBy(x => x.Name)
+            .ToList();
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<FeeHeadDialog>(
+            "Add Fee Head",
+            new DialogParameters
+            {
+                [nameof(FeeHeadDialog.IsEdit)] = false
+            },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenEditDialogAsync(int id)
+    {
+        try
+        {
+            var feeHead = await FeeWebRepository.GetFeeHeadByIdAsync(id);
+            if (feeHead is null)
+            {
+                Snackbar.Add("Fee head not found.", Severity.Warning);
+                return;
+            }
+
+            var dialog = await DialogService.ShowAsync<FeeHeadDialog>(
+                "Edit Fee Head",
+                new DialogParameters
+                {
+                    [nameof(FeeHeadDialog.IsEdit)] = true,
+                    [nameof(FeeHeadDialog.FeeHead)] = feeHead
+                },
+                new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+
+            var result = await dialog.Result;
+            if (!result.Canceled)
+                await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(int id, string name)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>(
+            "Delete Fee Head",
+            new DialogParameters
+            {
+                [nameof(ConfirmDialog.Title)] = "Delete Fee Head",
+                [nameof(ConfirmDialog.Message)] = $"Are you sure you want to delete '{name}'?",
+                [nameof(ConfirmDialog.ConfirmText)] = "Delete",
+                [nameof(ConfirmDialog.ConfirmColor)] = Color.Error
+            },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            await FeeWebRepository.DeleteFeeHeadAsync(id);
+            Snackbar.Add("Fee head deleted successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

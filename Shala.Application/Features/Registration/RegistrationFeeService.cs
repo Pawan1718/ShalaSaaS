@@ -1,0 +1,26 @@
+﻿using Shala.Application.Repositories.Registration;
+using Shala.Shared.Requests.Registration;
+using Shala.Shared.Responses.Registration;
+
+namespace Shala.Application.Features.Registration
+{
+    public class RegistrationFeeService : IRegistrationFeeService
+    {
+        private readonly IRegistrationFeeRepository _repo;
+
+        public RegistrationFeeService(IRegistrationFeeRepository repo)
+        {
+            _repo = repo;
+        }
+
+        public Task<RegistrationFeeResponse> CollectAsync(int tenantId, int branchId, int registrationId, CollectRegistrationFeeRequest request, CancellationToken ct)
+        {
+            return _repo.CollectAsync(tenantId, branchId, registrationId, request, ct);
+        }
+
+        public Task<RegistrationReceiptResponse> GetReceiptAsync(int tenantId, int branchId, int receiptId, CancellationToken ct)
+        {
+            return _repo.GetReceiptAsync(tenantId, branchId, receiptId, ct);
+        }
+    }
+}

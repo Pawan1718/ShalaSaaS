@@ -1,0 +1,361 @@
+﻿@page "/tenant/settings/fees/structures"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses.Fees
+@using Shala.Shared.Responses.Students
+@using Shala.Shared.Responses.Academics
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Fees
+@using Shala.Web.Repositories.Fees
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Services.State
+
+@inject IFeeWebRepository FeeWebRepository
+@inject IAcademicYearRepository AcademicYearRepository
+@inject IAcademicClassRepository AcademicClassRepository
+@inject ApiSession ApiSession
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Fee Structures</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <div>
+                <MudText Typo="Typo.h5">Fee Structures</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Create and manage class-wise fee structures.
+                </MudText>
+            </div>
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="LoadAsync"
+                           Disabled="_loading">
+                    Refresh
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenCreateDialogAsync"
+                           Disabled="_loading || !_feeHeads.Any()">
+                    Add Structure
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (!_feeHeads.Any() && !_loading && string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true">
+            No fee heads found. Please create fee heads first.
+        </MudAlert>
+    }
+
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField T="string"
+                          Label="Search"
+                          Placeholder="Search by structure name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          Value="_searchText"
+                          ValueChanged="OnSearchChanged"
+                          Class="flex-grow-1" />
+
+            <MudSwitch T="bool"
+                       Label="Show inactive"
+                       Color="Color.Primary"
+                       @bind-Value="_showInactive" />
+        </MudStack>
+
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-6">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_filteredStructures"
+                      Dense="true"
+                      Hover="true"
+                      Bordered="true"
+                      Striped="true"
+                      Breakpoint="Breakpoint.Sm">
+
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Academic Year</MudTh>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Items</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh class="text-end">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Academic Year">@GetAcademicYearName(context.AcademicYearId)</MudTd>
+                    <MudTd DataLabel="Class">@GetAcademicClassName(context.AcademicClassId)</MudTd>
+                    <MudTd DataLabel="Items">@context.Items.Count</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Filled"
+                                 Color="@(context.IsActive ? Color.Success : Color.Error)">
+                            @(context.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Actions" Class="text-end">
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
+                            <MudTooltip Text="View">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                               Color="Color.Info"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenViewDialogAsync(context.Id))" />
+                            </MudTooltip>
+
+                            <MudTooltip Text="Edit">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenEditDialogAsync(context.Id))" />
+                            </MudTooltip>
+
+                            <MudTooltip Text="Delete">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => ConfirmDeleteAsync(context.Id, context.Name))" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        No fee structures found.
+                    </MudAlert>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudPaper>
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private string _searchText = string.Empty;
+    private bool _showInactive;
+
+    private List<FeeStructureResponse> _structures = new();
+    private List<FeeStructureResponse> _filteredStructures = new();
+    private List<FeeHeadResponse> _feeHeads = new();
+
+    private List<AcademicYearListItemResponse> _academicYears = new();
+    private List<AcademicClassListItemResponse> _academicClasses = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            await ApiSession.InitializeAsync();
+
+            var tenantId = ApiSession.TenantId;
+            if (!tenantId.HasValue || tenantId.Value <= 0)
+            {
+                _error = "Tenant context not found.";
+                return;
+            }
+
+            _feeHeads = await FeeWebRepository.GetFeeHeadsAsync();
+            _structures = await FeeWebRepository.GetFeeStructuresAsync();
+
+            var academicYearResponse = await AcademicYearRepository.GetAllAsync(tenantId.Value);
+            if (academicYearResponse?.Success == true && academicYearResponse.Data is not null)
+                _academicYears = academicYearResponse.Data;
+
+            var academicClassResponse = await AcademicClassRepository.GetAllAsync(tenantId.Value);
+            if (academicClassResponse?.Success == true && academicClassResponse.Data is not null)
+                _academicClasses = academicClassResponse.Data;
+
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value ?? string.Empty;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<FeeStructureResponse> query = _structures;
+
+        if (!_showInactive)
+            query = query.Where(x => x.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var term = _searchText.Trim();
+
+            query = query.Where(x =>
+                x.Name.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(x.Description) &&
+                 x.Description.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _filteredStructures = query
+            .OrderBy(x => x.Name)
+            .ToList();
+    }
+
+    private string GetAcademicYearName(int academicYearId)
+    {
+        return _academicYears.FirstOrDefault(x => x.Id == academicYearId)?.Name
+               ?? $"#{academicYearId}";
+    }
+
+    private string GetAcademicClassName(int academicClassId)
+    {
+        return _academicClasses.FirstOrDefault(x => x.Id == academicClassId)?.Name
+               ?? $"#{academicClassId}";
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<FeeStructureDialog>(
+            "Add Fee Structure",
+            new DialogParameters
+            {
+                [nameof(FeeStructureDialog.IsReadOnly)] = false,
+                [nameof(FeeStructureDialog.AvailableFeeHeads)] = _feeHeads
+            },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenViewDialogAsync(int id)
+    {
+        try
+        {
+            var structure = await FeeWebRepository.GetFeeStructureByIdAsync(id);
+            if (structure is null)
+            {
+                Snackbar.Add("Fee structure not found.", Severity.Warning);
+                return;
+            }
+
+            var dialog = await DialogService.ShowAsync<FeeStructureDialog>(
+                "View Fee Structure",
+                new DialogParameters
+                {
+                    [nameof(FeeStructureDialog.IsReadOnly)] = true,
+                    [nameof(FeeStructureDialog.Structure)] = structure,
+                    [nameof(FeeStructureDialog.AvailableFeeHeads)] = _feeHeads
+                },
+                new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true });
+
+            await dialog.Result;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OpenEditDialogAsync(int id)
+    {
+        try
+        {
+            var structure = await FeeWebRepository.GetFeeStructureByIdAsync(id);
+            if (structure is null)
+            {
+                Snackbar.Add("Fee structure not found.", Severity.Warning);
+                return;
+            }
+
+            var dialog = await DialogService.ShowAsync<FeeStructureDialog>(
+                "Edit Fee Structure",
+                new DialogParameters
+                {
+                    [nameof(FeeStructureDialog.IsReadOnly)] = false,
+                    [nameof(FeeStructureDialog.Structure)] = structure,
+                    [nameof(FeeStructureDialog.AvailableFeeHeads)] = _feeHeads
+                },
+                new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true });
+
+            var result = await dialog.Result;
+            if (!result.Canceled)
+                await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(int id, string name)
+    {
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>(
+            "Delete Fee Structure",
+            new DialogParameters
+            {
+                [nameof(ConfirmDialog.Title)] = "Delete Fee Structure",
+                [nameof(ConfirmDialog.Message)] = $"Are you sure you want to delete '{name}'?",
+                [nameof(ConfirmDialog.ConfirmText)] = "Delete",
+                [nameof(ConfirmDialog.ConfirmColor)] = Color.Error
+            },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            await FeeWebRepository.DeleteFeeStructureAsync(id);
+            Snackbar.Add("Fee structure deleted successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

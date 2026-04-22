@@ -1,0 +1,440 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+@using Shala.Web.Services.State
+@using Shala.Web.Repositories.TenantConfig
+@inject NavigationManager Nav
+@inject ApiSession Session
+@inject IRegistrationFeeConfigurationWebRepository FeeConfigRepo
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout Class="tenant-layout-shell">
+
+    <MudAppBar Elevation="1" Dense="true" Color="Color.Primary" Class="tenant-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="ToggleDrawer"
+                       Class="mr-2" />
+
+        <div class="tenant-brand cursor-pointer" @onclick="GoDashboard">
+            <MudAvatar Size="Size.Medium" Class="tenant-brand-avatar" Variant="Variant.Filled">
+                <MudIcon Icon="@Icons.Material.Filled.School" />
+            </MudAvatar>
+
+            <div class="tenant-brand-text">
+                <MudText Typo="Typo.subtitle1" Class="tenant-brand-title">Shala Tenant</MudText>
+                <MudText Typo="Typo.caption" Class="tenant-brand-subtitle">
+                    @GetBranchDisplay()
+                </MudText>
+            </div>
+        </div>
+
+        <MudSpacer />
+
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudPaper Class="tenant-top-summary" Elevation="0">
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Apartment" Size="Size.Small" />
+                    <MudText Typo="Typo.caption">@GetTenantDisplay()</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudHidden>
+
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           StartIcon="@Icons.Material.Filled.AccountCircle">
+                    @GetUserDisplay()
+                </MudButton>
+            </ActivatorContent>
+
+            <ChildContent>
+                <MudMenuItem Icon="@Icons.Material.Filled.Dashboard"
+                             OnClick="@(() => Nav.NavigateTo("/tenant/dashboard"))">
+                    Dashboard
+                </MudMenuItem>
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Settings"
+                             OnClick="@(() => Nav.NavigateTo("/tenant/settings"))">
+                    Settings
+                </MudMenuItem>
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout"
+                             OnClick="LogoutAsync">
+                    Logout
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="1"
+               Width="300px"
+               Class="tenant-drawer">
+
+        <div class="tenant-drawer-header">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.subtitle1" Class="fw-700">Tenant Workspace</MudText>
+                <MudText Typo="Typo.caption" Class="tenant-drawer-subtitle">
+                    Admissions, students, fees, documents and supplies
+                </MudText>
+            </MudStack>
+
+            <MudPaper Class="tenant-drawer-meta" Elevation="0">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="meta-label">Signed in as</MudText>
+                    <MudText Typo="Typo.body2" Class="meta-value">@GetUserDisplay()</MudText>
+                    <MudText Typo="Typo.caption" Class="meta-subvalue">@GetRoleDisplay()</MudText>
+                </MudStack>
+            </MudPaper>
+        </div>
+
+        <MudNavMenu Dense="true" Class="tenant-nav-menu">
+
+            <MudNavLink Href="/tenant/dashboard"
+                        Match="NavLinkMatch.All"
+                        Icon="@Icons.Material.Filled.SpaceDashboard">
+                Dashboard
+            </MudNavLink>
+
+            <MudDivider Class="my-2" />
+
+            <MudText Typo="Typo.caption" Class="tenant-menu-section">
+                MAIN MODULES
+            </MudText>
+
+            @if (_registrationModuleEnabled)
+            {
+                <MudNavLink Href="/student/registrations"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.HowToReg">
+                    Registration
+                </MudNavLink>
+            }
+
+            <MudNavLink Href="/tenant/students/create"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.PersonAddAlt1">
+                Admission
+            </MudNavLink>
+
+            <MudNavLink Href="/tenant/students"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Groups">
+                Students
+            </MudNavLink>
+
+            <MudNavLink Href="/tenant/settings/fees/structures"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                Fees
+            </MudNavLink>
+
+            <MudNavLink Href="/tenant/settings/document-models"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Description">
+                Documents
+            </MudNavLink>
+
+            <MudNavLink Href="/tenant/supplies/issues"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Inventory2">
+                Student Supplies
+            </MudNavLink>
+
+            <MudNavLink Disabled="true"
+                        Icon="@Icons.Material.Filled.Assessment">
+                Reports
+            </MudNavLink>
+
+            <MudNavLink Disabled="true"
+                        Icon="@Icons.Material.Filled.Insights">
+                Analytics
+            </MudNavLink>
+
+            <MudDivider Class="my-2" />
+
+            <MudNavLink Href="/tenant/settings"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Settings">
+                Setting & Config
+            </MudNavLink>
+
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="tenant-main-content">
+        <div class="tenant-main-bg"></div>
+
+        <MudContainer MaxWidth="MaxWidth.False" Class="tenant-page-container">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+
+</MudLayout>
+
+<style>
+    .tenant-layout-shell {
+        min-height: 100vh;
+        background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 24%), radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.07), transparent 22%), #f8fafc;
+    }
+
+    .tenant-appbar {
+        backdrop-filter: blur(10px);
+        box-shadow: 0 6px 22px rgba(15, 23, 42, 0.08);
+        z-index: 1301;
+    }
+
+    .tenant-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .tenant-brand-avatar {
+        background: rgba(255,255,255,0.18);
+        color: white;
+    }
+
+    .tenant-brand-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .tenant-brand-title {
+        font-weight: 700;
+        line-height: 1.1;
+    }
+
+    .tenant-brand-subtitle {
+        opacity: 0.9;
+        line-height: 1.1;
+    }
+
+    .tenant-top-summary {
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-right: 10px;
+        background: rgba(255,255,255,0.14);
+        color: white;
+    }
+
+    .tenant-drawer {
+        border-right: 1px solid rgba(148, 163, 184, 0.18);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+
+    .tenant-drawer-header {
+        padding: 18px 16px 14px 16px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        background: rgba(255,255,255,0.75);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .tenant-drawer-subtitle {
+        color: #64748b;
+    }
+
+    .tenant-drawer-meta {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+    }
+
+    .meta-label {
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .meta-value {
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .meta-subvalue {
+        color: #64748b;
+    }
+
+    .tenant-nav-menu {
+        padding: 10px 10px 16px 10px;
+    }
+
+    .tenant-menu-section {
+        display: block;
+        padding: 10px 16px 6px 16px;
+        color: #8a90a2;
+        font-weight: 700;
+        letter-spacing: 0.7px;
+    }
+
+    .tenant-nav-menu .mud-nav-link {
+        border-radius: 12px;
+        margin: 4px 6px;
+        transition: all 0.2s ease;
+    }
+
+        .tenant-nav-menu .mud-nav-link:hover {
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .tenant-nav-menu .mud-nav-link.active {
+            background: rgba(37, 99, 235, 0.12);
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+    .tenant-main-content {
+        min-height: 100vh;
+        position: relative;
+        background: transparent;
+    }
+
+    .tenant-main-bg {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(circle at 85% 10%, rgba(59, 130, 246, 0.06), transparent 20%), radial-gradient(circle at 10% 90%, rgba(99, 102, 241, 0.06), transparent 22%);
+        z-index: 0;
+    }
+
+    .tenant-page-container {
+        position: relative;
+        z-index: 1;
+        padding: 24px;
+    }
+
+    .fw-700 {
+        font-weight: 700;
+    }
+
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    @@media (max-width: 960px) {
+        .tenant-page-container {
+            padding: 16px;
+        }
+    }
+
+    @@media (max-width: 600px) {
+        .tenant-page-container {
+            padding: 12px;
+        }
+
+        .tenant-brand-subtitle {
+            display: none;
+        }
+    }
+</style>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _initialized;
+    private bool _registrationModuleEnabled = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRegistrationModuleStatusAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized)
+            return;
+
+        _initialized = true;
+
+        var ok = await Session.InitializeAsync();
+
+        if (!ok)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/tenant/login", true);
+            return;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task LoadRegistrationModuleStatusAsync()
+    {
+        try
+        {
+            var config = await FeeConfigRepo.GetAsync();
+            _registrationModuleEnabled = config?.IsRegistrationModuleEnabled ?? true;
+        }
+        catch
+        {
+            _registrationModuleEnabled = true;
+        }
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void GoDashboard()
+    {
+        Nav.NavigateTo("/tenant/dashboard");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Session.ClearAsync();
+        Nav.NavigateTo("/tenant/login", true);
+    }
+
+    private string GetUserDisplay()
+    {
+        if (!string.IsNullOrWhiteSpace(Session.FullName))
+            return Session.FullName!;
+
+        if (!string.IsNullOrWhiteSpace(Session.Email))
+            return Session.Email!;
+
+        return "Tenant User";
+    }
+
+    private string GetRoleDisplay()
+    {
+        if (!string.IsNullOrWhiteSpace(Session.Role))
+            return Session.Role!;
+
+        return "School User";
+    }
+
+    private string GetTenantDisplay()
+    {
+        return Session.TenantId.HasValue
+            ? $"Tenant ID: {Session.TenantId.Value}"
+            : "Tenant Workspace";
+    }
+
+    private string GetBranchDisplay()
+    {
+        return Session.BranchId.HasValue
+            ? $"Branch ID: {Session.BranchId.Value}"
+            : "Branch not selected";
+    }
+}

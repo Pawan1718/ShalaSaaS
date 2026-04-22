@@ -1,0 +1,41 @@
+﻿@using MudBlazor
+
+<MudPaper Class="pa-3 rounded-lg" Outlined="true">
+    <MudGrid AlignItems="AlignItems.Center">
+        <MudItem xs="12" md="8">
+            <MudStack Spacing="0">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.subtitle2">@Title</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(Tooltip))
+                    {
+                        <MudTooltip Text="@Tooltip">
+                            <MudIcon Icon="@Icons.Material.Filled.Info"
+                                     Size="Size.Small"
+                                     Color="Color.Info"
+                                     Class="cursor-pointer" />
+                        </MudTooltip>
+                    }
+                </MudStack>
+
+                @if (!string.IsNullOrWhiteSpace(HelperText))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @HelperText
+                    </MudText>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            @ChildContent
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Tooltip { get; set; } = string.Empty;
+    [Parameter] public string HelperText { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

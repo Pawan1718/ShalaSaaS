@@ -1,0 +1,360 @@
+﻿@page "/platform/tenants/{TenantId:int}/branches"
+@layout Shala.Web.Components.Layouts.PlatformMainLayout
+
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Platform
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject IBranchRepository BranchRepository
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<PageTitle>Branch Setup</PageTitle>
+
+<AppPageHeader Title="Branch Setup"
+               Subtitle="Manage school branches and campuses">
+    <Actions>
+        <AppButton Variant="Variant.Outlined"
+                   OnClick="GoBack">
+            Back
+        </AppButton>
+
+        <AppButton StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(async (MouseEventArgs _) => await OpenCreateDialogAsync())">
+            Add Branch
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+@if (_invalidTenantId)
+{
+    <AppCard Class="pa-6">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            Invalid tenant selected.
+        </MudAlert>
+    </AppCard>
+}
+else
+{
+    <AppCard Class="mb-4">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField T="string"
+                          Label="Search branch"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Value="@_searchText"
+                          ValueChanged="OnSearchChanged"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Class="me-2"
+                          Style="min-width:300px;" />
+
+            <MudSpacer />
+
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">
+                Total: @_branches.Count
+            </MudChip>
+        </MudStack>
+    </AppCard>
+
+    <AppCard>
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6">
+                <MudProgressCircular Indeterminate="true" />
+            </MudStack>
+        }
+        else if (FilteredBranches.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                No branches found.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="FilteredBranches" Dense="true" Hover="true" Bordered="false" Striped="false">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Code</MudTh>
+                    <MudTh>City</MudTh>
+                    <MudTh>Principal</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Main</MudTh>
+                    <MudTh Align="Align.Right">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Code">@context.Code</MudTd>
+                    <MudTd DataLabel="City">@context.City</MudTd>
+                    <MudTd DataLabel="Principal">@context.PrincipalName</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string"
+                                 Color="@(context.IsActive ? Color.Success : Color.Error)"
+                                 Variant="Variant.Filled"
+                                 Size="Size.Small">
+                            @(context.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Main">
+                        @if (context.IsMainBranch)
+                        {
+                            <MudChip T="string"
+                                     Color="Color.Primary"
+                                     Variant="Variant.Filled"
+                                     Size="Size.Small">
+                                Main
+                            </MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Actions" Align="Align.Right">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Primary"
+                                       OnClick="@(async () => await OpenEditDialogAsync(context))" />
+
+<MudTooltip Text="@GetDeleteDisabledReason(context)">
+    <MudSpan>
+        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                       Color="Color.Error"
+                       Disabled="@IsDeleteDisabled(context)"
+                       OnClick="@(async () => await DeleteBranchAsync(context))" />
+    </MudSpan>
+</MudTooltip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </AppCard>
+}
+
+@code {
+    [Parameter] public int TenantId { get; set; }
+
+    private bool _isLoading = true;
+    private bool _invalidTenantId;
+    private string _searchText = string.Empty;
+    private List<BranchResponse> _branches = new();
+
+    private List<BranchResponse> FilteredBranches =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _branches
+            : _branches
+                .Where(x =>
+                    (!string.IsNullOrWhiteSpace(x.Name) && x.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(x.Code) && x.Code.Contains(_searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(x.City) && x.City.Contains(_searchText, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(x.PrincipalName) && x.PrincipalName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+    private bool HasOnlyOneBranch => _branches.Count <= 1;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (TenantId <= 0)
+        {
+            _invalidTenantId = true;
+            _isLoading = false;
+            _branches.Clear();
+            return;
+        }
+
+        _invalidTenantId = false;
+        await LoadBranchesAsync();
+    }
+
+    private async Task LoadBranchesAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _branches = await BranchRepository.GetAllAsync(TenantId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            _branches = new List<BranchResponse>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        return Task.CompletedTask;
+    }
+
+    private bool IsDeleteDisabled(BranchResponse item) => item.IsMainBranch || HasOnlyOneBranch;
+
+    private string GetDeleteDisabledReason(BranchResponse item)
+    {
+        if (HasOnlyOneBranch) return "The only branch cannot be deleted.";
+        if (item.IsMainBranch) return "Main branch cannot be deleted.";
+        return "Delete branch";
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var parameters = new DialogParameters<BranchUpsertDialog>
+        {
+            { x => x.IsEdit, false },
+            { x => x.Model, new CreateBranchRequest { TenantId = TenantId, IsActive = true } }
+        };
+
+        var dialog = await DialogService.ShowAsync<BranchUpsertDialog>(
+            "Add Branch",
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not BranchUpsertDialog.BranchUpsertDialogResult dialogResult)
+            return;
+
+        try
+        {
+            var created = await BranchRepository.CreateAsync(dialogResult.CreateRequest);
+
+            if (created is null)
+            {
+                Snackbar.Add("Failed to create branch.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Branch created successfully.", Severity.Success);
+            await LoadBranchesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OpenEditDialogAsync(BranchResponse item)
+    {
+        var dialogModel = new CreateBranchRequest
+        {
+            TenantId = item.TenantId,
+            Name = item.Name,
+            Email = item.Email,
+            Phone = item.Phone,
+            AddressLine1 = item.AddressLine1,
+            AddressLine2 = item.AddressLine2,
+            City = item.City,
+            State = item.State,
+            Pincode = item.Pincode,
+            PrincipalName = item.PrincipalName,
+            IsMainBranch = item.IsMainBranch,
+            IsActive = item.IsActive
+        };
+
+        var dialog = await DialogService.ShowAsync<BranchUpsertDialog>(
+     "Edit Branch",
+     new DialogParameters<BranchUpsertDialog>
+     {
+        { x => x.IsEdit, true },
+        { x => x.Model, dialogModel },
+        { x => x.ExistingCode, item.Code }
+     },
+     new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not BranchUpsertDialog.BranchUpsertDialogResult dialogResult)
+            return;
+
+        var updateRequest = new UpdateBranchRequest
+        {
+            Name = dialogResult.CreateRequest.Name,
+            Code = dialogResult.Code,
+            Email = dialogResult.CreateRequest.Email,
+            Phone = dialogResult.CreateRequest.Phone,
+            AddressLine1 = dialogResult.CreateRequest.AddressLine1,
+            AddressLine2 = dialogResult.CreateRequest.AddressLine2,
+            City = dialogResult.CreateRequest.City,
+            State = dialogResult.CreateRequest.State,
+            Pincode = dialogResult.CreateRequest.Pincode,
+            PrincipalName = dialogResult.CreateRequest.PrincipalName,
+            IsMainBranch = dialogResult.CreateRequest.IsMainBranch,
+            IsActive = dialogResult.CreateRequest.IsActive
+        };
+
+        try
+        {
+            var updated = await BranchRepository.UpdateAsync(item.TenantId, item.Id, updateRequest);
+
+            if (updated is null)
+            {
+                Snackbar.Add("Failed to update branch.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Branch updated successfully.", Severity.Success);
+            await LoadBranchesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteBranchAsync(BranchResponse item)
+    {
+        if (HasOnlyOneBranch)
+        {
+            Snackbar.Add("The only branch cannot be deleted.", Severity.Warning);
+            return;
+        }
+
+        if (item.IsMainBranch)
+        {
+            Snackbar.Add("Main branch cannot be deleted.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await DialogService.ShowAsync<Shala.Web.Components.Dialogs.ConfirmDialog>(
+            "Confirm Delete",
+            new DialogParameters
+            {
+                ["Title"] = "Confirm Delete",
+                ["Message"] = $"Are you sure you want to delete '{item.Name}'?",
+                ["ConfirmText"] = "Delete",
+                ["CancelText"] = "Cancel",
+                ["ConfirmColor"] = Color.Error
+            },
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+
+        var result = await dialog.Result;
+
+        if (result == null || result.Canceled)
+            return;
+
+        try
+        {
+            var deleted = await BranchRepository.DeleteAsync(item.TenantId, item.Id);
+
+            if (!deleted)
+            {
+                Snackbar.Add("Failed to delete branch.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Branch deleted successfully.", Severity.Success);
+            await LoadBranchesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/platform/tenants");
+}

@@ -1,0 +1,297 @@
+﻿@page "/tenant/dashboard"
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Web.Components.Common
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+<PageTitle>Tenant Dashboard</PageTitle>
+
+<AppPageHeader Title="Dashboard"
+               Subtitle="Overview of your school operations">
+    <Actions>
+        <AppButton StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="@(() => Nav("/tenant/students"))">
+            Add Student
+        </AppButton>
+
+        <AppButton StartIcon="@Icons.Material.Filled.GroupAdd"
+                   Variant="Variant.Outlined"
+                   OnClick="@(() => Nav("/tenant/users"))">
+            Add User
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+<MudGrid Spacing="3">
+
+    <!-- KPI CARDS -->
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="dashboard-card kpi-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.body2" Class="kpi-label">Total Students</MudText>
+                    <MudText Typo="Typo.h4" Class="kpi-value">1,248</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Success">+24 this month</MudText>
+                </div>
+                <MudAvatar Size="Size.Large" Color="Color.Primary" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.Groups" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="dashboard-card kpi-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.body2" Class="kpi-label">Active Staff</MudText>
+                    <MudText Typo="Typo.h4" Class="kpi-value">86</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Info">12 branch users</MudText>
+                </div>
+                <MudAvatar Size="Size.Large" Color="Color.Info" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.Badge" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="dashboard-card kpi-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.body2" Class="kpi-label">Fees Collected</MudText>
+                    <MudText Typo="Typo.h4" Class="kpi-value">₹ 4.8L</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Success">78% collection</MudText>
+                </div>
+                <MudAvatar Size="Size.Large" Color="Color.Success" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.Payments" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="dashboard-card kpi-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                <div>
+                    <MudText Typo="Typo.body2" Class="kpi-label">Pending Dues</MudText>
+                    <MudText Typo="Typo.h4" Class="kpi-value">₹ 1.2L</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Warning">42 students pending</MudText>
+                </div>
+                <MudAvatar Size="Size.Large" Color="Color.Warning" Variant="Variant.Filled">
+                    <MudIcon Icon="@Icons.Material.Filled.WarningAmber" />
+                </MudAvatar>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <!-- LEFT BIG SECTION -->
+    <MudItem xs="12" md="8">
+        <MudPaper Class="dashboard-card section-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <div>
+                    <MudText Typo="Typo.h6">Quick Overview</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Branch-wise and academic activity summary
+                    </MudText>
+                </div>
+
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">
+                    Main Branch
+                </MudChip>
+            </MudStack>
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="mini-stat-card">
+                        <MudText Typo="Typo.subtitle2">Admissions Today</MudText>
+                        <MudText Typo="Typo.h5">12</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="mini-stat-card">
+                        <MudText Typo="Typo.subtitle2">Attendance Today</MudText>
+                        <MudText Typo="Typo.h5">91%</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="mini-stat-card">
+                        <MudText Typo="Typo.subtitle2">New Users</MudText>
+                        <MudText Typo="Typo.h5">5</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="mini-stat-card">
+                        <MudText Typo="Typo.subtitle2">Open Notifications</MudText>
+                        <MudText Typo="Typo.h5">8</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.subtitle1" Class="mb-2">Fee Collection Progress</MudText>
+            <MudProgressLinear Value="78" Color="Color.Success" Rounded="true" Size="Size.Large" />
+            <MudText Typo="Typo.caption" Class="mt-2 d-block">78% of expected monthly fees collected.</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <!-- RIGHT SIDEBAR -->
+    <MudItem xs="12" md="4">
+        <MudPaper Class="dashboard-card section-card">
+            <MudText Typo="Typo.h6" Class="mb-3">Quick Actions</MudText>
+
+            <MudStack Spacing="2">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Groups"
+                           OnClick="@(() => Nav("/tenant/students"))">
+                    Manage Students
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Group"
+                           OnClick="@(() => Nav("/tenant/users"))">
+                    Manage Users
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.ReceiptLong"
+                           OnClick="@(() => Nav("/tenant/fees"))">
+                    Open Fees
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Class"
+                           OnClick="@(() => Nav("/tenant/classes"))">
+                    Open Classes
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <!-- RECENT USERS -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="dashboard-card section-card">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6">Recent Users</MudText>
+                <MudButton Variant="Variant.Text" OnClick="@(() => Nav("/tenant/users"))">
+                    View All
+                </MudButton>
+            </MudStack>
+
+            <MudTable Items="_recentUsers" Dense="true" Hover="true" Bordered="false" Striped="false">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Role</MudTh>
+                    <MudTh>Branch</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.Role</MudTd>
+                    <MudTd>@context.Branch</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudItem>
+
+    <!-- RECENT ACTIVITY -->
+    <MudItem xs="12" md="6">
+        <MudPaper Class="dashboard-card section-card">
+            <MudText Typo="Typo.h6" Class="mb-3">Recent Activity</MudText>
+
+            <MudTimeline Dense="true">
+                <MudTimelineItem Color="Color.Success">
+                    <ItemContent>
+                        <MudText Typo="Typo.body2">3 new student admissions completed</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">10 mins ago</MudText>
+                    </ItemContent>
+                </MudTimelineItem>
+
+                <MudTimelineItem Color="Color.Info">
+                    <ItemContent>
+                        <MudText Typo="Typo.body2">User account created for Accountant</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">25 mins ago</MudText>
+                    </ItemContent>
+                </MudTimelineItem>
+
+                <MudTimelineItem Color="Color.Warning">
+                    <ItemContent>
+                        <MudText Typo="Typo.body2">Fee due reminder sent to 42 parents</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">1 hour ago</MudText>
+                    </ItemContent>
+                </MudTimelineItem>
+            </MudTimeline>
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+<style>
+    .dashboard-card {
+        border-radius: 18px;
+        padding: 20px;
+        background: #fff;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .kpi-card {
+        min-height: 140px;
+    }
+
+    .section-card {
+        min-height: 100%;
+    }
+
+    .kpi-label {
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .kpi-value {
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 6px;
+        margin-bottom: 6px;
+    }
+
+    .mini-stat-card {
+        padding: 16px;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .mini-stat-card .mud-typography-h5 {
+        margin-top: 6px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+</style>
+
+@code {
+    private readonly List<RecentUserVm> _recentUsers =
+    [
+        new("Amit Patil", "Teacher", "Main Branch"),
+        new("Sneha More", "Accountant", "Main Branch"),
+        new("Rohan Jadhav", "Branch Admin", "Main Branch")
+    ];
+
+    private void Nav(string url)
+    {
+        Navigation.NavigateTo(url);
+    }
+
+    private record RecentUserVm(string Name, string Role, string Branch);
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+}

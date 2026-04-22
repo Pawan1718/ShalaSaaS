@@ -1,0 +1,60 @@
+﻿    @using MudBlazor
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Models.Fees
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h6">Assign Fee Structure</MudText>
+
+            <MudSelect T="int" Label="Fee Structure" @bind-Value="_model.FeeStructureId" Required="true">
+                @foreach (var item in FeeStructures)
+                {
+                    <MudSelectItem T="int" Value="@item.Id">
+                        @item.Name
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal"
+                             Label="Discount Amount"
+                             @bind-Value="_model.DiscountAmount"
+                             Min="0"
+                             Immediate="true" />
+
+            <MudNumericField T="decimal"
+                             Label="Additional Charge Amount"
+                             @bind-Value="_model.AdditionalChargeAmount"
+                             Min="0"
+                             Immediate="true" />
+
+            <MudCheckBox T="bool"
+                         Label="Auto generate charges after assignment"
+                         @bind-Value="_model.AutoGenerateCharges" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public List<FeeStructureResponse> FeeStructures { get; set; } = new();
+
+    private readonly AssignFeeStructureVm _model = new();
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void SubmitAsync()
+    {
+        if (_model.FeeStructureId <= 0)
+            return;
+
+        MudDialog.Close(DialogResult.Ok(_model));
+    }
+}

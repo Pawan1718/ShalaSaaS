@@ -1,0 +1,33 @@
+﻿@using System.Linq.Expressions
+@using MudBlazor
+
+<MudTextField T="string"
+              Value="Value"
+              ValueChanged="HandleValueChanged"
+              ValueExpression="ValueExpression"
+              Label="@Label"
+              Placeholder="@Placeholder"
+              Variant="Variant.Outlined"
+              Margin="Margin.Dense"
+              Immediate="true"
+              DebounceInterval="@DebounceInterval"
+              Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search"
+              Clearable="true"
+              FullWidth="true" />
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Search";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public double DebounceInterval { get; set; } = 300;
+
+    private async Task HandleValueChanged(string? value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}
