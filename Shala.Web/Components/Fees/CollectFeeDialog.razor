@@ -3,15 +3,23 @@
 @using Shala.Shared.Responses.Fees
 @using Shala.Web.Models.Fees
 
-<MudDialog MaxWidth="MaxWidth.Large" FullWidth="true">
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
     <DialogContent>
         <MudStack Spacing="3">
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                <MudText Typo="Typo.h6">Collect Fee</MudText>
+                <div>
+                    <MudText Typo="Typo.h6">Collect Fee</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Select pending charges and record only valid allocation amounts.
+                    </MudText>
+                </div>
 
                 <MudStack Row="true" Spacing="1">
                     <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="PayFull">
                         Pay Full
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="SelectOverdue">
+                        Overdue Only
                     </MudButton>
                     <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearAll">
                         Clear
@@ -19,40 +27,115 @@
                 </MudStack>
             </MudStack>
 
-            <MudTable Items="_rows" Dense="true" Hover="true" Bordered="true" Striped="true">
+            @if (!string.IsNullOrWhiteSpace(_validationMessage))
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                    @_validationMessage
+                </MudAlert>
+            }
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Pending Charges</MudText>
+                        <MudText Typo="Typo.h6">@_rows.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Selected Rows</MudText>
+                        <MudText Typo="Typo.h6">@_rows.Count(x => x.Selected)</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Selected Total</MudText>
+                        <MudText Typo="Typo.h6">@GetSelectedTotal().ToString("N2")</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Overdue Balance</MudText>
+                        <MudText Typo="Typo.h6">@_rows.Where(x => x.IsOverdue).Sum(x => x.BalanceAmount).ToString("N2")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable Items="_rows" Dense="true" Hover="true" Bordered="true" Striped="true" Breakpoint="Breakpoint.Sm">
                 <HeaderContent>
                     <MudTh>Select</MudTh>
                     <MudTh>Charge</MudTh>
                     <MudTh>Period</MudTh>
                     <MudTh>Due Date</MudTh>
+                    <MudTh class="text-end">Net</MudTh>
+                    <MudTh class="text-end">Paid</MudTh>
                     <MudTh class="text-end">Balance</MudTh>
                     <MudTh class="text-end">Pay Now</MudTh>
                 </HeaderContent>
 
                 <RowTemplate>
-                    <MudTd>
+                    <MudTd DataLabel="Select">
                         <MudCheckBox T="bool"
                                      Value="context.Selected"
                                      ValueChanged="@(value => OnSelectedChanged(context, value))" />
                     </MudTd>
-                    <MudTd>@context.ChargeLabel</MudTd>
-                    <MudTd>@(string.IsNullOrWhiteSpace(context.PeriodLabel) ? "-" : context.PeriodLabel)</MudTd>
-                    <MudTd>@context.DueDate.ToString("dd MMM yyyy")</MudTd>
-                    <MudTd class="text-end">@context.BalanceAmount.ToString("N2")</MudTd>
-                    <MudTd class="text-end" Style="width:160px;">
+
+                    <MudTd DataLabel="Charge">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2">@context.ChargeLabel</MudText>
+                            @if (context.IsOverdue)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error">
+                                    Overdue
+                                </MudChip>
+                            }
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Period">
+                        @(string.IsNullOrWhiteSpace(context.PeriodLabel) ? "-" : context.PeriodLabel)
+                    </MudTd>
+
+                    <MudTd DataLabel="Due Date">
+                        @context.DueDate.ToString("dd MMM yyyy")
+                    </MudTd>
+
+                    <MudTd DataLabel="Net" class="text-end">
+                        @context.NetAmount.ToString("N2")
+                    </MudTd>
+
+                    <MudTd DataLabel="Paid" class="text-end">
+                        @context.PaidAmount.ToString("N2")
+                    </MudTd>
+
+                    <MudTd DataLabel="Balance" class="text-end">
+                        @context.BalanceAmount.ToString("N2")
+                    </MudTd>
+
+                    <MudTd DataLabel="Pay Now" class="text-end" Style="width:170px;">
                         <MudNumericField T="decimal"
-                                         @bind-Value="context.PayNowAmount"
+                                         Value="context.PayNowAmount"
+                                         ValueChanged="@(value => OnAmountChanged(context, value))"
                                          Min="0"
                                          Max="@context.BalanceAmount"
                                          Immediate="true"
+                                         Dense="true"
+                                         Variant="Variant.Outlined"
                                          Disabled="@(!context.Selected)" />
                     </MudTd>
                 </RowTemplate>
             </MudTable>
 
-            <MudGrid>
+            <MudGrid Spacing="2">
                 <MudItem xs="12" md="4">
-                    <MudSelect T="int" Label="Payment Mode" @bind-Value="_paymentMode">
+                    <MudSelect T="int"
+                               Label="Payment Mode"
+                               @bind-Value="_paymentMode"
+                               Dense="true"
+                               Variant="Variant.Outlined">
                         <MudSelectItem T="int" Value="1">Cash</MudSelectItem>
                         <MudSelectItem T="int" Value="2">UPI</MudSelectItem>
                         <MudSelectItem T="int" Value="3">Bank Transfer</MudSelectItem>
@@ -63,23 +146,34 @@
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudTextField Label="Transaction Reference" @bind-Value="_transactionReference" />
+                    <MudTextField Label="Transaction Reference"
+                                  @bind-Value="_transactionReference"
+                                  Dense="true"
+                                  Variant="Variant.Outlined" />
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudTextField Label="Remarks" @bind-Value="_remarks" />
+                    <MudTextField Label="Remarks"
+                                  @bind-Value="_remarks"
+                                  Dense="true"
+                                  Variant="Variant.Outlined" />
                 </MudItem>
             </MudGrid>
 
-            <MudAlert Severity="Severity.Info" Dense="true">
-                Total Selected Amount: @GetSelectedTotal().ToString("N2")
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                Submit once. Backend allocation validation will reject over-allocation or stale balance.
             </MudAlert>
         </MudStack>
     </DialogContent>
 
     <DialogActions>
-        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Save Receipt</MudButton>
+        <MudButton Variant="Variant.Text" Disabled="_saving" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_saving || !CanSubmit)"
+                   OnClick="SubmitAsync">
+            @(_saving ? "Saving..." : "Save Receipt")
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -90,39 +184,73 @@
     [Parameter] public int StudentAdmissionId { get; set; }
     [Parameter] public List<StudentChargeResponse> Charges { get; set; } = new();
 
-    private List<CollectFeeRowVm> _rows = new();
+    private sealed class CollectFeeDialogRowVm : CollectFeeRowVm
+    {
+        public bool IsOverdue { get; set; }
+    }
+
+    private List<CollectFeeDialogRowVm> _rows = new();
     private int _paymentMode = 1;
     private string? _transactionReference;
     private string? _remarks;
+    private bool _saving;
+    private string? _validationMessage;
+
+    private bool CanSubmit => _rows.Any(x => x.Selected && x.PayNowAmount > 0);
 
     protected override void OnInitialized()
     {
+        var today = DateTime.Today;
+
         _rows = Charges
             .Where(x => !x.IsCancelled && x.BalanceAmount > 0)
             .OrderBy(x => x.DueDate)
-            .Select(x => new CollectFeeRowVm
+            .ThenBy(x => x.Id)
+            .Select(x => new CollectFeeDialogRowVm
             {
                 StudentChargeId = x.Id,
-                ChargeLabel = x.ChargeLabel,
+                ChargeLabel = x.ChargeLabel ?? string.Empty,
                 PeriodLabel = x.PeriodLabel,
                 DueDate = x.DueDate,
                 NetAmount = x.NetAmount,
                 PaidAmount = x.PaidAmount,
                 BalanceAmount = x.BalanceAmount,
                 Selected = false,
-                PayNowAmount = x.BalanceAmount
+                PayNowAmount = 0m,
+                IsOverdue = x.DueDate.Date < today
             })
             .ToList();
     }
 
-    private void OnSelectedChanged(CollectFeeRowVm row, bool selected)
+    private void OnSelectedChanged(CollectFeeDialogRowVm row, bool selected)
     {
         row.Selected = selected;
 
         if (!selected)
-            row.PayNowAmount = 0;
-        else if (row.PayNowAmount <= 0)
+        {
+            row.PayNowAmount = 0m;
+        }
+        else if (row.PayNowAmount <= 0 || row.PayNowAmount > row.BalanceAmount)
+        {
             row.PayNowAmount = row.BalanceAmount;
+        }
+
+        _validationMessage = null;
+    }
+
+    private void OnAmountChanged(CollectFeeDialogRowVm row, decimal value)
+    {
+        if (!row.Selected)
+            return;
+
+        if (value < 0)
+            value = 0;
+
+        if (value > row.BalanceAmount)
+            value = row.BalanceAmount;
+
+        row.PayNowAmount = decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+        _validationMessage = null;
     }
 
     private decimal GetSelectedTotal()
@@ -139,6 +267,19 @@
             row.Selected = true;
             row.PayNowAmount = row.BalanceAmount;
         }
+
+        _validationMessage = null;
+    }
+
+    private void SelectOverdue()
+    {
+        foreach (var row in _rows)
+        {
+            row.Selected = row.IsOverdue;
+            row.PayNowAmount = row.IsOverdue ? row.BalanceAmount : 0m;
+        }
+
+        _validationMessage = null;
     }
 
     private void ClearAll()
@@ -146,36 +287,66 @@
         foreach (var row in _rows)
         {
             row.Selected = false;
-            row.PayNowAmount = 0;
+            row.PayNowAmount = 0m;
         }
+
+        _validationMessage = null;
     }
 
     private void Cancel() => MudDialog.Cancel();
 
-    private void Submit()
+    private Task SubmitAsync()
     {
+        if (_saving)
+            return Task.CompletedTask;
+
         var allocations = _rows
-            .Where(x => x.Selected && x.PayNowAmount > 0)
+            .Where(x => x.Selected)
             .Select(x => new FeeReceiptAllocationRequest
             {
                 StudentChargeId = x.StudentChargeId,
-                AllocatedAmount = x.PayNowAmount
+                AllocatedAmount = decimal.Round(x.PayNowAmount, 2, MidpointRounding.AwayFromZero)
             })
+            .Where(x => x.AllocatedAmount > 0)
             .ToList();
 
         if (allocations.Count == 0)
-            return;
+        {
+            _validationMessage = "Select at least one charge with a valid pay-now amount.";
+            return Task.CompletedTask;
+        }
+
+        if (allocations.Any(x => x.AllocatedAmount <= 0))
+        {
+            _validationMessage = "Allocated amount must be greater than zero.";
+            return Task.CompletedTask;
+        }
+
+        var duplicateChargeIds = allocations
+            .GroupBy(x => x.StudentChargeId)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .ToList();
+
+        if (duplicateChargeIds.Count > 0)
+        {
+            _validationMessage = "Duplicate charge allocations are not allowed.";
+            return Task.CompletedTask;
+        }
+
+        _saving = true;
 
         var request = new CreateFeeReceiptRequest
         {
             StudentId = StudentId,
             StudentAdmissionId = StudentAdmissionId,
             PaymentMode = _paymentMode,
-            TransactionReference = _transactionReference,
-            Remarks = _remarks,
+            TransactionReference = string.IsNullOrWhiteSpace(_transactionReference) ? null : _transactionReference.Trim(),
+            Remarks = string.IsNullOrWhiteSpace(_remarks) ? null : _remarks.Trim(),
             Allocations = allocations
         };
 
         MudDialog.Close(DialogResult.Ok(request));
+        return Task.CompletedTask;
     }
 }

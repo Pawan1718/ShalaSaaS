@@ -27,6 +27,9 @@ public sealed class FeeReceiptPrintVm
     public bool AllowPrintReceipt { get; set; } = true;
     public bool AllowDownloadReceipt { get; set; } = true;
 
+
+    public bool IsCancelled { get; set; }
+
     public decimal TotalAmount { get; set; }
     public string AmountInWords { get; set; } = string.Empty;
 

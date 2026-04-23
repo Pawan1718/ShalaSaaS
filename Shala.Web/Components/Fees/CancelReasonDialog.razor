@@ -1,0 +1,80 @@
+﻿@using MudBlazor
+
+<MudDialog MaxWidth="MaxWidth.Small" FullWidth="true">
+    <TitleContent>
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Color="Color.Error" />
+            <MudText Typo="Typo.h6">@Title</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="2">
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @Description
+                </MudText>
+            }
+
+            <MudTextField T="string"
+                          Label="Reason"
+                          @bind-Value="_reason"
+                          Lines="3"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Required="true"
+                          Counter="250"
+                          MaxLength="250" />
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined">
+                    @_error
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Close">Close</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="Submit">
+            Confirm
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string Title { get; set; } = "Enter Reason";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? InitialReason { get; set; }
+
+    private string _reason = string.Empty;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _reason = InitialReason?.Trim() ?? string.Empty;
+    }
+
+    private void Close()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void Submit()
+    {
+        var reason = _reason.Trim();
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            _error = "Reason is required.";
+            return;
+        }
+
+        _error = null;
+        MudDialog.Close(DialogResult.Ok(reason));
+    }
+}

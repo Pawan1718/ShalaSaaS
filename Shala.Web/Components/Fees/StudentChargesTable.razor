@@ -3,20 +3,21 @@
 
 <MudStack Spacing="2">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-     
-
         <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
-                Total: @Charges.Count()
+                Active: @ActiveCharges.Count()
             </MudChip>
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
-                Paid: @Charges.Count(x => !x.IsCancelled && x.BalanceAmount <= 0)
+                Paid: @ActiveCharges.Count(x => x.BalanceAmount <= 0)
             </MudChip>
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">
-                Partial: @Charges.Count(x => !x.IsCancelled && x.PaidAmount > 0 && x.BalanceAmount > 0)
+                Partial: @ActiveCharges.Count(x => x.PaidAmount > 0 && x.BalanceAmount > 0)
             </MudChip>
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error">
-                Pending: @Charges.Count(x => !x.IsCancelled && x.PaidAmount <= 0 && x.BalanceAmount > 0)
+                Pending: @ActiveCharges.Count(x => x.PaidAmount <= 0 && x.BalanceAmount > 0)
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default">
+                Cancelled: @Charges.Count(x => x.IsCancelled)
             </MudChip>
         </MudStack>
     </MudStack>
@@ -37,11 +38,9 @@
     }
     else
     {
-        <MudTable Items="Charges"
+        <MudTable Items="Charges.OrderBy(x => x.DueDate).ThenBy(x => x.Id)"
                   Dense="false"
                   Hover="true"
-                  Bordered="false"
-                  Striped="false"
                   Elevation="0"
                   Breakpoint="Breakpoint.Sm"
                   Class="charges-modern-table">
@@ -55,6 +54,7 @@
                 <MudTh class="text-end">Paid</MudTh>
                 <MudTh class="text-end">Balance</MudTh>
                 <MudTh>Status</MudTh>
+                <MudTh Align="right">Actions</MudTh>
             </HeaderContent>
 
             <RowTemplate>
@@ -115,10 +115,19 @@
                         {
                             <MudProgressLinear Value="@GetChargeProgress(context)"
                                                Color="@GetProgressColor(context)"
-                                               Rounded="true"
-                                               Class="mt-1" />
+                                               Rounded="true" />
                         }
                     </MudStack>
+                </MudTd>
+
+                <MudTd DataLabel="Actions" Align="right">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               Disabled="@(!CanCancel(context) || BusyChargeId == context.Id)"
+                               OnClick="@(() => CancelChargeAsync(context))">
+                        @(BusyChargeId == context.Id ? "Cancelling..." : "Cancel")
+                    </MudButton>
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -153,8 +162,22 @@
 </style>
 
 @code {
-    [Parameter]
-    public IEnumerable<StudentChargeResponse> Charges { get; set; } = Enumerable.Empty<StudentChargeResponse>();
+    [Parameter] public IEnumerable<StudentChargeResponse> Charges { get; set; } = Enumerable.Empty<StudentChargeResponse>();
+    [Parameter] public EventCallback<StudentChargeResponse> OnCancelCharge { get; set; }
+    [Parameter] public int? BusyChargeId { get; set; }
+
+    private List<StudentChargeResponse> ActiveCharges => Charges.Where(x => !x.IsCancelled).ToList();
+
+    private async Task CancelChargeAsync(StudentChargeResponse charge)
+    {
+        if (OnCancelCharge.HasDelegate)
+            await OnCancelCharge.InvokeAsync(charge);
+    }
+
+    private static bool CanCancel(StudentChargeResponse charge)
+    {
+        return !charge.IsCancelled && charge.PaidAmount <= 0;
+    }
 
     private static string GetSubLabel(StudentChargeResponse charge)
     {
@@ -174,6 +197,9 @@
         if (charge.PaidAmount > 0)
             return "Partially paid";
 
+        if (charge.DueDate.Date < DateTime.Today)
+            return "Overdue";
+
         return "Awaiting payment";
     }
 
@@ -182,6 +208,7 @@
         if (charge.IsCancelled) return "Cancelled";
         if (charge.BalanceAmount <= 0) return "Paid";
         if (charge.PaidAmount > 0) return "Partial";
+        if (charge.DueDate.Date < DateTime.Today) return "Overdue";
         return "Pending";
     }
 
@@ -190,7 +217,8 @@
         if (charge.IsCancelled) return Color.Default;
         if (charge.BalanceAmount <= 0) return Color.Success;
         if (charge.PaidAmount > 0) return Color.Warning;
-        return Color.Error;
+        if (charge.DueDate.Date < DateTime.Today) return Color.Error;
+        return Color.Info;
     }
 
     private static Color GetBalanceColor(StudentChargeResponse charge)

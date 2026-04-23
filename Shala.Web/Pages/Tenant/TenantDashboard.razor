@@ -1,9 +1,9 @@
-﻿@page "/tenant/dashboard"
+﻿ @page "/tenant/dashboard"
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Web.Components.Common
 @layout Shala.Web.Components.Layouts.TenantMainLayout
-
+@*
 <PageTitle>Tenant Dashboard</PageTitle>
 
 <AppPageHeader Title="Dashboard"
@@ -294,4 +294,4 @@
     private record RecentUserVm(string Name, string Role, string Branch);
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-}
+} *@

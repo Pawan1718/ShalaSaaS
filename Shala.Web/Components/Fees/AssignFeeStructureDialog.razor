@@ -1,14 +1,26 @@
-﻿    @using MudBlazor
+﻿@using MudBlazor
 @using Shala.Shared.Responses.Fees
 @using Shala.Web.Models.Fees
 
 <MudDialog>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudText Typo="Typo.h6">Assign Fee Structure</MudText>
+            <div>
+                <MudText Typo="Typo.h6">@(_isEditMode ? "Update Fee Assignment" : "Assign Fee Structure")</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @(_isEditMode
+                        ? "Change fee structure or fee-level adjustments. If unpaid charges already exist, regenerate after update."
+                        : "Link a structure to this admission and optionally generate charges immediately.")
+                </MudText>
+            </div>
 
-            <MudSelect T="int" Label="Fee Structure" @bind-Value="_model.FeeStructureId" Required="true">
-                @foreach (var item in FeeStructures)
+            <MudSelect T="int"
+                       Label="Fee Structure"
+                       @bind-Value="_model.FeeStructureId"
+                       Required="true"
+                       Dense="true"
+                       Variant="Variant.Outlined">
+                @foreach (var item in FeeStructures.OrderBy(x => x.Name))
                 {
                     <MudSelectItem T="int" Value="@item.Id">
                         @item.Name
@@ -20,41 +32,80 @@
                              Label="Discount Amount"
                              @bind-Value="_model.DiscountAmount"
                              Min="0"
-                             Immediate="true" />
+                             Immediate="true"
+                             Dense="true"
+                             Variant="Variant.Outlined" />
 
             <MudNumericField T="decimal"
                              Label="Additional Charge Amount"
                              @bind-Value="_model.AdditionalChargeAmount"
                              Min="0"
-                             Immediate="true" />
+                             Immediate="true"
+                             Dense="true"
+                             Variant="Variant.Outlined" />
 
             <MudCheckBox T="bool"
-                         Label="Auto generate charges after assignment"
+                         Label="Auto generate / regenerate charges after save"
                          @bind-Value="_model.AutoGenerateCharges" />
+
+            @if (_isEditMode)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                    If active unpaid charges already exist, regenerate will cancel old unpaid charges and create a fresh set.
+                    If any charge is already paid, backend may block fee-impact changes.
+                </MudAlert>
+            }
         </MudStack>
     </DialogContent>
 
     <DialogActions>
         <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync">Save</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">
+            @(_isEditMode ? "Update Assignment" : "Assign Structure")
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter]
-    public List<FeeStructureResponse> FeeStructures { get; set; } = new();
+    [Parameter] public List<FeeStructureResponse> FeeStructures { get; set; } = new();
+    [Parameter] public AssignFeeStructureVm? InitialModel { get; set; }
+    [Parameter] public bool IsEditMode { get; set; }
 
     private readonly AssignFeeStructureVm _model = new();
+    private bool _initialized;
+    private bool _isEditMode => IsEditMode;
+
+    protected override void OnParametersSet()
+    {
+        if (_initialized)
+            return;
+
+        if (InitialModel is not null)
+        {
+            _model.FeeStructureId = InitialModel.FeeStructureId;
+            _model.DiscountAmount = InitialModel.DiscountAmount;
+            _model.AdditionalChargeAmount = InitialModel.AdditionalChargeAmount;
+            _model.AutoGenerateCharges = InitialModel.AutoGenerateCharges;
+        }
+
+        _initialized = true;
+    }
 
     private void Cancel() => MudDialog.Cancel();
 
-    private void SubmitAsync()
+    private void Submit()
     {
         if (_model.FeeStructureId <= 0)
             return;
 
-        MudDialog.Close(DialogResult.Ok(_model));
+        MudDialog.Close(DialogResult.Ok(new AssignFeeStructureVm
+        {
+            FeeStructureId = _model.FeeStructureId,
+            DiscountAmount = _model.DiscountAmount,
+            AdditionalChargeAmount = _model.AdditionalChargeAmount,
+            AutoGenerateCharges = _model.AutoGenerateCharges
+        }));
     }
 }

@@ -5,10 +5,13 @@
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
         <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
-                Receipts: @Receipts.Count()
+                Active: @Receipts.Count(x => !x.IsCancelled)
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default">
+                Cancelled: @Receipts.Count(x => x.IsCancelled)
             </MudChip>
             <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
-                Total: @Receipts.Sum(x => x.TotalAmount).ToString("N2")
+                Active Total: @Receipts.Where(x => !x.IsCancelled).Sum(x => x.TotalAmount).ToString("N2")
             </MudChip>
         </MudStack>
     </MudStack>
@@ -29,11 +32,9 @@
     }
     else
     {
-        <MudTable Items="Receipts"
+        <MudTable Items="Receipts.OrderByDescending(x => x.ReceiptDate).ThenByDescending(x => x.Id)"
                   Dense="false"
                   Hover="true"
-                  Bordered="false"
-                  Striped="false"
                   Elevation="0"
                   Breakpoint="Breakpoint.Sm"
                   Class="receipts-modern-table">
@@ -55,6 +56,13 @@
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             @GetReceiptHint(context)
                         </MudText>
+
+                        @if (context.IsCancelled)
+                        {
+                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default">
+                                Cancelled
+                            </MudChip>
+                        }
                     </MudStack>
                 </MudTd>
 
@@ -83,24 +91,43 @@
                 </MudTd>
 
                 <MudTd DataLabel="Remarks">
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @(string.IsNullOrWhiteSpace(context.Remarks) ? "-" : context.Remarks)
-                    </MudText>
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @(string.IsNullOrWhiteSpace(context.Remarks) ? "-" : context.Remarks)
+                        </MudText>
+
+                        @if (context.IsCancelled && !string.IsNullOrWhiteSpace(context.CancelReason))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Error">
+                                Cancel reason: @context.CancelReason
+                            </MudText>
+                        }
+                    </MudStack>
                 </MudTd>
 
                 <MudTd DataLabel="Amount" class="text-end">
-                    <MudText Typo="Typo.subtitle2" Color="Color.Success">
+                    <MudText Typo="Typo.subtitle2" Color="@(context.IsCancelled ? Color.Default : Color.Success)">
                         @context.TotalAmount.ToString("N2")
                     </MudText>
                 </MudTd>
 
                 <MudTd DataLabel="Actions" Align="right">
-                    <MudButton Variant="Variant.Text"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Visibility"
-                               OnClick="@(() => ViewReceiptAsync(context))">
-                        View Receipt
-                    </MudButton>
+                    <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Text"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Visibility"
+                                   OnClick="@(() => ViewReceiptAsync(context))">
+                            View
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Text"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   Disabled="@(context.IsCancelled || BusyReceiptId == context.Id)"
+                                   OnClick="@(() => CancelReceiptAsync(context))">
+                            @(BusyReceiptId == context.Id ? "Cancelling..." : "Cancel")
+                        </MudButton>
+                    </MudStack>
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -135,16 +162,21 @@
 </style>
 
 @code {
-    [Parameter]
-    public IEnumerable<FeeReceiptResponse> Receipts { get; set; } = Enumerable.Empty<FeeReceiptResponse>();
-
-    [Parameter]
-    public EventCallback<FeeReceiptResponse> OnViewReceipt { get; set; }
+    [Parameter] public IEnumerable<FeeReceiptResponse> Receipts { get; set; } = Enumerable.Empty<FeeReceiptResponse>();
+    [Parameter] public EventCallback<FeeReceiptResponse> OnViewReceipt { get; set; }
+    [Parameter] public EventCallback<FeeReceiptResponse> OnCancelReceipt { get; set; }
+    [Parameter] public int? BusyReceiptId { get; set; }
 
     private async Task ViewReceiptAsync(FeeReceiptResponse receipt)
     {
         if (OnViewReceipt.HasDelegate)
             await OnViewReceipt.InvokeAsync(receipt);
+    }
+
+    private async Task CancelReceiptAsync(FeeReceiptResponse receipt)
+    {
+        if (OnCancelReceipt.HasDelegate)
+            await OnCancelReceipt.InvokeAsync(receipt);
     }
 
     private static string GetReceiptHint(FeeReceiptResponse receipt)

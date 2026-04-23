@@ -31,10 +31,9 @@ else if (!string.IsNullOrWhiteSpace(_error))
 else
 {
     <MudStack Spacing="3">
-
-        <MudPaper Class="pa-5 pa-md-6" Elevation="2" Style="border-radius: 20px;">
+        <MudPaper Class="pa-5 pa-md-6" Elevation="2" Style="border-radius: 20px; background: linear-gradient(135deg, rgba(25,118,210,0.10), rgba(255,152,0,0.10));">
             <MudGrid Spacing="3" AlignItems="AlignItems.Center">
-                <MudItem xs="12" lg="7">
+                <MudItem xs="12" lg="8">
                     <MudStack Spacing="2">
                         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                             <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Large">
@@ -43,120 +42,139 @@ else
                             <div>
                                 <MudText Typo="Typo.h4">Ledger Dashboard</MudText>
                                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    Central transaction history for finance and stock. Fees Ledger is active now. Supply Stock Ledger will be added in the next phase.
+                                    Read-only fee ledger view. Closing balance comes from backend summary and should not change with UI sorting.
                                 </MudText>
                             </div>
                         </MudStack>
                     </MudStack>
                 </MudItem>
 
-                <MudItem xs="12" lg="5">
-                    <MudStack Spacing="2" AlignItems="AlignItems.End">
+                <MudItem xs="12" lg="4">
+                    <MudStack AlignItems="AlignItems.End" Spacing="1">
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Default"
                                    StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
                                    OnClick="GoToFeesDashboard">
                             Fees Dashboard
                         </MudButton>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Use admission filters for targeted ledger review.
+                        </MudText>
                     </MudStack>
                 </MudItem>
             </MudGrid>
         </MudPaper>
 
-        <MudTabs Rounded="true" Elevation="1" PanelClass="pa-4" Color="Color.Primary">
-            <MudTabPanel Text="Fees Ledger" Icon="@Icons.Material.Filled.ReceiptLong">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" lg="3">
+                <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Entries</MudText>
+                    <MudText Typo="Typo.h5">@_data.Summary.TotalEntries</MudText>
+                </MudPaper>
+            </MudItem>
 
-                <MudGrid Spacing="3" Class="mb-1">
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Entries</MudText>
-                            <MudText Typo="Typo.h5">@_data.Summary.TotalEntries</MudText>
-                        </MudPaper>
-                    </MudItem>
+            <MudItem xs="12" sm="6" lg="3">
+                <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Debit</MudText>
+                    <MudText Typo="Typo.h5">@_data.Summary.TotalDebit.ToString("N2")</MudText>
+                </MudPaper>
+            </MudItem>
 
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Debit</MudText>
-                            <MudText Typo="Typo.h5">@_data.Summary.TotalDebit.ToString("N2")</MudText>
-                        </MudPaper>
-                    </MudItem>
+            <MudItem xs="12" sm="6" lg="3">
+                <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Credit</MudText>
+                    <MudText Typo="Typo.h5">@_data.Summary.TotalCredit.ToString("N2")</MudText>
+                </MudPaper>
+            </MudItem>
 
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Credit</MudText>
-                            <MudText Typo="Typo.h5">@_data.Summary.TotalCredit.ToString("N2")</MudText>
-                        </MudPaper>
-                    </MudItem>
+            <MudItem xs="12" sm="6" lg="3">
+                <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Closing Balance</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">@_data.Summary.ClosingBalance.ToString("N2")</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
 
-                    <MudItem xs="12" sm="6" lg="3">
-                        <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Closing Balance</MudText>
-                            <MudText Typo="Typo.h5">@_data.Summary.ClosingBalance.ToString("N2")</MudText>
-                        </MudPaper>
-                    </MudItem>
-                </MudGrid>
+        <MudPaper Class="pa-4 mb-3" Elevation="1" Style="border-radius:18px;">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="int?"
+                                     Label="Student Id"
+                                     Value="_request.StudentId"
+                                     ValueChanged="OnStudentChanged"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
 
-                <MudPaper Class="pa-4 mb-3" Elevation="1" Style="border-radius:18px;">
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="4">
-                            <MudTextField T="string"
-                                          Label="Search"
-                                          Placeholder="Student, admission no, reference, remarks"
-                                          @bind-Value="_request.SearchText"
-                                          Variant="Variant.Outlined"
-                                          Margin="Margin.Dense"
-                                          Immediate="true" />
-                        </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="int?"
+                                     Label="Admission Id"
+                                     Value="_request.AdmissionId"
+                                     ValueChanged="OnAdmissionChanged"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
 
-                        <MudItem xs="12" md="3">
-                            <MudSelect T="string"
-                                       Label="Entry Type"
-                                       @bind-Value="_request.EntryType"
-                                       Variant="Variant.Outlined"
-                                       Margin="Margin.Dense"
-                                       Clearable="true">
-                                <MudSelectItem T="string" Value="@("Charge")">Charge</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("Discount")">Discount</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("Fine")">Fine</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("Receipt")">Receipt</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("ReceiptCancel")">ReceiptCancel</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("Adjustment")">Adjustment</MudSelectItem>
-                            </MudSelect>
-                        </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Search"
+                                  Placeholder="Student, admission, reference, remarks"
+                                  @bind-Value="_request.SearchText"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Immediate="true" />
+                </MudItem>
 
-                        <MudItem xs="12" md="2">
-                            <MudDatePicker Label="From"
-                                           Date="_fromDate"
-                                           DateChanged="OnFromDateChanged"
-                                           Margin="Margin.Dense"
-                                           Variant="Variant.Outlined" />
-                        </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="string"
+                               Label="Entry Type"
+                               @bind-Value="_request.EntryType"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Clearable="true">
+                        <MudSelectItem T="string" Value="@("Charge")">Charge</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("ChargeCancel")">ChargeCancel</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Receipt")">Receipt</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("ReceiptCancel")">ReceiptCancel</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Discount")">Discount</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Fine")">Fine</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Adjustment")">Adjustment</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
 
-                        <MudItem xs="12" md="2">
-                            <MudDatePicker Label="To"
-                                           Date="_toDate"
-                                           DateChanged="OnToDateChanged"
-                                           Margin="Margin.Dense"
-                                           Variant="Variant.Outlined" />
-                        </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudDatePicker Label="From"
+                                   Date="_fromDate"
+                                   DateChanged="OnFromDateChanged"
+                                   Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" />
+                </MudItem>
 
-                        <MudItem xs="12" md="1">
-                            <MudSelect T="int"
-                                       Label="Rows"
-                                       Variant="Variant.Outlined"
-                                       Margin="Margin.Dense"
-                                       Value="_request.PageSize"
-                                       ValueChanged="OnPageSizeChangedAsync">
-                                <MudSelectItem T="int" Value="10">10</MudSelectItem>
-                                <MudSelectItem T="int" Value="25">25</MudSelectItem>
-                                <MudSelectItem T="int" Value="50">50</MudSelectItem>
-                                <MudSelectItem T="int" Value="100">100</MudSelectItem>
-                                <MudSelectItem T="int" Value="-1">All</MudSelectItem>
-                            </MudSelect>
-                        </MudItem>
-                    </MudGrid>
+                <MudItem xs="12" md="2">
+                    <MudDatePicker Label="To"
+                                   Date="_toDate"
+                                   DateChanged="OnToDateChanged"
+                                   Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" />
+                </MudItem>
 
-                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                <MudItem xs="12" md="2">
+                    <MudSelect T="int"
+                               Label="Rows"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Value="_request.PageSize"
+                               ValueChanged="OnPageSizeChangedAsync">
+                        <MudSelectItem T="int" Value="10">10</MudSelectItem>
+                        <MudSelectItem T="int" Value="25">25</MudSelectItem>
+                        <MudSelectItem T="int" Value="50">50</MudSelectItem>
+                        <MudSelectItem T="int" Value="100">100</MudSelectItem>
+                        <MudSelectItem T="int" Value="-1">All</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6" Class="d-flex align-end">
+                    <MudStack Row="true" Spacing="1">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync">
                             Search
                         </MudButton>
@@ -164,94 +182,113 @@ else
                             Reset
                         </MudButton>
                     </MudStack>
-                </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
 
-                <MudPaper Class="pa-0" Elevation="1" Style="border-radius:18px; overflow:hidden;">
-                    <MudTable T="FeeLedgerRowResponse"
-                              Items="_data.Entries.Items"
-                              Dense="true"
-                              Hover="true"
-                              Striped="true"
-                              Breakpoint="Breakpoint.Sm">
-                        <HeaderContent>
-                            <MudTh>Date</MudTh>
-                            <MudTh>Student</MudTh>
-                            <MudTh>Admission</MudTh>
-                            <MudTh>Type</MudTh>
-                            <MudTh Align="right">Debit</MudTh>
-                            <MudTh Align="right">Credit</MudTh>
-                            <MudTh Align="right">Balance</MudTh>
-                            <MudTh>Reference</MudTh>
-                            <MudTh>Remarks</MudTh>
-                        </HeaderContent>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+            Closing balance above comes from backend summary. Sorting rows below does not recompute it on UI.
+        </MudAlert>
 
-                        <RowTemplate>
-                            <MudTd DataLabel="Date">@context.EntryDate.ToString("dd MMM yyyy")</MudTd>
-                            <MudTd DataLabel="Student">@context.StudentName</MudTd>
-                            <MudTd DataLabel="Admission">@context.AdmissionNo</MudTd>
-                            <MudTd DataLabel="Type">
-                                <MudChip T="string" Variant="Variant.Filled" Size="Size.Small" Color="@GetEntryTypeColor(context.EntryType)">
-                                    @context.EntryType
-                                </MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="Debit" Align="right">@context.DebitAmount.ToString("N2")</MudTd>
-                            <MudTd DataLabel="Credit" Align="right">@context.CreditAmount.ToString("N2")</MudTd>
-                            <MudTd DataLabel="Balance" Align="right">@context.RunningBalance.ToString("N2")</MudTd>
-                            <MudTd DataLabel="Reference">@DisplayText(context.ReferenceNo)</MudTd>
-                            <MudTd DataLabel="Remarks">@DisplayText(context.Remarks)</MudTd>
-                        </RowTemplate>
+        <MudPaper Class="pa-0" Elevation="1" Style="border-radius:18px; overflow:hidden;">
+            <MudTable T="FeeLedgerRowResponse"
+                      Items="_data.Entries.Items"
+                      Dense="true"
+                      Hover="true"
+                      Striped="true"
+                      Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Student</MudTh>
+                    <MudTh>Admission</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh Align="right">Debit</MudTh>
+                    <MudTh Align="right">Credit</MudTh>
+                    <MudTh Align="right">Balance</MudTh>
+                    <MudTh>Reference</MudTh>
+                    <MudTh>Remarks</MudTh>
+                </HeaderContent>
 
-                        <NoRecordsContent>
-                            <div class="pa-6">
-                                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudAvatar Size="Size.Large" Variant="Variant.Filled" Color="Color.Info">
-                                        <MudIcon Icon="@Icons.Material.Filled.MenuBook" />
-                                    </MudAvatar>
-                                    <MudText Typo="Typo.h6">No ledger entries found</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                        Once fee ledger posting starts, entries will appear here.
-                                    </MudText>
-                                </MudStack>
-                            </div>
-                        </NoRecordsContent>
-                    </MudTable>
+                <RowTemplate>
+                    <MudTd DataLabel="Date">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2">@context.EntryDate.ToString("dd MMM yyyy")</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@context.EntryDate.ToString("hh:mm tt")</MudText>
+                        </MudStack>
+                    </MudTd>
 
-                    <MudDivider />
+                    <MudTd DataLabel="Student">@context.StudentName</MudTd>
+                    <MudTd DataLabel="Admission">@context.AdmissionNo</MudTd>
 
-                    <div class="pa-4">
-                        <MudGrid Spacing="2" AlignItems="AlignItems.Center">
-                            <MudItem xs="12" md="6">
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @GetPagingText()
-                                </MudText>
-                            </MudItem>
+                    <MudTd DataLabel="Type">
+                        <MudChip T="string" Variant="Variant.Filled" Size="Size.Small" Color="@GetEntryTypeColor(context.EntryType)">
+                            @context.EntryType
+                        </MudChip>
+                    </MudTd>
 
-                            <MudItem xs="12" md="6" Class="d-flex justify-end">
-                                <MudStack Row="true" Spacing="1">
-                                    <MudButton Variant="Variant.Outlined"
-                                               Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber <= 1)"
-                                               OnClick="PreviousPageAsync">
-                                        Prev
-                                    </MudButton>
+                    <MudTd DataLabel="Debit" Align="right">
+                        <MudText Color="@(context.DebitAmount > 0 ? Color.Error : Color.Default)">
+                            @context.DebitAmount.ToString("N2")
+                        </MudText>
+                    </MudTd>
 
-                                    <MudButton Variant="Variant.Outlined"
-                                               Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber >= _totalPages)"
-                                               OnClick="NextPageAsync">
-                                        Next
-                                    </MudButton>
-                                </MudStack>
-                            </MudItem>
-                        </MudGrid>
+                    <MudTd DataLabel="Credit" Align="right">
+                        <MudText Color="@(context.CreditAmount > 0 ? Color.Success : Color.Default)">
+                            @context.CreditAmount.ToString("N2")
+                        </MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Balance" Align="right">
+                        <MudText Typo="Typo.subtitle2">@context.RunningBalance.ToString("N2")</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Reference">@DisplayText(context.ReferenceNo)</MudTd>
+                    <MudTd DataLabel="Remarks">@DisplayText(context.Remarks)</MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <div class="pa-6">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Large" Variant="Variant.Filled" Color="Color.Info">
+                                <MudIcon Icon="@Icons.Material.Filled.MenuBook" />
+                            </MudAvatar>
+                            <MudText Typo="Typo.h6">No ledger entries found</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Adjust filters or wait for ledger posting activity.
+                            </MudText>
+                        </MudStack>
                     </div>
-                </MudPaper>
-            </MudTabPanel>
+                </NoRecordsContent>
+            </MudTable>
 
-            <MudTabPanel Text="Supply Stock Ledger" Icon="@Icons.Material.Filled.Inventory2" Disabled="true">
-                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                    Supply stock ledger will be added here in the next phase.
-                </MudAlert>
-            </MudTabPanel>
-        </MudTabs>
+            <MudDivider />
+
+            <div class="pa-4">
+                <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @GetPagingText()
+                        </MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6" Class="d-flex justify-end">
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined"
+                                       Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber <= 1)"
+                                       OnClick="PreviousPageAsync">
+                                Prev
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Outlined"
+                                       Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber >= _totalPages)"
+                                       OnClick="NextPageAsync">
+                                Next
+                            </MudButton>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </div>
+        </MudPaper>
     </MudStack>
 }
 
@@ -259,18 +296,19 @@ else
     private readonly FeeLedgerDashboardRequest _request = new()
     {
         PageNumber = 1,
-        PageSize = 10,
-        SortBy = "EntryDate",
-        SortDescending = true
+        PageSize = 25
     };
 
     private FeeLedgerDashboardResponse _data = new();
     private bool _loading = true;
     private string? _error;
-    private int _totalPages = 1;
 
     private DateTime? _fromDate;
     private DateTime? _toDate;
+
+    private int _totalPages => _data.Entries.PageSize <= 0 || _data.Entries.TotalCount <= 0
+        ? 1
+        : (int)Math.Ceiling((double)_data.Entries.TotalCount / _data.Entries.PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -283,12 +321,9 @@ else
         {
             _loading = true;
             _error = null;
-
+            _request.FromDate = _fromDate;
+            _request.ToDate = _toDate;
             _data = await FeeRepo.GetFeeLedgerDashboardAsync(_request);
-
-            _totalPages = _data.Entries.PageSize == -1
-                ? 1
-                : Math.Max(1, (int)Math.Ceiling((double)_data.Entries.TotalCount / _data.Entries.PageSize));
         }
         catch (Exception ex)
         {
@@ -309,50 +344,20 @@ else
 
     private async Task ResetAsync()
     {
-        _request.SearchText = null;
-        _request.EntryType = null;
         _request.StudentId = null;
         _request.AdmissionId = null;
-        _request.FromDate = null;
-        _request.ToDate = null;
+        _request.SearchText = null;
+        _request.EntryType = null;
         _request.PageNumber = 1;
-        _request.PageSize = 10;
-        _request.SortBy = "EntryDate";
-        _request.SortDescending = true;
-
+        _request.PageSize = 25;
         _fromDate = null;
         _toDate = null;
-
-        await LoadAsync();
-    }
-
-    private Task OnFromDateChanged(DateTime? value)
-    {
-        _fromDate = value;
-        _request.FromDate = value;
-        return Task.CompletedTask;
-    }
-
-    private Task OnToDateChanged(DateTime? value)
-    {
-        _toDate = value;
-        _request.ToDate = value;
-        return Task.CompletedTask;
-    }
-
-    private async Task OnPageSizeChangedAsync(int value)
-    {
-        if (_request.PageSize == value)
-            return;
-
-        _request.PageSize = value;
-        _request.PageNumber = 1;
         await LoadAsync();
     }
 
     private async Task PreviousPageAsync()
     {
-        if (_data.Entries.PageSize == -1 || _data.Entries.PageNumber <= 1)
+        if (_request.PageSize == -1 || _request.PageNumber <= 1)
             return;
 
         _request.PageNumber--;
@@ -361,25 +366,42 @@ else
 
     private async Task NextPageAsync()
     {
-        if (_data.Entries.PageSize == -1 || _data.Entries.PageNumber >= _totalPages)
+        if (_request.PageSize == -1 || _request.PageNumber >= _totalPages)
             return;
 
         _request.PageNumber++;
         await LoadAsync();
     }
 
-    private string GetPagingText()
+    private async Task OnPageSizeChangedAsync(int value)
     {
-        if (_data.Entries.TotalCount == 0)
-            return "No records";
+        _request.PageSize = value;
+        _request.PageNumber = 1;
+        await LoadAsync();
+    }
 
-        if (_data.Entries.PageSize == -1)
-            return $"Showing all {_data.Entries.TotalCount} record(s)";
+    private Task OnFromDateChanged(DateTime? value)
+    {
+        _fromDate = value;
+        return Task.CompletedTask;
+    }
 
-        var start = ((_data.Entries.PageNumber - 1) * _data.Entries.PageSize) + 1;
-        var end = Math.Min(_data.Entries.PageNumber * _data.Entries.PageSize, _data.Entries.TotalCount);
+    private Task OnToDateChanged(DateTime? value)
+    {
+        _toDate = value;
+        return Task.CompletedTask;
+    }
 
-        return $"Showing {start}-{end} of {_data.Entries.TotalCount} • Page {_data.Entries.PageNumber} of {_totalPages}";
+    private Task OnStudentChanged(int? value)
+    {
+        _request.StudentId = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnAdmissionChanged(int? value)
+    {
+        _request.AdmissionId = value;
+        return Task.CompletedTask;
     }
 
     private void GoToFeesDashboard()
@@ -387,19 +409,37 @@ else
         Navigation.NavigateTo("/tenant/fees/dashboard");
     }
 
+    private static Color GetEntryTypeColor(string? entryType)
+    {
+        return entryType?.Trim() switch
+        {
+            "Charge" => Color.Error,
+            "ChargeCancel" => Color.Default,
+            "Receipt" => Color.Success,
+            "ReceiptCancel" => Color.Warning,
+            "Discount" => Color.Info,
+            "Fine" => Color.Secondary,
+            "Adjustment" => Color.Primary,
+            _ => Color.Default
+        };
+    }
+
     private static string DisplayText(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "-" : value;
     }
 
-    private static Color GetEntryTypeColor(string? type) => type switch
+    private string GetPagingText()
     {
-        "Charge" => Color.Warning,
-        "Discount" => Color.Success,
-        "Fine" => Color.Error,
-        "Receipt" => Color.Primary,
-        "ReceiptCancel" => Color.Secondary,
-        "Adjustment" => Color.Info,
-        _ => Color.Default
-    };
+        if (_data.Entries.TotalCount <= 0)
+            return "No records";
+
+        if (_data.Entries.PageSize == -1)
+            return $"Showing all {_data.Entries.TotalCount} records";
+
+        var start = ((_data.Entries.PageNumber - 1) * _data.Entries.PageSize) + 1;
+        var end = Math.Min(_data.Entries.PageNumber * _data.Entries.PageSize, _data.Entries.TotalCount);
+
+        return $"Showing {start}-{end} of {_data.Entries.TotalCount} records";
+    }
 }
