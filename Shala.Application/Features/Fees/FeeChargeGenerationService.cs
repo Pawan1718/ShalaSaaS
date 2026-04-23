@@ -10,17 +10,20 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
     private readonly IStudentFeeAssignmentRepository _assignmentRepository;
     private readonly IFeeStructureRepository _structureRepository;
     private readonly IStudentChargeRepository _chargeRepository;
+    private readonly IFeeLedgerWriteRepository _ledgerRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public FeeChargeGenerationService(
         IStudentFeeAssignmentRepository assignmentRepository,
         IFeeStructureRepository structureRepository,
         IStudentChargeRepository chargeRepository,
+        IFeeLedgerWriteRepository ledgerRepository,
         IUnitOfWork unitOfWork)
     {
         _assignmentRepository = assignmentRepository;
         _structureRepository = structureRepository;
         _chargeRepository = chargeRepository;
+        _ledgerRepository = ledgerRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -31,19 +34,13 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         CancellationToken cancellationToken = default)
     {
         var assignment = await _assignmentRepository.GetByIdAsync(
-            studentFeeAssignmentId,
-            tenantId,
-            branchId,
-            cancellationToken);
+            studentFeeAssignmentId, tenantId, branchId, cancellationToken);
 
         if (assignment is null)
             return (false, "Student fee assignment not found.", new List<StudentCharge>());
 
         var structure = await _structureRepository.GetWithItemsAsync(
-            assignment.FeeStructureId,
-            tenantId,
-            branchId,
-            cancellationToken);
+            assignment.FeeStructureId, tenantId, branchId, cancellationToken);
 
         if (structure is null)
             return (false, "Fee structure not found.", new List<StudentCharge>());
@@ -52,21 +49,22 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
             return (false, "Fee structure has no items.", new List<StudentCharge>());
 
         var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(
-            studentFeeAssignmentId,
-            tenantId,
-            branchId,
-            cancellationToken);
+            studentFeeAssignmentId, tenantId, branchId, cancellationToken);
 
         var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
-
         if (hasPaidCharges)
             return (false, "Cannot regenerate charges because some charges are already paid.", new List<StudentCharge>());
 
         if (existingCharges.Any())
         {
-            // Assumes repository supports bulk delete.
-            // If not, replace with per-item delete/update logic from your repository.
-            await _chargeRepository.DeleteRangeAsync(existingCharges, cancellationToken);
+            foreach (var charge in existingCharges)
+            {
+                charge.IsCancelled = true;
+                charge.IsSettled = charge.PaidAmount >= charge.NetAmount && charge.NetAmount > 0;
+            }
+
+            await _ledgerRepository.DeleteByAssignmentIdAsync(
+                tenantId, branchId, studentFeeAssignmentId, cancellationToken);
         }
 
         var charges = new List<StudentCharge>();
@@ -77,7 +75,7 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
             if (item.Amount <= 0)
                 continue;
 
-            if (!ShouldGenerateItem(item, assignment))
+            if (!ShouldGenerateItem(item, existingCharges))
                 continue;
 
             switch ((FeeFrequencyType)item.FrequencyType)
@@ -148,6 +146,14 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         await _chargeRepository.AddRangeAsync(charges, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        await _ledgerRepository.RebuildRunningBalanceAsync(
+            tenantId,
+            branchId,
+            assignment.StudentAdmissionId,
+            cancellationToken);
+
+        await _ledgerRepository.SaveChangesAsync(cancellationToken);
+
         return (true, "Student charges generated successfully.", charges);
     }
 
@@ -181,7 +187,9 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         };
     }
 
-    private static bool ShouldGenerateItem(FeeStructureItem item, StudentFeeAssignment assignment)
+    private static bool ShouldGenerateItem(
+        FeeStructureItem item,
+        IEnumerable<StudentCharge> existingCharges)
     {
         var applyType = (FeeApplyType)item.ApplyType;
 
@@ -189,10 +197,13 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         {
             FeeApplyType.EveryYear => true,
 
-            // Adjust this logic if you have a proper "is first admission" field.
-            FeeApplyType.FirstAdmissionOnly => true,
+            FeeApplyType.FirstAdmissionOnly => !existingCharges.Any(x =>
+                !x.IsCancelled &&
+                x.FeeHeadId == item.FeeHeadId),
 
-            FeeApplyType.OneTime => true,
+            FeeApplyType.OneTime => !existingCharges.Any(x =>
+                !x.IsCancelled &&
+                x.FeeHeadId == item.FeeHeadId),
 
             _ => true
         };
@@ -288,6 +299,6 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         return new DateTime(dueYear, normalizedMonth, safeDay);
     }
 
-    private static string GetMonthName(int month) =>
-        new DateTime(2000, NormalizeMonth(month), 1).ToString("MMM");
+    private static string GetMonthName(int month)
+        => new DateTime(2000, NormalizeMonth(month), 1).ToString("MMM");
 }

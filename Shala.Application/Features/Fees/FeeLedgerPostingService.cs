@@ -14,12 +14,12 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
     }
 
     public async Task PostChargesAsync(
-        int tenantId,
-        int branchId,
-        int studentId,
-        int studentAdmissionId,
-        IEnumerable<StudentChargeResponse> charges,
-        CancellationToken cancellationToken = default)
+     int tenantId,
+     int branchId,
+     int studentId,
+     int studentAdmissionId,
+     IEnumerable<StudentChargeResponse> charges,
+     CancellationToken cancellationToken = default)
     {
         var validCharges = charges
             .Where(x => !x.IsCancelled)
@@ -30,11 +30,20 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
         if (!validCharges.Any())
             return;
 
-        var runningBalance = await _ledgerRepository.GetLatestRunningBalanceAsync(
-            tenantId,
-            branchId,
-            studentAdmissionId,
-            cancellationToken);
+        var chargeIds = validCharges
+            .Where(x => x.Id > 0)
+            .Select(x => x.Id)
+            .Distinct()
+            .ToList();
+
+        if (chargeIds.Count > 0)
+        {
+            await _ledgerRepository.DeleteByChargeIdsAsync(
+                tenantId,
+                branchId,
+                chargeIds,
+                cancellationToken);
+        }
 
         var entries = new List<StudentFeeLedger>();
 
@@ -43,8 +52,6 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
             var debit = charge.Amount + charge.FineAmount - charge.DiscountAmount;
             if (debit <= 0)
                 continue;
-
-            runningBalance += debit;
 
             entries.Add(new StudentFeeLedger
             {
@@ -58,25 +65,33 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 EntryDate = charge.DueDate == default ? DateTime.UtcNow : charge.DueDate,
                 DebitAmount = debit,
                 CreditAmount = 0m,
-                RunningBalance = runningBalance,
+                RunningBalance = 0m,
                 ReferenceNo = $"CH-{charge.Id}",
                 Remarks = "Charge posted"
             });
         }
 
-        if (!entries.Any())
+        if (entries.Count == 0)
             return;
 
         await _ledgerRepository.AddRangeAsync(entries, cancellationToken);
         await _ledgerRepository.SaveChangesAsync(cancellationToken);
+
+        await _ledgerRepository.RebuildRunningBalanceAsync(
+            tenantId,
+            branchId,
+            studentAdmissionId,
+            cancellationToken);
+
+        await _ledgerRepository.SaveChangesAsync(cancellationToken);
     }
 
     public async Task PostReceiptAsync(
-        int tenantId,
-        int branchId,
-        FeeReceiptResponse receipt,
-        IEnumerable<FeeReceiptAllocationResponse> allocations,
-        CancellationToken cancellationToken = default)
+     int tenantId,
+     int branchId,
+     FeeReceiptResponse receipt,
+     IEnumerable<FeeReceiptAllocationResponse> allocations,
+     CancellationToken cancellationToken = default)
     {
         var validAllocations = allocations
             .Where(x => x.AllocatedAmount != 0)
@@ -86,11 +101,18 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
         if (!validAllocations.Any())
             return;
 
-        var runningBalance = await _ledgerRepository.GetLatestRunningBalanceAsync(
+        // ❗ IMPORTANT: remove old ledger entries of this receipt (idempotent safe)
+        var existingEntries = await _ledgerRepository.GetByReceiptIdAsync(
             tenantId,
             branchId,
-            receipt.StudentAdmissionId,
+            receipt.Id,
             cancellationToken);
+
+        if (existingEntries.Any())
+        {
+            _ledgerRepository.RemoveRange(existingEntries);
+            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+        }
 
         var entries = new List<StudentFeeLedger>();
 
@@ -100,12 +122,7 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
             if (amount <= 0)
                 continue;
 
-            var isCancellation = allocation.AllocatedAmount < 0;
-
-            if (isCancellation)
-                runningBalance += amount;
-            else
-                runningBalance -= amount;
+            var isCancellation = receipt.IsCancelled; // 🔥 REAL FIX
 
             entries.Add(new StudentFeeLedger
             {
@@ -118,18 +135,32 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 FeeHeadId = allocation.FeeHeadId > 0 ? allocation.FeeHeadId : null,
                 EntryType = isCancellation ? "ReceiptCancel" : "Receipt",
                 EntryDate = receipt.ReceiptDate == default ? DateTime.UtcNow : receipt.ReceiptDate,
+
+                // 🔥 CORE ACCOUNTING FIX
                 DebitAmount = isCancellation ? amount : 0m,
                 CreditAmount = isCancellation ? 0m : amount,
-                RunningBalance = runningBalance,
+
+                RunningBalance = 0m,
                 ReferenceNo = receipt.ReceiptNo,
-                Remarks = isCancellation ? "Fee receipt cancelled" : "Fee receipt posted"
+                Remarks = isCancellation
+                    ? "Receipt cancelled (reversal entry)"
+                    : "Receipt posted"
             });
         }
 
-        if (!entries.Any())
+        if (entries.Count == 0)
             return;
 
         await _ledgerRepository.AddRangeAsync(entries, cancellationToken);
+        await _ledgerRepository.SaveChangesAsync(cancellationToken);
+
+        // 🔥 ALWAYS rebuild after financial mutation
+        await _ledgerRepository.RebuildRunningBalanceAsync(
+            tenantId,
+            branchId,
+            receipt.StudentAdmissionId,
+            cancellationToken);
+
         await _ledgerRepository.SaveChangesAsync(cancellationToken);
     }
 }

@@ -22,9 +22,10 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
     {
         return await _db.StudentFeeLedgers
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId
-                        && x.BranchId == branchId
-                        && x.StudentAdmissionId == studentAdmissionId)
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.StudentAdmissionId == studentAdmissionId)
             .OrderByDescending(x => x.EntryDate)
             .ThenByDescending(x => x.Id)
             .Select(x => (decimal?)x.RunningBalance)
@@ -38,8 +39,106 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
         await _db.StudentFeeLedgers.AddRangeAsync(entries, cancellationToken);
     }
 
+    public async Task DeleteByChargeIdsAsync(
+        int tenantId,
+        int branchId,
+        IEnumerable<int> chargeIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = chargeIds
+            .Where(x => x > 0)
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0)
+            return;
+
+        var rows = await _db.StudentFeeLedgers
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.StudentChargeId.HasValue &&
+                ids.Contains(x.StudentChargeId.Value))
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+            return;
+
+        _db.StudentFeeLedgers.RemoveRange(rows);
+    }
+
+    public async Task DeleteByAssignmentIdAsync(
+        int tenantId,
+        int branchId,
+        int studentFeeAssignmentId,
+        CancellationToken cancellationToken = default)
+    {
+        var chargeIds = await _db.StudentCharges
+            .AsNoTracking()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.StudentFeeAssignmentId == studentFeeAssignmentId)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        if (chargeIds.Count == 0)
+            return;
+
+        await DeleteByChargeIdsAsync(
+            tenantId,
+            branchId,
+            chargeIds,
+            cancellationToken);
+    }
+
+    public async Task RebuildRunningBalanceAsync(
+        int tenantId,
+        int branchId,
+        int studentAdmissionId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _db.StudentFeeLedgers
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.StudentAdmissionId == studentAdmissionId)
+            .OrderBy(x => x.EntryDate)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        decimal runningBalance = 0m;
+
+        foreach (var row in rows)
+        {
+            runningBalance += row.DebitAmount;
+            runningBalance -= row.CreditAmount;
+            row.RunningBalance = runningBalance;
+        }
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return _db.SaveChangesAsync(cancellationToken);
+    }
+
+
+    public async Task<List<StudentFeeLedger>> GetByReceiptIdAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    CancellationToken cancellationToken = default)
+    {
+        return await _db.StudentFeeLedgers
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.FeeReceiptId == receiptId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void RemoveRange(IEnumerable<StudentFeeLedger> entries)
+    {
+        _db.StudentFeeLedgers.RemoveRange(entries);
     }
 }

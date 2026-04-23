@@ -8,15 +8,18 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
 {
     private readonly IStudentFeeAssignmentRepository _repo;
     private readonly IStudentChargeRepository _chargeRepository;
+    private readonly IFeeLedgerWriteRepository _ledgerRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public StudentFeeAssignmentService(
         IStudentFeeAssignmentRepository repo,
         IStudentChargeRepository chargeRepository,
+        IFeeLedgerWriteRepository ledgerRepository,
         IUnitOfWork unitOfWork)
     {
         _repo = repo;
         _chargeRepository = chargeRepository;
+        _ledgerRepository = ledgerRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -66,10 +69,7 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         entity.IsActive = true;
 
         var existing = await _repo.GetByAdmissionIdAsync(
-            entity.StudentAdmissionId,
-            tenantId,
-            branchId,
-            cancellationToken);
+            entity.StudentAdmissionId, tenantId, branchId, cancellationToken);
 
         if (existing is not null)
             return (false, "Fee structure already assigned for this admission.", null);
@@ -78,7 +78,6 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var saved = await _repo.GetByIdAsync(entity.Id, tenantId, branchId, cancellationToken);
-
         return (true, "Fee structure assigned successfully.", saved ?? entity);
     }
 
@@ -95,15 +94,11 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Fee structure is required.");
 
         var existing = await _repo.GetByIdAsync(entity.Id, tenantId, branchId, cancellationToken);
-
         if (existing is null)
             return (false, "Student fee assignment not found.");
 
         var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id,
-            tenantId,
-            branchId,
-            cancellationToken);
+            existing.Id, tenantId, branchId, cancellationToken);
 
         var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
 
@@ -121,10 +116,26 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         existing.IsActive = entity.IsActive;
 
         if (feeImpactChanged && existingCharges.Any())
+        {
+            await _ledgerRepository.DeleteByAssignmentIdAsync(
+                tenantId, branchId, existing.Id, cancellationToken);
+
             await _chargeRepository.DeleteRangeAsync(existingCharges, cancellationToken);
+        }
 
         _repo.Update(existing);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (feeImpactChanged)
+        {
+            await _ledgerRepository.RebuildRunningBalanceAsync(
+                tenantId,
+                branchId,
+                existing.StudentAdmissionId,
+                cancellationToken);
+
+            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+        }
 
         return feeImpactChanged
             ? (true, "Student fee assignment updated successfully. Existing unpaid charges were cleared. Generate charges again.")
@@ -141,24 +152,33 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Assignment id is required.");
 
         var existing = await _repo.GetByIdAsync(id, tenantId, branchId, cancellationToken);
-
         if (existing is null)
             return (false, "Student fee assignment not found.");
 
         var charges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id,
-            tenantId,
-            branchId,
-            cancellationToken);
+            existing.Id, tenantId, branchId, cancellationToken);
 
         if (charges.Any(x => x.PaidAmount > 0))
             return (false, "Cannot delete assignment because some charges are already paid.");
 
         if (charges.Any())
+        {
+            await _ledgerRepository.DeleteByAssignmentIdAsync(
+                tenantId, branchId, existing.Id, cancellationToken);
+
             await _chargeRepository.DeleteRangeAsync(charges, cancellationToken);
+        }
 
         _repo.Delete(existing);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _ledgerRepository.RebuildRunningBalanceAsync(
+            tenantId,
+            branchId,
+            existing.StudentAdmissionId,
+            cancellationToken);
+
+        await _ledgerRepository.SaveChangesAsync(cancellationToken);
 
         return (true, "Student fee assignment deleted successfully.");
     }
@@ -173,15 +193,11 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Assignment id is required.");
 
         var existing = await _repo.GetByIdAsync(id, tenantId, branchId, cancellationToken);
-
         if (existing is null)
             return (false, "Student fee assignment not found.");
 
         var charges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id,
-            tenantId,
-            branchId,
-            cancellationToken);
+            existing.Id, tenantId, branchId, cancellationToken);
 
         if (charges.Any(x => x.PaidAmount > 0))
             return (false, "Some charges are already paid. Structure change is not allowed.");
