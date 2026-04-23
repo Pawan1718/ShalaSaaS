@@ -1,13 +1,20 @@
 ﻿@using MudBlazor
+@using Microsoft.JSInterop
 @using Shala.Web.Models.Fees
 @using Shala.Shared.Responses.Settings
 @using Shala.Web.Components.Fees
-@using Shala.Web.Repositories.Settings
-<MudDialog>
+
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
     <TitleContent>
-        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
-            <MudText Typo="Typo.h6">Fee Receipt</MudText>
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Style="width:100%;">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+                <MudText Typo="Typo.h6">Fee Receipt</MudText>
+            </MudStack>
+
+            <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+                @(Model?.ReceiptNo ?? "-")
+            </MudChip>
         </MudStack>
     </TitleContent>
 
@@ -21,28 +28,31 @@
         else
         {
             <MudStack Spacing="3">
-                <MudPaper Class="pa-3" Outlined="true" Style="border-radius:14px;">
+                <MudPaper Class="pa-3" Outlined="true" Style="border-radius:16px;">
                     <MudStack Row="true"
                               Justify="Justify.SpaceBetween"
                               AlignItems="AlignItems.Center"
                               Wrap="Wrap.Wrap">
                         <div>
-                            <MudText Typo="Typo.subtitle1">Preview</MudText>
+                            <MudText Typo="Typo.subtitle1">Print Preview</MudText>
                             <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                Review, print, or close the receipt.
+                                Review and print receipt.
                             </MudText>
                         </div>
 
                         <MudStack Row="true" Spacing="1">
                             <MudButton Variant="Variant.Outlined"
                                        Color="Color.Default"
-                                       Disabled="@(Model is null || !Model.AllowDownloadReceipt)">
+                                       Disabled="@(Model is null || !(Profile?.AllowDownloadReceipt ?? true))"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       OnClick="Download">
                                 Download
                             </MudButton>
 
                             <MudButton Variant="Variant.Filled"
                                        Color="Color.Primary"
-                                       Disabled="@(Model is null || !Model.AllowPrintReceipt)"
+                                       Disabled="@(Model is null || !(Profile?.AllowPrintReceipt ?? true))"
+                                       StartIcon="@Icons.Material.Filled.Print"
                                        OnClick="Print">
                                 Print
                             </MudButton>
@@ -50,7 +60,10 @@
                     </MudStack>
                 </MudPaper>
 
-                <FeeReceiptPreview Model="Model" />
+                <FeeReceiptCanvas TargetId="fee-receipt"
+                                  Receipt="Model"
+                                  Profile="Profile"
+                                  RootCssClass="receipt-preview-root" />
             </MudStack>
         }
     </DialogContent>
@@ -68,6 +81,8 @@
     [Parameter] public FeeReceiptPrintVm? Model { get; set; }
     [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
 
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
     private void Close()
     {
         MudDialog.Close();
@@ -75,8 +90,11 @@
 
     private async Task Print()
     {
-        await JS.InvokeVoidAsync("window.print");
+        await JS.InvokeVoidAsync("feeReceipt.printElement", "fee-receipt");
     }
 
-    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private async Task Download()
+    {
+        await JS.InvokeVoidAsync("feeReceipt.downloadPdf", "fee-receipt");
+    }
 }

@@ -2,19 +2,24 @@
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @using MudBlazor
 @using Shala.Shared.Requests.Fees
 @using Shala.Shared.Responses.Fees
+@using Shala.Shared.Responses.Students
 @using Shala.Web.Components.Fees
 @using Shala.Web.Models.Fees
 @using Shala.Web.Repositories.Fees
 @using Shala.Web.Repositories.Settings
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
 @using Shala.Shared.Responses.Settings
-
-
 
 @inject IBranchDocumentProfileWebRepository ProfileRepo
 @inject IFeeWebRepository FeeWebRepository
+@inject IStudentRepository StudentRepository
+@inject ApiSession ApiSession
+@inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
@@ -40,7 +45,6 @@ else
 {
     <MudStack Spacing="3">
 
-        <!-- Hero -->
         <MudPaper Class="pa-5 pa-md-6" Elevation="2" Style="background: linear-gradient(135deg, rgba(25,118,210,0.10), rgba(156,39,176,0.10), rgba(46,125,50,0.10)); border-radius: 20px;">
             <MudGrid Spacing="3" AlignItems="AlignItems.Center">
                 <MudItem xs="12" lg="7">
@@ -122,10 +126,8 @@ else
             </MudGrid>
         </MudPaper>
 
-        <!-- Summary -->
         <FeeSummaryCards Summary="_dashboard.Summary" />
 
-        <!-- Insight Cards -->
         <MudGrid Spacing="3">
             <MudItem xs="12" md="6" lg="4">
                 <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-left: 6px solid var(--mud-palette-primary); border-radius: 18px;">
@@ -308,7 +310,6 @@ else
             </MudItem>
         </MudGrid>
 
-        <!-- Work Area -->
         <MudTabs Rounded="true" PanelClass="pa-0" Elevation="1" Color="Color.Primary">
             <MudTabPanel Text="Charges & Installments" Icon="@Icons.Material.Filled.ReceiptLong">
                 <MudPaper Class="pa-4" Elevation="1" Style="border-radius: 16px;">
@@ -393,6 +394,7 @@ else
     private bool _loading = true;
     private string? _error;
     private AdmissionFeeDashboardVm _dashboard = new();
+    private StudentDetailsResponse? _studentDetails;
 
     private bool CanCollectFee =>
         _dashboard.Charges.Any(x => !x.IsCancelled && x.BalanceAmount > 0);
@@ -697,6 +699,7 @@ else
     {
         return value == default ? "-" : value.ToString("dd MMM yyyy");
     }
+
     private async Task OpenReceiptActionDialogAsync(int receiptId)
     {
         try
@@ -715,7 +718,12 @@ else
                 return;
             }
 
+            await EnsureStudentDetailsLoadedAsync();
+
             var profile = await ProfileRepo.GetAsync();
+
+            var currentAdmission = _studentDetails?.Admissions?
+                .FirstOrDefault(x => x.Id == AdmissionId);
 
             var allocations = receipt.Allocations?
                 .Where(x => x.AllocatedAmount != 0)
@@ -729,7 +737,7 @@ else
                     return new FeeReceiptPrintLineVm
                     {
                         Label = charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
-                        FeeHeadName = null,
+                        FeeHeadName = charge?.ChargeLabel ?? "-",
                         DueDate = charge?.DueDate,
                         Amount = allocation.AllocatedAmount
                     };
@@ -737,37 +745,36 @@ else
                 .ToList();
 
             var computedTotal = lines.Sum(x => x.Amount);
+            var finalTotal = receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal;
 
             var printModel = new FeeReceiptPrintVm
             {
                 ReceiptId = receipt.Id,
-                ReceiptNo = receipt.ReceiptNo,
+                ReceiptNo = receipt.ReceiptNo ?? "-",
                 ReceiptDate = receipt.ReceiptDate,
-                ReceiptTitle = "Fee Receipt",
-                ReceiptFooterNote = "This is a computer-generated receipt.",
 
-                // Keep safe placeholders for now until real student/admission detail DTO is added
-                StudentName = $"Student #{StudentId}",
-                AdmissionNo = $"Admission #{AdmissionId}",
-                ClassName = "-",
-                SectionName = null,
-                RollNo = null,
-                GuardianName = null,
-                Phone = null,
+                ReceiptTitle = string.IsNullOrWhiteSpace(profile?.ReceiptTitle)
+                    ? "Fee Receipt"
+                    : profile.ReceiptTitle ?? "Fee Receipt",
+
+                ReceiptFooterNote = profile?.ReceiptFooterNote,
+
+                StudentName = _studentDetails?.FullName ?? "-",
+                AdmissionNo = currentAdmission?.AdmissionNo ?? _studentDetails?.AdmissionNo ?? "-",
+                ClassName = currentAdmission?.ClassName ?? "-",
+                SectionName = currentAdmission?.SectionName ?? "-",
 
                 PaymentMode = GetPaymentModeText(receipt.PaymentMode),
                 TransactionReference = receipt.TransactionReference,
-                Remarks = receipt.Remarks,
 
                 ShowStudentDetailsInReceipt = true,
-                ShowFeeHeadInReceipt = true,
-                ShowAmountInWords = true,
-                AllowPrintReceipt = true,
-                AllowDownloadReceipt = true,
+                ShowFeeHeadInReceipt = false,
+                ShowAmountInWords = false,
+                AllowPrintReceipt = profile?.AllowPrintReceipt ?? true,
+                AllowDownloadReceipt = profile?.AllowDownloadReceipt ?? true,
 
-                TotalAmount = receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal,
-                AmountInWords = $"{(receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal):N2} only",
-
+                TotalAmount = finalTotal,
+                AmountInWords = string.Empty,
                 Lines = lines
             };
 
@@ -794,8 +801,6 @@ else
             Snackbar.Add(ex.Message, Severity.Warning);
         }
     }
-
-
     private async Task OpenReceiptFromListAsync(FeeReceiptResponse receipt)
     {
         await OpenReceiptActionDialogAsync(receipt.Id);
@@ -811,6 +816,20 @@ else
         _ => "Other"
     };
 
+    private async Task EnsureStudentDetailsLoadedAsync()
+    {
+        if (_studentDetails is not null)
+            return;
+
+        var tenantId = ApiSession.TenantId;
+        if (!tenantId.HasValue || tenantId.Value <= 0)
+            return;
+
+        var response = await StudentRepository.GetByIdAsync(StudentId, tenantId.Value);
+        if (response?.Success == true && response.Data is not null)
+            _studentDetails = response.Data;
+    }
+
     private static FeeSummaryVm BuildSummary(List<StudentChargeResponse> charges)
     {
         return new FeeSummaryVm
@@ -825,5 +844,33 @@ else
             PartialInstallments = charges.Count(x => !x.IsCancelled && x.PaidAmount > 0 && x.BalanceAmount > 0),
             PendingInstallments = charges.Count(x => !x.IsCancelled && x.PaidAmount <= 0 && x.BalanceAmount > 0)
         };
+    }
+
+    private static string GetGuardianName(object? guardian)
+    {
+        if (guardian is null)
+            return "-";
+
+        var type = guardian.GetType();
+
+        return
+            type.GetProperty("FullName")?.GetValue(guardian)?.ToString() ??
+            type.GetProperty("Name")?.GetValue(guardian)?.ToString() ??
+            type.GetProperty("GuardianName")?.GetValue(guardian)?.ToString() ??
+            "-";
+    }
+
+    private static string? GetGuardianPhone(object? guardian)
+    {
+        if (guardian is null)
+            return null;
+
+        var type = guardian.GetType();
+
+        return
+            type.GetProperty("MobileNumber")?.GetValue(guardian)?.ToString() ??
+            type.GetProperty("Mobile")?.GetValue(guardian)?.ToString() ??
+            type.GetProperty("PhoneNumber")?.GetValue(guardian)?.ToString() ??
+            type.GetProperty("Phone")?.GetValue(guardian)?.ToString();
     }
 }
