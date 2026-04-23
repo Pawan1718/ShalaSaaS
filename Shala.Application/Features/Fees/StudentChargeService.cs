@@ -7,13 +7,16 @@ namespace Shala.Application.Features.Fees;
 public class StudentChargeService : IStudentChargeService
 {
     private readonly IStudentChargeRepository _repo;
+    private readonly IFeeLedgerWriteRepository _ledgerRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public StudentChargeService(
         IStudentChargeRepository repo,
+        IFeeLedgerWriteRepository ledgerRepository,
         IUnitOfWork unitOfWork)
     {
         _repo = repo;
+        _ledgerRepository = ledgerRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -57,6 +60,29 @@ public class StudentChargeService : IStudentChargeService
         await _repo.AddRangeAsync(entities, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var admissionIds = entities
+            .Where(x => x.StudentAdmissionId.HasValue && x.StudentAdmissionId.Value > 0)
+            .Select(x => x.StudentAdmissionId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (admissionIds.Count > 0)
+        {
+            var tenantId = entities.First().TenantId;
+            var branchId = entities.First().BranchId;
+
+            foreach (var admissionId in admissionIds)
+            {
+                await _ledgerRepository.RebuildRunningBalanceAsync(
+                    tenantId,
+                    branchId,
+                    admissionId,
+                    cancellationToken);
+            }
+
+            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+        }
+
         return (true, "Student charges created successfully.");
     }
 
@@ -67,7 +93,6 @@ public class StudentChargeService : IStudentChargeService
         CancellationToken cancellationToken = default)
     {
         var existing = await _repo.GetByIdAsync(id, tenantId, branchId, cancellationToken);
-
         if (existing is null)
             return (false, "Student charge not found.");
 
@@ -85,6 +110,17 @@ public class StudentChargeService : IStudentChargeService
 
         _repo.Update(existing);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        if (existing.StudentAdmissionId.HasValue && existing.StudentAdmissionId.Value > 0)
+        {
+            await _ledgerRepository.RebuildRunningBalanceAsync(
+                tenantId,
+                branchId,
+                existing.StudentAdmissionId.Value,
+                cancellationToken);
+
+            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+        }
 
         return (true, "Student charge cancelled successfully.");
     }

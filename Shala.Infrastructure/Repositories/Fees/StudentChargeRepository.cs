@@ -86,4 +86,46 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
         _table.RemoveRange(chargeList);
         return Task.CompletedTask;
     }
+
+    public async Task<bool> ExistsHistoricalChargeForFeeHeadAsync(
+        int studentId,
+        int feeHeadId,
+        int tenantId,
+        int branchId,
+        int? excludeAssignmentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await _table.AnyAsync(x =>
+            x.StudentId == studentId &&
+            x.FeeHeadId == feeHeadId &&
+            x.TenantId == tenantId &&
+            x.BranchId == branchId &&
+            !x.IsCancelled &&
+            (!excludeAssignmentId.HasValue || x.StudentFeeAssignmentId != excludeAssignmentId.Value),
+            cancellationToken);
+    }
+
+    public async Task<bool> ExistsChargeForFeeHeadInAcademicYearAsync(
+        int studentId,
+        int feeHeadId,
+        int academicYear,
+        int tenantId,
+        int branchId,
+        int? excludeAssignmentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var fromDate = new DateTime(academicYear, 4, 1);
+        var toDateExclusive = new DateTime(academicYear + 1, 4, 1);
+
+        return await _table.AnyAsync(x =>
+            x.StudentId == studentId &&
+            x.FeeHeadId == feeHeadId &&
+            x.TenantId == tenantId &&
+            x.BranchId == branchId &&
+            !x.IsCancelled &&
+            x.DueDate >= fromDate &&
+            x.DueDate < toDateExclusive &&
+            (!excludeAssignmentId.HasValue || x.StudentFeeAssignmentId != excludeAssignmentId.Value),
+            cancellationToken);
+    }
 }

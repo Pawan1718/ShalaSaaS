@@ -32,14 +32,19 @@ public interface IFeeLedgerWriteRepository
         int studentAdmissionId,
         CancellationToken cancellationToken = default);
 
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
-
+    Task<List<StudentFeeLedger>> GetByChargeIdsAsync(
+        int tenantId,
+        int branchId,
+        IEnumerable<int> chargeIds,
+        CancellationToken cancellationToken = default);
 
     Task<List<StudentFeeLedger>> GetByReceiptIdAsync(
-    int tenantId,
-    int branchId,
-    int receiptId,
-    CancellationToken cancellationToken = default);
+        int tenantId,
+        int branchId,
+        int receiptId,
+        CancellationToken cancellationToken = default);
 
     void RemoveRange(IEnumerable<StudentFeeLedger> entries);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

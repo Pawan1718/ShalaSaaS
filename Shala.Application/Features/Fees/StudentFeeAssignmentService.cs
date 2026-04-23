@@ -69,7 +69,10 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         entity.IsActive = true;
 
         var existing = await _repo.GetByAdmissionIdAsync(
-            entity.StudentAdmissionId, tenantId, branchId, cancellationToken);
+            entity.StudentAdmissionId,
+            tenantId,
+            branchId,
+            cancellationToken);
 
         if (existing is not null)
             return (false, "Fee structure already assigned for this admission.", null);
@@ -98,7 +101,10 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Student fee assignment not found.");
 
         var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id, tenantId, branchId, cancellationToken);
+            existing.Id,
+            tenantId,
+            branchId,
+            cancellationToken);
 
         var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
 
@@ -117,10 +123,11 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
 
         if (feeImpactChanged && existingCharges.Any())
         {
-            await _ledgerRepository.DeleteByAssignmentIdAsync(
-                tenantId, branchId, existing.Id, cancellationToken);
-
-            await _chargeRepository.DeleteRangeAsync(existingCharges, cancellationToken);
+            foreach (var charge in existingCharges.Where(x => x.PaidAmount <= 0))
+            {
+                charge.IsCancelled = true;
+                charge.IsSettled = false;
+            }
         }
 
         _repo.Update(existing);
@@ -138,7 +145,7 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         }
 
         return feeImpactChanged
-            ? (true, "Student fee assignment updated successfully. Existing unpaid charges were cleared. Generate charges again.")
+            ? (true, "Student fee assignment updated successfully. Existing unpaid charges were cancelled. Generate charges again.")
             : (true, "Student fee assignment updated successfully.");
     }
 
@@ -156,20 +163,23 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Student fee assignment not found.");
 
         var charges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id, tenantId, branchId, cancellationToken);
+            existing.Id,
+            tenantId,
+            branchId,
+            cancellationToken);
 
         if (charges.Any(x => x.PaidAmount > 0))
             return (false, "Cannot delete assignment because some charges are already paid.");
 
-        if (charges.Any())
+        foreach (var charge in charges)
         {
-            await _ledgerRepository.DeleteByAssignmentIdAsync(
-                tenantId, branchId, existing.Id, cancellationToken);
-
-            await _chargeRepository.DeleteRangeAsync(charges, cancellationToken);
+            charge.IsCancelled = true;
+            charge.IsSettled = false;
         }
 
-        _repo.Delete(existing);
+        existing.IsActive = false;
+
+        _repo.Update(existing);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _ledgerRepository.RebuildRunningBalanceAsync(
@@ -180,7 +190,7 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
 
         await _ledgerRepository.SaveChangesAsync(cancellationToken);
 
-        return (true, "Student fee assignment deleted successfully.");
+        return (true, "Student fee assignment deactivated successfully.");
     }
 
     public async Task<(bool CanModify, string Message)> CanModifyAssignmentAsync(
@@ -197,7 +207,10 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             return (false, "Student fee assignment not found.");
 
         var charges = await _chargeRepository.GetByAssignmentIdAsync(
-            existing.Id, tenantId, branchId, cancellationToken);
+            existing.Id,
+            tenantId,
+            branchId,
+            cancellationToken);
 
         if (charges.Any(x => x.PaidAmount > 0))
             return (false, "Some charges are already paid. Structure change is not allowed.");

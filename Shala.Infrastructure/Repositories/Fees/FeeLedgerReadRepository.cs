@@ -22,23 +22,21 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
         FeeLedgerDashboardRequest request,
         CancellationToken cancellationToken = default)
     {
-        var query =
+        var baseQuery =
             from ledger in _db.StudentFeeLedgers.AsNoTracking()
             join admission in _db.StudentAdmissions.AsNoTracking()
                 on ledger.StudentAdmissionId equals admission.Id
             join student in _db.Students.AsNoTracking()
                 on ledger.StudentId equals student.Id
-            where ledger.TenantId == tenantId
-                  && ledger.BranchId == branchId
+            where ledger.TenantId == tenantId && ledger.BranchId == branchId
             select new FeeLedgerRowResponse
             {
                 Id = ledger.Id,
                 StudentId = ledger.StudentId,
                 StudentAdmissionId = ledger.StudentAdmissionId,
-                StudentName =
-                    ((student.FirstName ?? string.Empty) + " " +
-                     (student.MiddleName ?? string.Empty) + " " +
-                     (student.LastName ?? string.Empty)).Trim(),
+                StudentName = ((student.FirstName ?? string.Empty) + " " +
+                               (student.MiddleName ?? string.Empty) + " " +
+                               (student.LastName ?? string.Empty)).Trim(),
                 AdmissionNo = admission.AdmissionNo,
                 EntryDate = ledger.EntryDate,
                 EntryType = ledger.EntryType,
@@ -53,7 +51,7 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
         {
             var search = request.SearchText.Trim().ToLower();
 
-            query = query.Where(x =>
+            baseQuery = baseQuery.Where(x =>
                 x.StudentName.ToLower().Contains(search) ||
                 x.AdmissionNo.ToLower().Contains(search) ||
                 (x.ReferenceNo != null && x.ReferenceNo.ToLower().Contains(search)) ||
@@ -61,50 +59,83 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
         }
 
         if (request.StudentId.HasValue)
-            query = query.Where(x => x.StudentId == request.StudentId.Value);
+            baseQuery = baseQuery.Where(x => x.StudentId == request.StudentId.Value);
 
         if (request.AdmissionId.HasValue)
-            query = query.Where(x => x.StudentAdmissionId == request.AdmissionId.Value);
+            baseQuery = baseQuery.Where(x => x.StudentAdmissionId == request.AdmissionId.Value);
 
         if (!string.IsNullOrWhiteSpace(request.EntryType))
-            query = query.Where(x => x.EntryType == request.EntryType);
+            baseQuery = baseQuery.Where(x => x.EntryType == request.EntryType);
 
         if (request.FromDate.HasValue)
         {
             var from = request.FromDate.Value.Date;
-            query = query.Where(x => x.EntryDate >= from);
+            baseQuery = baseQuery.Where(x => x.EntryDate >= from);
         }
 
         if (request.ToDate.HasValue)
         {
             var to = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
-            query = query.Where(x => x.EntryDate <= to);
+            baseQuery = baseQuery.Where(x => x.EntryDate <= to);
         }
 
-        query = request.SortBy?.Trim().ToLowerInvariant() switch
+        var totalEntries = await baseQuery.CountAsync(cancellationToken);
+        var totalDebit = await baseQuery.SumAsync(x => (decimal?)x.DebitAmount, cancellationToken) ?? 0m;
+        var totalCredit = await baseQuery.SumAsync(x => (decimal?)x.CreditAmount, cancellationToken) ?? 0m;
+
+        var latestBalances = await baseQuery
+            .GroupBy(x => x.StudentAdmissionId)
+            .Select(g => g
+                .OrderByDescending(x => x.EntryDate)
+                .ThenByDescending(x => x.Id)
+                .Select(x => (decimal?)x.RunningBalance)
+                .FirstOrDefault())
+            .ToListAsync(cancellationToken);
+
+        var closingBalance = latestBalances.Sum(x => x ?? 0m);
+
+        var sortedQuery = request.SortBy?.Trim().ToLowerInvariant() switch
         {
-            "studentname" => request.SortDescending ? query.OrderByDescending(x => x.StudentName) : query.OrderBy(x => x.StudentName),
-            "admissionno" => request.SortDescending ? query.OrderByDescending(x => x.AdmissionNo) : query.OrderBy(x => x.AdmissionNo),
-            "entrytype" => request.SortDescending ? query.OrderByDescending(x => x.EntryType) : query.OrderBy(x => x.EntryType),
-            "debitamount" => request.SortDescending ? query.OrderByDescending(x => x.DebitAmount) : query.OrderBy(x => x.DebitAmount),
-            "creditamount" => request.SortDescending ? query.OrderByDescending(x => x.CreditAmount) : query.OrderBy(x => x.CreditAmount),
-            "runningbalance" => request.SortDescending ? query.OrderByDescending(x => x.RunningBalance) : query.OrderBy(x => x.RunningBalance),
-            _ => request.SortDescending ? query.OrderByDescending(x => x.EntryDate) : query.OrderBy(x => x.EntryDate)
+            "studentname" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.StudentName).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.StudentName).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            "admissionno" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.AdmissionNo).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.AdmissionNo).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            "entrytype" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.EntryType).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.EntryType).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            "debitamount" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.DebitAmount).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.DebitAmount).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            "creditamount" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.CreditAmount).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.CreditAmount).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            "runningbalance" => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.RunningBalance).ThenByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.RunningBalance).ThenBy(x => x.EntryDate).ThenBy(x => x.Id),
+
+            _ => request.SortDescending
+                ? baseQuery.OrderByDescending(x => x.EntryDate).ThenByDescending(x => x.Id)
+                : baseQuery.OrderBy(x => x.EntryDate).ThenBy(x => x.Id)
         };
 
-        var summary = new FeeLedgerDashboardSummaryResponse
-        {
-            TotalEntries = await query.CountAsync(cancellationToken),
-            TotalDebit = await query.Select(x => x.DebitAmount).SumAsync(cancellationToken),
-            TotalCredit = await query.Select(x => x.CreditAmount).SumAsync(cancellationToken),
-            ClosingBalance = await query.Select(x => (decimal?)x.RunningBalance).FirstOrDefaultAsync(cancellationToken) ?? 0m
-        };
-
-        var paged = await query.ToPagedResultAsync(request.PageNumber, request.PageSize);
+        var paged = await sortedQuery.ToPagedResultAsync(request.PageNumber, request.PageSize);
 
         return new FeeLedgerDashboardResponse
         {
-            Summary = summary,
+            Summary = new FeeLedgerDashboardSummaryResponse
+            {
+                TotalEntries = totalEntries,
+                TotalDebit = totalDebit,
+                TotalCredit = totalCredit,
+                ClosingBalance = closingBalance
+            },
             Entries = paged
         };
     }

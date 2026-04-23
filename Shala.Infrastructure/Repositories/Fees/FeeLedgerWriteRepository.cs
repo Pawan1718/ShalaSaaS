@@ -39,7 +39,7 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
         await _db.StudentFeeLedgers.AddRangeAsync(entries, cancellationToken);
     }
 
-    public async Task DeleteByChargeIdsAsync(
+    public async Task<List<StudentFeeLedger>> GetByChargeIdsAsync(
         int tenantId,
         int branchId,
         IEnumerable<int> chargeIds,
@@ -51,15 +51,51 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
             .ToList();
 
         if (ids.Count == 0)
-            return;
+            return new List<StudentFeeLedger>();
 
-        var rows = await _db.StudentFeeLedgers
+        return await _db.StudentFeeLedgers
             .Where(x =>
                 x.TenantId == tenantId &&
                 x.BranchId == branchId &&
                 x.StudentChargeId.HasValue &&
                 ids.Contains(x.StudentChargeId.Value))
+            .OrderBy(x => x.EntryDate)
+            .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<StudentFeeLedger>> GetByReceiptIdAsync(
+        int tenantId,
+        int branchId,
+        int receiptId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _db.StudentFeeLedgers
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.FeeReceiptId == receiptId)
+            .OrderBy(x => x.EntryDate)
+            .ThenBy(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void RemoveRange(IEnumerable<StudentFeeLedger> entries)
+    {
+        _db.StudentFeeLedgers.RemoveRange(entries);
+    }
+
+    public async Task DeleteByChargeIdsAsync(
+        int tenantId,
+        int branchId,
+        IEnumerable<int> chargeIds,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await GetByChargeIdsAsync(
+            tenantId,
+            branchId,
+            chargeIds,
+            cancellationToken);
 
         if (rows.Count == 0)
             return;
@@ -120,25 +156,5 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return _db.SaveChangesAsync(cancellationToken);
-    }
-
-
-    public async Task<List<StudentFeeLedger>> GetByReceiptIdAsync(
-    int tenantId,
-    int branchId,
-    int receiptId,
-    CancellationToken cancellationToken = default)
-    {
-        return await _db.StudentFeeLedgers
-            .Where(x =>
-                x.TenantId == tenantId &&
-                x.BranchId == branchId &&
-                x.FeeReceiptId == receiptId)
-            .ToListAsync(cancellationToken);
-    }
-
-    public void RemoveRange(IEnumerable<StudentFeeLedger> entries)
-    {
-        _db.StudentFeeLedgers.RemoveRange(entries);
     }
 }
