@@ -1,7 +1,9 @@
-﻿using Shala.Application.Common;
+﻿using System.Data;
+using Shala.Application.Common;
 using Shala.Application.Repositories.Fees;
 using Shala.Domain.Entities.Fees;
 using Shala.Domain.Enums;
+using Shala.Shared.Responses.Fees;
 
 namespace Shala.Application.Features.Fees;
 
@@ -10,20 +12,20 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
     private readonly IStudentFeeAssignmentRepository _assignmentRepository;
     private readonly IFeeStructureRepository _structureRepository;
     private readonly IStudentChargeRepository _chargeRepository;
-    private readonly IFeeLedgerWriteRepository _ledgerRepository;
+    private readonly IFeeLedgerPostingService _ledgerPostingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public FeeChargeGenerationService(
         IStudentFeeAssignmentRepository assignmentRepository,
         IFeeStructureRepository structureRepository,
         IStudentChargeRepository chargeRepository,
-        IFeeLedgerWriteRepository ledgerRepository,
+        IFeeLedgerPostingService ledgerPostingService,
         IUnitOfWork unitOfWork)
     {
         _assignmentRepository = assignmentRepository;
         _structureRepository = structureRepository;
         _chargeRepository = chargeRepository;
-        _ledgerRepository = ledgerRepository;
+        _ledgerPostingService = ledgerPostingService;
         _unitOfWork = unitOfWork;
     }
 
@@ -33,148 +35,150 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
         int studentFeeAssignmentId,
         CancellationToken cancellationToken = default)
     {
-        var assignment = await _assignmentRepository.GetByIdAsync(
-            studentFeeAssignmentId,
-            tenantId,
-            branchId,
-            cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
 
-        if (assignment is null)
-            return (false, "Student fee assignment not found.", new List<StudentCharge>());
-
-        var structure = await _structureRepository.GetWithItemsAsync(
-            assignment.FeeStructureId,
-            tenantId,
-            branchId,
-            cancellationToken);
-
-        if (structure is null)
-            return (false, "Fee structure not found.", new List<StudentCharge>());
-
-        if (structure.Items == null || structure.Items.Count == 0)
-            return (false, "Fee structure has no items.", new List<StudentCharge>());
-
-        var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(
-            studentFeeAssignmentId,
-            tenantId,
-            branchId,
-            cancellationToken);
-
-        var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
-        if (hasPaidCharges)
-            return (false, "Cannot regenerate charges because some charges are already paid.", new List<StudentCharge>());
-
-        if (existingCharges.Any())
+        try
         {
-            foreach (var charge in existingCharges)
-            {
-                charge.IsCancelled = true;
-                charge.IsSettled = charge.PaidAmount >= charge.NetAmount && charge.NetAmount > 0;
-            }
-
-            await _ledgerRepository.DeleteByAssignmentIdAsync(
+            var assignment = await _assignmentRepository.GetByIdAsync(
+                studentFeeAssignmentId,
                 tenantId,
                 branchId,
-                studentFeeAssignmentId,
                 cancellationToken);
+
+            if (assignment is null)
+                return await RollbackAsync("Student fee assignment not found.", cancellationToken);
+
+            if (!assignment.IsActive)
+                return await RollbackAsync("Inactive assignment cannot generate charges.", cancellationToken);
+
+            var structure = await _structureRepository.GetWithItemsAsync(
+                assignment.FeeStructureId,
+                tenantId,
+                branchId,
+                cancellationToken);
+
+            if (structure is null)
+                return await RollbackAsync("Fee structure not found.", cancellationToken);
+
+            if (structure.Items == null || structure.Items.Count == 0)
+                return await RollbackAsync("Fee structure has no items.", cancellationToken);
+
+            var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(
+                studentFeeAssignmentId,
+                tenantId,
+                branchId,
+                cancellationToken);
+
+            if (existingCharges.Any(x => x.PaidAmount > 0))
+                return await RollbackAsync("Cannot regenerate charges because some charges are already paid.", cancellationToken);
+
+            foreach (var existingCharge in existingCharges.Where(x => !x.IsCancelled))
+            {
+                existingCharge.IsCancelled = true;
+                existingCharge.IsSettled = false;
+                _chargeRepository.Update(existingCharge);
+            }
+
+            var charges = new List<StudentCharge>();
+            var academicYear = structure.AcademicYearId;
+
+            foreach (var item in structure.Items.Where(x => x.IsActive && !x.IsOptional))
+            {
+                if (item.Amount <= 0)
+                    continue;
+
+                if (!await ShouldGenerateItemAsync(item, assignment, academicYear, tenantId, branchId, cancellationToken))
+                    continue;
+
+                switch ((FeeFrequencyType)item.FrequencyType)
+                {
+                    case FeeFrequencyType.OneTime:
+                    case FeeFrequencyType.Yearly:
+                        charges.Add(CreateCharge(
+                            tenantId,
+                            branchId,
+                            assignment,
+                            item,
+                            item.Label.Trim(),
+                            structure.Name,
+                            BuildDueDate(academicYear, item.StartMonth ?? 4, item.DueDay ?? 10),
+                            item.Amount));
+                        break;
+
+                    case FeeFrequencyType.Monthly:
+                        foreach (var month in BuildMonthRange(item.StartMonth, item.EndMonth))
+                        {
+                            charges.Add(CreateCharge(
+                                tenantId,
+                                branchId,
+                                assignment,
+                                item,
+                                $"{GetMonthName(month)} {item.Label.Trim()}",
+                                $"{GetMonthName(month)}-{academicYear}",
+                                BuildDueDate(academicYear, month, item.DueDay ?? 10),
+                                item.Amount));
+                        }
+                        break;
+
+                    case FeeFrequencyType.Quarterly:
+                        foreach (var month in BuildQuarterMonths(item.StartMonth, item.EndMonth))
+                        {
+                            charges.Add(CreateCharge(
+                                tenantId,
+                                branchId,
+                                assignment,
+                                item,
+                                $"{GetMonthName(month)} Quarter {item.Label.Trim()}",
+                                $"{GetMonthName(month)}-{academicYear}",
+                                BuildDueDate(academicYear, month, item.DueDay ?? 10),
+                                item.Amount));
+                        }
+                        break;
+
+                    default:
+                        charges.Add(CreateCharge(
+                            tenantId,
+                            branchId,
+                            assignment,
+                            item,
+                            item.Label.Trim(),
+                            "Custom",
+                            BuildDueDate(academicYear, item.StartMonth ?? 4, item.DueDay ?? 10),
+                            item.Amount));
+                        break;
+                }
+            }
+
+            if (charges.Count == 0)
+                return await RollbackAsync("No valid charges could be generated.", cancellationToken);
+
+            DistributeDiscount(charges, assignment.DiscountAmount);
+            DistributeAdditionalAmount(charges, assignment.AdditionalChargeAmount);
+
+            await _chargeRepository.AddRangeAsync(charges, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var ledgerChargePayload = existingCharges
+                .Concat(charges)
+                .Select(ToChargeResponse)
+                .ToList();
+
+            await _ledgerPostingService.PostChargesAsync(
+                tenantId,
+                branchId,
+                assignment.StudentId,
+                assignment.StudentAdmissionId,
+                ledgerChargePayload,
+                cancellationToken);
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return (true, "Student charges generated successfully.", charges);
         }
-
-        var charges = new List<StudentCharge>();
-        var academicYear = structure.AcademicYearId;
-
-        foreach (var item in structure.Items.Where(x => x.IsActive && !x.IsOptional))
+        catch
         {
-            if (item.Amount <= 0)
-                continue;
-
-            if (!await ShouldGenerateItemAsync(
-                    item,
-                    assignment,
-                    academicYear,
-                    tenantId,
-                    branchId,
-                    cancellationToken))
-            {
-                continue;
-            }
-
-            switch ((FeeFrequencyType)item.FrequencyType)
-            {
-                case FeeFrequencyType.OneTime:
-                case FeeFrequencyType.Yearly:
-                    charges.Add(CreateCharge(
-                        tenantId,
-                        branchId,
-                        assignment,
-                        item,
-                        item.Label.Trim(),
-                        structure.Name,
-                        BuildDueDate(academicYear, item.StartMonth ?? 4, item.DueDay ?? 10),
-                        item.Amount));
-                    break;
-
-                case FeeFrequencyType.Monthly:
-                    foreach (var month in BuildMonthRange(item.StartMonth, item.EndMonth))
-                    {
-                        charges.Add(CreateCharge(
-                            tenantId,
-                            branchId,
-                            assignment,
-                            item,
-                            $"{GetMonthName(month)} {item.Label.Trim()}",
-                            $"{GetMonthName(month)}-{academicYear}",
-                            BuildDueDate(academicYear, month, item.DueDay ?? 10),
-                            item.Amount));
-                    }
-                    break;
-
-                case FeeFrequencyType.Quarterly:
-                    foreach (var month in BuildQuarterMonths(item.StartMonth, item.EndMonth))
-                    {
-                        charges.Add(CreateCharge(
-                            tenantId,
-                            branchId,
-                            assignment,
-                            item,
-                            $"{GetMonthName(month)} Quarter {item.Label.Trim()}",
-                            $"{GetMonthName(month)}-{academicYear}",
-                            BuildDueDate(academicYear, month, item.DueDay ?? 10),
-                            item.Amount));
-                    }
-                    break;
-
-                default:
-                    charges.Add(CreateCharge(
-                        tenantId,
-                        branchId,
-                        assignment,
-                        item,
-                        item.Label.Trim(),
-                        "Custom",
-                        BuildDueDate(academicYear, item.StartMonth ?? 4, item.DueDay ?? 10),
-                        item.Amount));
-                    break;
-            }
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
         }
-
-        if (charges.Count == 0)
-            return (false, "No valid charges could be generated.", new List<StudentCharge>());
-
-        DistributeDiscount(charges, assignment.DiscountAmount);
-        DistributeAdditionalAmount(charges, assignment.AdditionalChargeAmount);
-
-        await _chargeRepository.AddRangeAsync(charges, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        await _ledgerRepository.RebuildRunningBalanceAsync(
-            tenantId,
-            branchId,
-            assignment.StudentAdmissionId,
-            cancellationToken);
-
-        await _ledgerRepository.SaveChangesAsync(cancellationToken);
-
-        return (true, "Student charges generated successfully.", charges);
     }
 
     private async Task<bool> ShouldGenerateItemAsync(
@@ -190,39 +194,59 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
 
         var applyType = (FeeApplyType)item.ApplyType;
 
-        switch (applyType)
+        return applyType switch
         {
-            case FeeApplyType.FirstAdmissionOnly:
-                return !await _chargeRepository.ExistsHistoricalChargeForFeeHeadAsync(
+            FeeApplyType.FirstAdmissionOnly =>
+                await _assignmentRepository.IsFirstAdmissionForStudentAsync(
+                    assignment.StudentId,
+                    assignment.StudentAdmissionId,
+                    tenantId,
+                    branchId,
+                    cancellationToken)
+                && !await _chargeRepository.ExistsHistoricalChargeForFeeHeadAsync(
                     assignment.StudentId,
                     item.FeeHeadId,
                     tenantId,
                     branchId,
                     assignment.Id,
-                    cancellationToken);
+                    cancellationToken),
 
-            case FeeApplyType.OneTime:
-                return !await _chargeRepository.ExistsHistoricalChargeForFeeHeadAsync(
+            FeeApplyType.OneTime =>
+                !await _chargeRepository.ExistsAnyHistoricalChargeForFeeHeadAsync(
                     assignment.StudentId,
                     item.FeeHeadId,
                     tenantId,
                     branchId,
                     assignment.Id,
-                    cancellationToken);
+                    cancellationToken),
 
-            case FeeApplyType.EveryYear:
-                return !await _chargeRepository.ExistsChargeForFeeHeadInAcademicYearAsync(
+            FeeApplyType.EveryYear =>
+                !await _chargeRepository.ExistsChargeForFeeHeadInAcademicYearAsync(
                     assignment.StudentId,
                     item.FeeHeadId,
                     academicYear,
                     tenantId,
                     branchId,
                     assignment.Id,
-                    cancellationToken);
+                    cancellationToken),
 
-            default:
-                return true;
-        }
+            _ => true
+        };
+    }
+
+    private static StudentChargeResponse ToChargeResponse(StudentCharge charge)
+    {
+        return new StudentChargeResponse
+        {
+            Id = charge.Id,
+            FeeHeadId = charge.FeeHeadId,
+            Amount = charge.Amount,
+            DiscountAmount = charge.DiscountAmount,
+            FineAmount = charge.FineAmount,
+            PaidAmount = charge.PaidAmount,
+            DueDate = charge.DueDate,
+            IsCancelled = charge.IsCancelled
+        };
     }
 
     private static StudentCharge CreateCharge(
@@ -247,9 +271,9 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
             PeriodLabel = periodLabel,
             DueDate = dueDate,
             Amount = amount,
-            DiscountAmount = 0,
-            FineAmount = 0,
-            PaidAmount = 0,
+            DiscountAmount = 0m,
+            FineAmount = 0m,
+            PaidAmount = 0m,
             IsSettled = false,
             IsCancelled = false
         };
@@ -347,4 +371,12 @@ public class FeeChargeGenerationService : IFeeChargeGenerationService
 
     private static string GetMonthName(int month)
         => new DateTime(2000, NormalizeMonth(month), 1).ToString("MMM");
+
+    private async Task<(bool Success, string Message, List<StudentCharge> Charges)> RollbackAsync(
+        string message,
+        CancellationToken cancellationToken)
+    {
+        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+        return (false, message, new List<StudentCharge>());
+    }
 }

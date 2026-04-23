@@ -87,7 +87,7 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
         return Task.CompletedTask;
     }
 
-    public async Task<bool> ExistsHistoricalChargeForFeeHeadAsync(
+    public Task<bool> ExistsHistoricalChargeForFeeHeadAsync(
         int studentId,
         int feeHeadId,
         int tenantId,
@@ -95,7 +95,7 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
         int? excludeAssignmentId = null,
         CancellationToken cancellationToken = default)
     {
-        return await _table.AnyAsync(x =>
+        return _table.AnyAsync(x =>
             x.StudentId == studentId &&
             x.FeeHeadId == feeHeadId &&
             x.TenantId == tenantId &&
@@ -105,7 +105,24 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
             cancellationToken);
     }
 
-    public async Task<bool> ExistsChargeForFeeHeadInAcademicYearAsync(
+    public Task<bool> ExistsAnyHistoricalChargeForFeeHeadAsync(
+        int studentId,
+        int feeHeadId,
+        int tenantId,
+        int branchId,
+        int? excludeAssignmentId = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _table.AnyAsync(x =>
+            x.StudentId == studentId &&
+            x.FeeHeadId == feeHeadId &&
+            x.TenantId == tenantId &&
+            x.BranchId == branchId &&
+            (!excludeAssignmentId.HasValue || x.StudentFeeAssignmentId != excludeAssignmentId.Value),
+            cancellationToken);
+    }
+
+    public Task<bool> ExistsChargeForFeeHeadInAcademicYearAsync(
         int studentId,
         int feeHeadId,
         int academicYear,
@@ -117,7 +134,7 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
         var fromDate = new DateTime(academicYear, 4, 1);
         var toDateExclusive = new DateTime(academicYear + 1, 4, 1);
 
-        return await _table.AnyAsync(x =>
+        return _table.AnyAsync(x =>
             x.StudentId == studentId &&
             x.FeeHeadId == feeHeadId &&
             x.TenantId == tenantId &&

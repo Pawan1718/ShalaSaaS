@@ -39,6 +39,14 @@ public interface IStudentChargeRepository : IGenericRepository<StudentCharge>
         int? excludeAssignmentId = null,
         CancellationToken cancellationToken = default);
 
+    Task<bool> ExistsAnyHistoricalChargeForFeeHeadAsync(
+        int studentId,
+        int feeHeadId,
+        int tenantId,
+        int branchId,
+        int? excludeAssignmentId = null,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ExistsChargeForFeeHeadInAcademicYearAsync(
         int studentId,
         int feeHeadId,

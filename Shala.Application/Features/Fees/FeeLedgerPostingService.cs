@@ -14,46 +14,79 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
     }
 
     public async Task PostChargesAsync(
-     int tenantId,
-     int branchId,
-     int studentId,
-     int studentAdmissionId,
-     IEnumerable<StudentChargeResponse> charges,
-     CancellationToken cancellationToken = default)
+        int tenantId,
+        int branchId,
+        int studentId,
+        int studentAdmissionId,
+        IEnumerable<StudentChargeResponse> charges,
+        CancellationToken cancellationToken = default)
     {
-        var validCharges = charges
-            .Where(x => !x.IsCancelled)
+        var chargeList = charges
+            .Where(x => x.Id > 0)
             .OrderBy(x => x.DueDate)
             .ThenBy(x => x.Id)
             .ToList();
 
-        if (!validCharges.Any())
+        if (chargeList.Count == 0)
             return;
 
-        var chargeIds = validCharges
-            .Where(x => x.Id > 0)
-            .Select(x => x.Id)
-            .Distinct()
-            .ToList();
+        var existingEntries = await _ledgerRepository.GetByChargeIdsAsync(
+            tenantId,
+            branchId,
+            chargeList.Select(x => x.Id),
+            cancellationToken);
 
-        if (chargeIds.Count > 0)
+        var existingChargeEntryByChargeId = existingEntries
+            .Where(x => x.StudentChargeId.HasValue && x.EntryType == "Charge")
+            .GroupBy(x => x.StudentChargeId!.Value)
+            .ToDictionary(x => x.Key, x => x.OrderBy(y => y.Id).First());
+
+        var existingChargeCancelEntryIds = existingEntries
+            .Where(x => x.StudentChargeId.HasValue && x.EntryType == "ChargeCancel")
+            .Select(x => x.StudentChargeId!.Value)
+            .ToHashSet();
+
+        var newEntries = new List<StudentFeeLedger>();
+
+        foreach (var charge in chargeList)
         {
-            await _ledgerRepository.DeleteByChargeIdsAsync(
-                tenantId,
-                branchId,
-                chargeIds,
-                cancellationToken);
-        }
-
-        var entries = new List<StudentFeeLedger>();
-
-        foreach (var charge in validCharges)
-        {
-            var debit = charge.Amount + charge.FineAmount - charge.DiscountAmount;
-            if (debit <= 0)
+            var netAmount = charge.Amount + charge.FineAmount - charge.DiscountAmount;
+            if (netAmount <= 0)
                 continue;
 
-            entries.Add(new StudentFeeLedger
+            var entryDate = charge.DueDate == default ? DateTime.UtcNow : charge.DueDate;
+            var hasChargeEntry = existingChargeEntryByChargeId.ContainsKey(charge.Id);
+            var hasChargeCancelEntry = existingChargeCancelEntryIds.Contains(charge.Id);
+
+            if (!charge.IsCancelled)
+            {
+                if (hasChargeEntry)
+                    continue;
+
+                newEntries.Add(new StudentFeeLedger
+                {
+                    TenantId = tenantId,
+                    BranchId = branchId,
+                    StudentId = studentId,
+                    StudentAdmissionId = studentAdmissionId,
+                    StudentChargeId = charge.Id,
+                    FeeHeadId = charge.FeeHeadId,
+                    EntryType = "Charge",
+                    EntryDate = entryDate,
+                    DebitAmount = netAmount,
+                    CreditAmount = 0m,
+                    RunningBalance = 0m,
+                    ReferenceNo = $"CH-{charge.Id}",
+                    Remarks = "Charge posted"
+                });
+
+                continue;
+            }
+
+            if (!hasChargeEntry || hasChargeCancelEntry)
+                continue;
+
+            newEntries.Add(new StudentFeeLedger
             {
                 TenantId = tenantId,
                 BranchId = branchId,
@@ -61,20 +94,20 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 StudentAdmissionId = studentAdmissionId,
                 StudentChargeId = charge.Id,
                 FeeHeadId = charge.FeeHeadId,
-                EntryType = "Charge",
-                EntryDate = charge.DueDate == default ? DateTime.UtcNow : charge.DueDate,
-                DebitAmount = debit,
-                CreditAmount = 0m,
+                EntryType = "ChargeCancel",
+                EntryDate = DateTime.UtcNow,
+                DebitAmount = 0m,
+                CreditAmount = netAmount,
                 RunningBalance = 0m,
-                ReferenceNo = $"CH-{charge.Id}",
-                Remarks = "Charge posted"
+                ReferenceNo = $"CH-CN-{charge.Id}",
+                Remarks = "Charge cancelled"
             });
         }
 
-        if (entries.Count == 0)
+        if (newEntries.Count == 0)
             return;
 
-        await _ledgerRepository.AddRangeAsync(entries, cancellationToken);
+        await _ledgerRepository.AddRangeAsync(newEntries, cancellationToken);
         await _ledgerRepository.SaveChangesAsync(cancellationToken);
 
         await _ledgerRepository.RebuildRunningBalanceAsync(
@@ -87,44 +120,79 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
     }
 
     public async Task PostReceiptAsync(
-     int tenantId,
-     int branchId,
-     FeeReceiptResponse receipt,
-     IEnumerable<FeeReceiptAllocationResponse> allocations,
-     CancellationToken cancellationToken = default)
+        int tenantId,
+        int branchId,
+        FeeReceiptResponse receipt,
+        IEnumerable<FeeReceiptAllocationResponse> allocations,
+        CancellationToken cancellationToken = default)
     {
-        var validAllocations = allocations
-            .Where(x => x.AllocatedAmount != 0)
+        var allocationList = allocations
+            .Where(x => x.StudentChargeId > 0 && Math.Abs(x.AllocatedAmount) > 0)
             .OrderBy(x => x.StudentChargeId)
             .ToList();
 
-        if (!validAllocations.Any())
+        if (allocationList.Count == 0)
             return;
 
-        // ❗ IMPORTANT: remove old ledger entries of this receipt (idempotent safe)
         var existingEntries = await _ledgerRepository.GetByReceiptIdAsync(
             tenantId,
             branchId,
             receipt.Id,
             cancellationToken);
 
-        if (existingEntries.Any())
-        {
-            _ledgerRepository.RemoveRange(existingEntries);
-            await _ledgerRepository.SaveChangesAsync(cancellationToken);
-        }
+        var existingReceiptChargeIds = existingEntries
+            .Where(x => x.EntryType == "Receipt" && x.StudentChargeId.HasValue)
+            .Select(x => x.StudentChargeId!.Value)
+            .ToHashSet();
 
-        var entries = new List<StudentFeeLedger>();
+        var existingReceiptCancelChargeIds = existingEntries
+            .Where(x => x.EntryType == "ReceiptCancel" && x.StudentChargeId.HasValue)
+            .Select(x => x.StudentChargeId!.Value)
+            .ToHashSet();
 
-        foreach (var allocation in validAllocations)
+        var isCancellation = receipt.IsCancelled;
+        var entryDate = isCancellation
+            ? (receipt.CancelledOnUtc ?? DateTime.UtcNow)
+            : (receipt.ReceiptDate == default ? DateTime.UtcNow : receipt.ReceiptDate);
+
+        var newEntries = new List<StudentFeeLedger>();
+
+        foreach (var allocation in allocationList)
         {
             var amount = Math.Abs(allocation.AllocatedAmount);
             if (amount <= 0)
                 continue;
 
-            var isCancellation = receipt.IsCancelled; // 🔥 REAL FIX
+            if (!isCancellation)
+            {
+                if (existingReceiptChargeIds.Contains(allocation.StudentChargeId))
+                    continue;
 
-            entries.Add(new StudentFeeLedger
+                newEntries.Add(new StudentFeeLedger
+                {
+                    TenantId = tenantId,
+                    BranchId = branchId,
+                    StudentId = receipt.StudentId,
+                    StudentAdmissionId = receipt.StudentAdmissionId,
+                    StudentChargeId = allocation.StudentChargeId,
+                    FeeReceiptId = receipt.Id,
+                    FeeHeadId = allocation.FeeHeadId > 0 ? allocation.FeeHeadId : null,
+                    EntryType = "Receipt",
+                    EntryDate = entryDate,
+                    DebitAmount = 0m,
+                    CreditAmount = amount,
+                    RunningBalance = 0m,
+                    ReferenceNo = receipt.ReceiptNo,
+                    Remarks = "Receipt posted"
+                });
+
+                continue;
+            }
+
+            if (existingReceiptCancelChargeIds.Contains(allocation.StudentChargeId))
+                continue;
+
+            newEntries.Add(new StudentFeeLedger
             {
                 TenantId = tenantId,
                 BranchId = branchId,
@@ -133,28 +201,22 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 StudentChargeId = allocation.StudentChargeId,
                 FeeReceiptId = receipt.Id,
                 FeeHeadId = allocation.FeeHeadId > 0 ? allocation.FeeHeadId : null,
-                EntryType = isCancellation ? "ReceiptCancel" : "Receipt",
-                EntryDate = receipt.ReceiptDate == default ? DateTime.UtcNow : receipt.ReceiptDate,
-
-                // 🔥 CORE ACCOUNTING FIX
-                DebitAmount = isCancellation ? amount : 0m,
-                CreditAmount = isCancellation ? 0m : amount,
-
+                EntryType = "ReceiptCancel",
+                EntryDate = entryDate,
+                DebitAmount = amount,
+                CreditAmount = 0m,
                 RunningBalance = 0m,
                 ReferenceNo = receipt.ReceiptNo,
-                Remarks = isCancellation
-                    ? "Receipt cancelled (reversal entry)"
-                    : "Receipt posted"
+                Remarks = "Receipt cancelled"
             });
         }
 
-        if (entries.Count == 0)
+        if (newEntries.Count == 0)
             return;
 
-        await _ledgerRepository.AddRangeAsync(entries, cancellationToken);
+        await _ledgerRepository.AddRangeAsync(newEntries, cancellationToken);
         await _ledgerRepository.SaveChangesAsync(cancellationToken);
 
-        // 🔥 ALWAYS rebuild after financial mutation
         await _ledgerRepository.RebuildRunningBalanceAsync(
             tenantId,
             branchId,

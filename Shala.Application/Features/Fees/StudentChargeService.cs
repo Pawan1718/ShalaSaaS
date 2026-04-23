@@ -1,22 +1,24 @@
-﻿using Shala.Application.Common;
+﻿using System.Data;
+using Shala.Application.Common;
 using Shala.Application.Repositories.Fees;
 using Shala.Domain.Entities.Fees;
+using Shala.Shared.Responses.Fees;
 
 namespace Shala.Application.Features.Fees;
 
 public class StudentChargeService : IStudentChargeService
 {
     private readonly IStudentChargeRepository _repo;
-    private readonly IFeeLedgerWriteRepository _ledgerRepository;
+    private readonly IFeeLedgerPostingService _ledgerPostingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public StudentChargeService(
         IStudentChargeRepository repo,
-        IFeeLedgerWriteRepository ledgerRepository,
+        IFeeLedgerPostingService ledgerPostingService,
         IUnitOfWork unitOfWork)
     {
         _repo = repo;
-        _ledgerRepository = ledgerRepository;
+        _ledgerPostingService = ledgerPostingService;
         _unitOfWork = unitOfWork;
     }
 
@@ -57,33 +59,43 @@ public class StudentChargeService : IStudentChargeService
         if (entities.Any(x => x.Amount <= 0))
             return (false, "Charge amount must be greater than zero.");
 
-        await _repo.AddRangeAsync(entities, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
 
-        var admissionIds = entities
-            .Where(x => x.StudentAdmissionId.HasValue && x.StudentAdmissionId.Value > 0)
-            .Select(x => x.StudentAdmissionId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (admissionIds.Count > 0)
+        try
         {
-            var tenantId = entities.First().TenantId;
-            var branchId = entities.First().BranchId;
+            await _repo.AddRangeAsync(entities, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            foreach (var admissionId in admissionIds)
+            var groupedAdmissions = entities
+                .Where(x => x.StudentAdmissionId.HasValue && x.StudentAdmissionId.Value > 0)
+                .GroupBy(x => new
+                {
+                    x.TenantId,
+                    x.BranchId,
+                    x.StudentId,
+                    StudentAdmissionId = x.StudentAdmissionId!.Value
+                })
+                .ToList();
+
+            foreach (var group in groupedAdmissions)
             {
-                await _ledgerRepository.RebuildRunningBalanceAsync(
-                    tenantId,
-                    branchId,
-                    admissionId,
+                await _ledgerPostingService.PostChargesAsync(
+                    group.Key.TenantId,
+                    group.Key.BranchId,
+                    group.Key.StudentId ?? 0,
+                    group.Key.StudentAdmissionId,
+                    group.Select(ToChargeResponse),
                     cancellationToken);
             }
 
-            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return (true, "Student charges created successfully.");
         }
-
-        return (true, "Student charges created successfully.");
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<(bool Success, string Message)> MarkCancelledAsync(
@@ -105,23 +117,48 @@ public class StudentChargeService : IStudentChargeService
         if (existing.Allocations != null && existing.Allocations.Count > 0)
             return (false, "Charge with receipt allocations cannot be cancelled.");
 
-        existing.IsCancelled = true;
-        existing.IsSettled = false;
+        await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
 
-        _repo.Update(existing);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        if (existing.StudentAdmissionId.HasValue && existing.StudentAdmissionId.Value > 0)
+        try
         {
-            await _ledgerRepository.RebuildRunningBalanceAsync(
-                tenantId,
-                branchId,
-                existing.StudentAdmissionId.Value,
-                cancellationToken);
+            existing.IsCancelled = true;
+            existing.IsSettled = false;
+            _repo.Update(existing);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            await _ledgerRepository.SaveChangesAsync(cancellationToken);
+            if (existing.StudentAdmissionId.HasValue && existing.StudentAdmissionId.Value > 0)
+            {
+                await _ledgerPostingService.PostChargesAsync(
+                    tenantId,
+                    branchId,
+                    existing.StudentId ?? 0,
+                    existing.StudentAdmissionId.Value,
+                    new[] { ToChargeResponse(existing) },
+                    cancellationToken);
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return (true, "Student charge cancelled successfully.");
         }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
 
-        return (true, "Student charge cancelled successfully.");
+    private static StudentChargeResponse ToChargeResponse(StudentCharge charge)
+    {
+        return new StudentChargeResponse
+        {
+            Id = charge.Id,
+            FeeHeadId = charge.FeeHeadId,
+            Amount = charge.Amount,
+            DiscountAmount = charge.DiscountAmount,
+            FineAmount = charge.FineAmount,
+            PaidAmount = charge.PaidAmount,
+            DueDate = charge.DueDate,
+            IsCancelled = charge.IsCancelled
+        };
     }
 }

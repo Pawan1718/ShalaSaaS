@@ -10,4 +10,11 @@ public interface IStudentFeeAssignmentRepository : IGenericRepository<StudentFee
     Task<StudentFeeAssignment?> GetByIdAsync(int id, int tenantId, int branchId, CancellationToken cancellationToken = default);
 
     Task<StudentFeeAssignment?> GetByAdmissionIdAsync(int studentAdmissionId, int tenantId, int branchId, CancellationToken cancellationToken = default);
+
+    Task<bool> IsFirstAdmissionForStudentAsync(
+        int studentId,
+        int studentAdmissionId,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default);
 }

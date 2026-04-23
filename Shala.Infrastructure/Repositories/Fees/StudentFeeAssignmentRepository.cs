@@ -64,4 +64,25 @@ public class StudentFeeAssignmentRepository : GenericRepository<StudentFeeAssign
                      x.BranchId == branchId,
                 cancellationToken);
     }
+
+    public async Task<bool> IsFirstAdmissionForStudentAsync(
+        int studentId,
+        int studentAdmissionId,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var firstAdmissionId = await _db.StudentAdmissions
+            .AsNoTracking()
+            .Where(x =>
+                x.StudentId == studentId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId)
+            .OrderBy(x => x.AdmissionDate)
+            .ThenBy(x => x.Id)
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return firstAdmissionId.HasValue && firstAdmissionId.Value == studentAdmissionId;
+    }
 }

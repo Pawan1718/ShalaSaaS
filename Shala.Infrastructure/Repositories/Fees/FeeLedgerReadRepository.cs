@@ -22,13 +22,28 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
         FeeLedgerDashboardRequest request,
         CancellationToken cancellationToken = default)
     {
+        var ledgerScope = _db.StudentFeeLedgers
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.BranchId == branchId);
+
+        if (request.StudentId.HasValue)
+            ledgerScope = ledgerScope.Where(x => x.StudentId == request.StudentId.Value);
+
+        if (request.AdmissionId.HasValue)
+            ledgerScope = ledgerScope.Where(x => x.StudentAdmissionId == request.AdmissionId.Value);
+
+        if (request.ToDate.HasValue)
+        {
+            var to = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            ledgerScope = ledgerScope.Where(x => x.EntryDate <= to);
+        }
+
         var baseQuery =
-            from ledger in _db.StudentFeeLedgers.AsNoTracking()
+            from ledger in ledgerScope
             join admission in _db.StudentAdmissions.AsNoTracking()
                 on ledger.StudentAdmissionId equals admission.Id
             join student in _db.Students.AsNoTracking()
                 on ledger.StudentId equals student.Id
-            where ledger.TenantId == tenantId && ledger.BranchId == branchId
             select new FeeLedgerRowResponse
             {
                 Id = ledger.Id,
@@ -50,19 +65,12 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
         if (!string.IsNullOrWhiteSpace(request.SearchText))
         {
             var search = request.SearchText.Trim().ToLower();
-
             baseQuery = baseQuery.Where(x =>
                 x.StudentName.ToLower().Contains(search) ||
                 x.AdmissionNo.ToLower().Contains(search) ||
                 (x.ReferenceNo != null && x.ReferenceNo.ToLower().Contains(search)) ||
                 (x.Remarks != null && x.Remarks.ToLower().Contains(search)));
         }
-
-        if (request.StudentId.HasValue)
-            baseQuery = baseQuery.Where(x => x.StudentId == request.StudentId.Value);
-
-        if (request.AdmissionId.HasValue)
-            baseQuery = baseQuery.Where(x => x.StudentAdmissionId == request.AdmissionId.Value);
 
         if (!string.IsNullOrWhiteSpace(request.EntryType))
             baseQuery = baseQuery.Where(x => x.EntryType == request.EntryType);
@@ -73,26 +81,15 @@ public sealed class FeeLedgerReadRepository : IFeeLedgerReadRepository
             baseQuery = baseQuery.Where(x => x.EntryDate >= from);
         }
 
-        if (request.ToDate.HasValue)
-        {
-            var to = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
-            baseQuery = baseQuery.Where(x => x.EntryDate <= to);
-        }
-
         var totalEntries = await baseQuery.CountAsync(cancellationToken);
         var totalDebit = await baseQuery.SumAsync(x => (decimal?)x.DebitAmount, cancellationToken) ?? 0m;
         var totalCredit = await baseQuery.SumAsync(x => (decimal?)x.CreditAmount, cancellationToken) ?? 0m;
 
-        var latestBalances = await baseQuery
+        var closingBalanceQuery = ledgerScope;
+        var closingBalance = await closingBalanceQuery
             .GroupBy(x => x.StudentAdmissionId)
-            .Select(g => g
-                .OrderByDescending(x => x.EntryDate)
-                .ThenByDescending(x => x.Id)
-                .Select(x => (decimal?)x.RunningBalance)
-                .FirstOrDefault())
-            .ToListAsync(cancellationToken);
-
-        var closingBalance = latestBalances.Sum(x => x ?? 0m);
+            .Select(g => g.OrderByDescending(x => x.EntryDate).ThenByDescending(x => x.Id).Select(x => (decimal?)x.RunningBalance).FirstOrDefault() ?? 0m)
+            .SumAsync(cancellationToken);
 
         var sortedQuery = request.SortBy?.Trim().ToLowerInvariant() switch
         {
