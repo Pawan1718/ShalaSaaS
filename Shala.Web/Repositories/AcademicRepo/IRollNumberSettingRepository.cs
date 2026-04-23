@@ -3,7 +3,7 @@ using Shala.Shared.Requests.Students;
 using Shala.Shared.Responses.Students;
 using Shala.Shared.Responses.TenantConfigSetting;
 
-namespace Shala.Web.Repositories.ConfigRepo
+namespace Shala.Web.Repositories.AcademicRepo
 {
     public interface IRollNumberSettingRepository
     {

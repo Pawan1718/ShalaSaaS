@@ -60,7 +60,7 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 CreditAmount = 0m,
                 RunningBalance = runningBalance,
                 ReferenceNo = $"CH-{charge.Id}",
-                Remarks = $"Charge posted"
+                Remarks = "Charge posted"
             });
         }
 
@@ -79,7 +79,7 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
         CancellationToken cancellationToken = default)
     {
         var validAllocations = allocations
-            .Where(x => x.AllocatedAmount > 0)
+            .Where(x => x.AllocatedAmount != 0)
             .OrderBy(x => x.StudentChargeId)
             .ToList();
 
@@ -96,7 +96,16 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
 
         foreach (var allocation in validAllocations)
         {
-            runningBalance -= allocation.AllocatedAmount;
+            var amount = Math.Abs(allocation.AllocatedAmount);
+            if (amount <= 0)
+                continue;
+
+            var isCancellation = allocation.AllocatedAmount < 0;
+
+            if (isCancellation)
+                runningBalance += amount;
+            else
+                runningBalance -= amount;
 
             entries.Add(new StudentFeeLedger
             {
@@ -106,15 +115,19 @@ public sealed class FeeLedgerPostingService : IFeeLedgerPostingService
                 StudentAdmissionId = receipt.StudentAdmissionId,
                 StudentChargeId = allocation.StudentChargeId,
                 FeeReceiptId = receipt.Id,
-                EntryType = "Receipt",
-                EntryDate = receipt.ReceiptDate,
-                DebitAmount = 0m,
-                CreditAmount = allocation.AllocatedAmount,
+                FeeHeadId = allocation.FeeHeadId > 0 ? allocation.FeeHeadId : null,
+                EntryType = isCancellation ? "ReceiptCancel" : "Receipt",
+                EntryDate = receipt.ReceiptDate == default ? DateTime.UtcNow : receipt.ReceiptDate,
+                DebitAmount = isCancellation ? amount : 0m,
+                CreditAmount = isCancellation ? 0m : amount,
                 RunningBalance = runningBalance,
                 ReferenceNo = receipt.ReceiptNo,
-                Remarks = "Fee receipt posted"
+                Remarks = isCancellation ? "Fee receipt cancelled" : "Fee receipt posted"
             });
         }
+
+        if (!entries.Any())
+            return;
 
         await _ledgerRepository.AddRangeAsync(entries, cancellationToken);
         await _ledgerRepository.SaveChangesAsync(cancellationToken);

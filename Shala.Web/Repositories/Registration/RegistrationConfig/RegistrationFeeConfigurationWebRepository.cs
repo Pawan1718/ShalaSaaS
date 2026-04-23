@@ -2,33 +2,33 @@
 using Shala.Shared.Responses.TenantConfigSetting;
 using Shala.Web.Services.Http;
 
-namespace Shala.Web.Repositories.TenantConfig
+namespace Shala.Web.Repositories.Registration.RegistrationConfig
 {
-    public sealed class RegistrationReceiptConfigurationWebRepository : IRegistrationReceiptConfigurationWebRepository
+    public sealed class RegistrationFeeConfigurationWebRepository : IRegistrationFeeConfigurationWebRepository
     {
         private readonly IHttpService _httpService;
 
-        public RegistrationReceiptConfigurationWebRepository(IHttpService httpService)
+        public RegistrationFeeConfigurationWebRepository(IHttpService httpService)
         {
             _httpService = httpService;
         }
 
-        public async Task<RegistrationReceiptConfigurationResponse?> GetAsync(
+        public async Task<RegistrationFeeConfigurationResponse?> GetAsync(
             CancellationToken cancellationToken = default)
         {
-            var response = await _httpService.GetAsync<RegistrationReceiptConfigurationResponse>(
-                "api/registration/receipt-configuration");
+            var response = await _httpService.GetAsync<RegistrationFeeConfigurationResponse>(
+                "api/registration/fee-configuration");
 
             EnsureSuccess(response);
             return response.ServerResponse;
         }
 
-        public async Task<RegistrationReceiptConfigurationResponse> SaveAsync(
-            SaveRegistrationReceiptConfigurationRequest request,
+        public async Task<RegistrationFeeConfigurationResponse> SaveAsync(
+            SaveRegistrationFeeConfigurationRequest request,
             CancellationToken cancellationToken = default)
         {
-            var response = await _httpService.PostAsync<SaveRegistrationReceiptConfigurationRequest, RegistrationReceiptConfigurationResponse>(
-                "api/registration/receipt-configuration",
+            var response = await _httpService.PostAsync<SaveRegistrationFeeConfigurationRequest, RegistrationFeeConfigurationResponse>(
+                "api/registration/fee-configuration",
                 request);
 
             EnsureSuccess(response);

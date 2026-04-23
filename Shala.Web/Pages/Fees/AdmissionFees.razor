@@ -100,11 +100,10 @@ else
                                        OnClick="OpenAssignDialogAsync">
                                 @(_dashboard.Assignment is null ? "Assign Structure" : "Assigned")
                             </MudButton>
-
                             <MudButton Variant="Variant.Filled"
                                        Color="Color.Secondary"
                                        StartIcon="@Icons.Material.Filled.AutoFixHigh"
-                                       Disabled="@(_dashboard.Assignment is null || _dashboard.Charges.Any())"
+                                       Disabled="@(!CanGenerateCharges)"
                                        OnClick="GenerateChargesAsync">
                                 Generate Charges
                             </MudButton>
@@ -399,6 +398,10 @@ else
     private bool CanCollectFee =>
         _dashboard.Charges.Any(x => !x.IsCancelled && x.BalanceAmount > 0);
 
+    private bool CanGenerateCharges =>
+_dashboard.Assignment is not null &&
+!_dashboard.Charges.Any(x => !x.IsCancelled);
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -463,9 +466,9 @@ else
             return;
         }
 
-        if (_dashboard.Charges.Any())
+        if (!CanGenerateCharges)
         {
-            Snackbar.Add("Charges already generated for this admission.", Severity.Warning);
+            Snackbar.Add("Active charges already exist for this admission.", Severity.Warning);
             return;
         }
 
@@ -736,9 +739,13 @@ else
 
                     return new FeeReceiptPrintLineVm
                     {
-                        Label = charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
-                        FeeHeadName = charge?.ChargeLabel ?? "-",
-                        DueDate = charge?.DueDate,
+                        Label = !string.IsNullOrWhiteSpace(allocation.ChargeLabel)
+         ? allocation.ChargeLabel!
+         : charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
+                        FeeHeadName = !string.IsNullOrWhiteSpace(allocation.FeeHeadName)
+         ? allocation.FeeHeadName
+         : charge?.ChargeLabel ?? "-",
+                        DueDate = allocation.DueDate ?? charge?.DueDate,
                         Amount = allocation.AllocatedAmount
                     };
                 })

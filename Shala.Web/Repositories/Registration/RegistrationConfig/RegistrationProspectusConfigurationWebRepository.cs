@@ -2,7 +2,7 @@
 using Shala.Shared.Responses.TenantConfigSetting;
 using Shala.Web.Services.Http;
 
-namespace Shala.Web.Repositories.TenantConfig
+namespace Shala.Web.Repositories.Registration.RegistrationConfig
 {
     public sealed class RegistrationProspectusConfigurationWebRepository : IRegistrationProspectusConfigurationWebRepository
     {

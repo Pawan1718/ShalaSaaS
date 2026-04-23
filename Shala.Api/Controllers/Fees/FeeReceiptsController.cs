@@ -110,6 +110,11 @@ public class FeeReceiptsController : TenantApiControllerBase
                 .Select(a => new FeeReceiptAllocationResponse
                 {
                     StudentChargeId = a.StudentChargeId,
+                    FeeHeadId = a.StudentCharge?.FeeHeadId ?? 0,
+                    ChargeLabel = a.StudentCharge?.ChargeLabel,
+                    FeeHeadName = a.StudentCharge?.FeeHead?.Name,
+                    PeriodLabel = a.StudentCharge?.PeriodLabel,
+                    DueDate = a.StudentCharge?.DueDate,
                     AllocatedAmount = a.AllocatedAmount
                 })
                 .ToList() ?? new List<FeeReceiptAllocationResponse>()

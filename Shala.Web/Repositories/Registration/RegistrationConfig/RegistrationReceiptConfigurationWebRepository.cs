@@ -2,33 +2,33 @@
 using Shala.Shared.Responses.TenantConfigSetting;
 using Shala.Web.Services.Http;
 
-namespace Shala.Web.Repositories.TenantConfig
+namespace Shala.Web.Repositories.Registration.RegistrationConfig
 {
-    public sealed class RegistrationFeeConfigurationWebRepository : IRegistrationFeeConfigurationWebRepository
+    public sealed class RegistrationReceiptConfigurationWebRepository : IRegistrationReceiptConfigurationWebRepository
     {
         private readonly IHttpService _httpService;
 
-        public RegistrationFeeConfigurationWebRepository(IHttpService httpService)
+        public RegistrationReceiptConfigurationWebRepository(IHttpService httpService)
         {
             _httpService = httpService;
         }
 
-        public async Task<RegistrationFeeConfigurationResponse?> GetAsync(
+        public async Task<RegistrationReceiptConfigurationResponse?> GetAsync(
             CancellationToken cancellationToken = default)
         {
-            var response = await _httpService.GetAsync<RegistrationFeeConfigurationResponse>(
-                "api/registration/fee-configuration");
+            var response = await _httpService.GetAsync<RegistrationReceiptConfigurationResponse>(
+                "api/registration/receipt-configuration");
 
             EnsureSuccess(response);
             return response.ServerResponse;
         }
 
-        public async Task<RegistrationFeeConfigurationResponse> SaveAsync(
-            SaveRegistrationFeeConfigurationRequest request,
+        public async Task<RegistrationReceiptConfigurationResponse> SaveAsync(
+            SaveRegistrationReceiptConfigurationRequest request,
             CancellationToken cancellationToken = default)
         {
-            var response = await _httpService.PostAsync<SaveRegistrationFeeConfigurationRequest, RegistrationFeeConfigurationResponse>(
-                "api/registration/fee-configuration",
+            var response = await _httpService.PostAsync<SaveRegistrationReceiptConfigurationRequest, RegistrationReceiptConfigurationResponse>(
+                "api/registration/receipt-configuration",
                 request);
 
             EnsureSuccess(response);

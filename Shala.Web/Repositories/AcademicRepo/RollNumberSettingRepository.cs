@@ -7,7 +7,7 @@ using Shala.Web.Services.State;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace Shala.Web.Repositories.ConfigRepo
+namespace Shala.Web.Repositories.AcademicRepo
 {
     public class RollNumberSettingRepository : RepositoryBase, IRollNumberSettingRepository
     {

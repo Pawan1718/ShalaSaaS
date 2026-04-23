@@ -1,7 +1,7 @@
 ﻿using Shala.Shared.Requests.TenantConfigSetting;
 using Shala.Shared.Responses.TenantConfigSetting;
 
-namespace Shala.Web.Repositories.TenantConfig
+namespace Shala.Web.Repositories.Registration.RegistrationConfig
 {
     public interface IRegistrationProspectusConfigurationWebRepository
     {

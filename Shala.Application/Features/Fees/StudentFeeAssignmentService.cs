@@ -106,20 +106,29 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             cancellationToken);
 
         var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
-        var structureChanged = existing.FeeStructureId != entity.FeeStructureId;
 
-        if (hasPaidCharges && structureChanged)
-            return (false, "Cannot change fee structure because some charges are already paid.");
+        var feeImpactChanged =
+            existing.FeeStructureId != entity.FeeStructureId ||
+            existing.DiscountAmount != entity.DiscountAmount ||
+            existing.AdditionalChargeAmount != entity.AdditionalChargeAmount;
+
+        if (hasPaidCharges && feeImpactChanged)
+            return (false, "Cannot change fee structure or fee amounts because some charges are already paid.");
 
         existing.FeeStructureId = entity.FeeStructureId;
         existing.DiscountAmount = entity.DiscountAmount;
         existing.AdditionalChargeAmount = entity.AdditionalChargeAmount;
         existing.IsActive = entity.IsActive;
 
+        if (feeImpactChanged && existingCharges.Any())
+            await _chargeRepository.DeleteRangeAsync(existingCharges, cancellationToken);
+
         _repo.Update(existing);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return (true, "Student fee assignment updated successfully.");
+        return feeImpactChanged
+            ? (true, "Student fee assignment updated successfully. Existing unpaid charges were cleared. Generate charges again.")
+            : (true, "Student fee assignment updated successfully.");
     }
 
     public async Task<(bool Success, string Message)> DeleteAsync(
