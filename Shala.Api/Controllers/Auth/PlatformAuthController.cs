@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Shala.Application.Features.Platform;
 using Shala.Shared.Requests.Identity;
 
@@ -15,6 +16,7 @@ public sealed class PlatformAuthController : ControllerBase
         _platformAuthService = platformAuthService;
     }
 
+    [EnableRateLimiting("platform-login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] PlatformLoginRequest request,

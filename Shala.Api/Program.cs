@@ -1,6 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.IdentityModel.Tokens;
 using Shala.Api.Extensions;
 using Shala.Api.Middlewares;
 using Shala.Api.Services;
@@ -12,8 +10,8 @@ using Shala.Application.Repositories.Settings;
 using Shala.Infrastructure.Repositories.Settings;
 using Shala.Infrastructure.Seed;
 using Shala.Infrastructure.Storage;
-using Shala.Web.Repositories.Settings;
-using System.Text;
+using System.Text.Json;
+using System.Threading.RateLimiting;
 
 public class Program
 {
@@ -26,8 +24,10 @@ public class Program
         builder.Services.AddOpenApi();
 
         builder.Services.AddHttpContextAccessor();
+
         builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
         builder.Services.AddScoped<IAccessScopeValidator, AccessScopeValidator>();
+
         builder.Services.AddScoped<IBranchDocumentProfileRepository, BranchDocumentProfileRepository>();
         builder.Services.AddScoped<IBranchDocumentProfileService, BranchDocumentProfileService>();
         builder.Services.AddScoped<IStudentDocumentFileStorage, LocalStudentDocumentFileStorage>();
@@ -38,38 +38,96 @@ public class Program
         builder.Services.AddStudentServices();
         builder.Services.AddFeeServices();
 
-        var jwtSection = builder.Configuration.GetSection("Jwt");
-        var key = jwtSection["Key"];
-
-        if (string.IsNullOrWhiteSpace(key))
-            throw new InvalidOperationException("JWT key is missing.");
-
-        builder.Services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidateLifetime = true,
-                    ValidIssuer = jwtSection["Issuer"],
-                    ValidAudience = jwtSection["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
-                    ClockSkew = TimeSpan.Zero
-                };
-            });
+        builder.Services.AddJwtAuthentication(
+            builder.Configuration,
+            builder.Environment);
 
         builder.Services.AddAuthorization();
 
         builder.Services.AddRateLimiter(options =>
         {
-            options.AddFixedWindowLimiter("auth-login", limiterOptions =>
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.OnRejected = async (context, token) =>
             {
-                limiterOptions.PermitLimit = 5;
-                limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueLimit = 0;
+                context.HttpContext.Response.ContentType = "application/json";
+
+                await context.HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    success = false,
+                    message = "Too many login attempts. Please try again later."
+                }, token);
+            };
+
+            // Platform login: LoginId/Email + IP
+            options.AddPolicy("platform-login", httpContext =>
+            {
+                var ip = GetClientIp(httpContext);
+                var body = ReadRawBody(httpContext);
+
+                var loginKey = Normalize(
+                    GetJsonValue(body, "Email") ??
+                    GetJsonValue(body, "UserName") ??
+                    GetJsonValue(body, "LoginId") ??
+                    GetJsonValue(body, "Identifier") ??
+                    GetJsonValue(body, "MobileNumber") ??
+                    GetJsonValue(body, "PhoneNumber"));
+
+                var key = $"platform-login|login:{loginKey}|ip:{ip}";
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    key,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 3,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
+
+            // Tenant login: Tenant + Branch + LoginId + IP
+            options.AddPolicy("tenant-login", httpContext =>
+            {
+                var ip = GetClientIp(httpContext);
+                var body = ReadRawBody(httpContext);
+
+                var tenantKey = Normalize(
+                    GetJsonValue(body, "TenantId") ??
+                    GetJsonValue(body, "TenantCode") ??
+                    GetJsonValue(body, "TenantName") ??
+                    GetJsonValue(body, "SchoolCode") ??
+                    GetJsonValue(body, "SchoolName") ??
+                    GetJsonValue(body, "Tenant"));
+
+                var branchKey = Normalize(
+                    GetJsonValue(body, "BranchId") ??
+                    GetJsonValue(body, "BranchCode") ??
+                    GetJsonValue(body, "BranchName") ??
+                    GetJsonValue(body, "Branch"));
+
+                var loginKey = Normalize(
+                    GetJsonValue(body, "Email") ??
+                    GetJsonValue(body, "UserName") ??
+                    GetJsonValue(body, "LoginId") ??
+                    GetJsonValue(body, "Identifier") ??
+                    GetJsonValue(body, "MobileNumber") ??
+                    GetJsonValue(body, "PhoneNumber") ??
+                    GetJsonValue(body, "Mobile") ??
+                    GetJsonValue(body, "UserId"));
+
+                var key =
+                    $"tenant-login|tenant:{tenantKey}|branch:{branchKey}|login:{loginKey}|ip:{ip}";
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    key,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
             });
         });
 
@@ -90,12 +148,77 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+
         app.UseMiddleware<ExceptionMiddleware>();
+
         app.UseRateLimiter();
+
         app.UseAuthentication();
         app.UseAuthorization();
+
         app.MapControllers();
 
-        app.Run();
+        await app.RunAsync();
+    }
+
+    private static string Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "unknown"
+            : value.Trim().ToLowerInvariant();
+    }
+
+    private static string GetClientIp(HttpContext context)
+    {
+        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(forwardedFor))
+            return forwardedFor.Split(',')[0].Trim();
+
+        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    private static string ReadRawBody(HttpContext context)
+    {
+        if (!context.Request.HasJsonContentType())
+            return string.Empty;
+
+        context.Request.EnableBuffering();
+
+        using var reader = new StreamReader(
+            context.Request.Body,
+            leaveOpen: true);
+
+        var body = reader.ReadToEndAsync().GetAwaiter().GetResult();
+
+        context.Request.Body.Position = 0;
+
+        return body;
+    }
+
+    private static string? GetJsonValue(string json, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (string.Equals(prop.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                    return prop.Value.ToString();
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
     }
 }

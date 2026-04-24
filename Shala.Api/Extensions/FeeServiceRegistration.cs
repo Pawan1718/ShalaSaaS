@@ -32,6 +32,10 @@ public static class FeeServiceRegistration
         services.AddScoped<IFeeLedgerPostingService, FeeLedgerPostingService>();
         services.AddScoped<IFeeLedgerWriteRepository, FeeLedgerWriteRepository>();
 
+
+        services.AddScoped<IFeeReceiptCounterRepository, FeeReceiptCounterRepository>();
+
+
         return services;
     }
 }

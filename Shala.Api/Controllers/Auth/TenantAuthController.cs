@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Shala.Application.Features.Identity;
 using Shala.Shared.Requests.Identity;
 
@@ -15,6 +16,7 @@ public sealed class TenantAuthController : ControllerBase
         _authService = authService;
     }
 
+    [EnableRateLimiting("tenant-login")]
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         [FromBody] TenantLoginRequest request,
