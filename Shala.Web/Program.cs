@@ -12,6 +12,7 @@ using Shala.Web.Repositories.Settings;
 using Shala.Web.Repositories.StudentDocuments;
 using Shala.Web.Repositories.StudentRepo;
 using Shala.Web.Repositories.Students;
+using Shala.Web.Repositories.Supplies;
 using Shala.Web.Repositories.TenantRepo;
 using Shala.Web.Services.Http;
 using Shala.Web.Services.State;
@@ -68,6 +69,10 @@ public class Program
 
         builder.Services.AddScoped<IDocumentModelWebRepository, DocumentModelWebRepository>();
         builder.Services.AddScoped<IStudentDocumentWebRepository, StudentDocumentWebRepository>();
+
+
+        builder.Services.AddScoped<ISuppliesWebRepository, SuppliesWebRepository>();
+
         var app = builder.Build();
 
         if (!app.Environment.IsDevelopment())

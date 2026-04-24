@@ -23,5 +23,24 @@ namespace Shala.Application.Repositories.Registration
             int branchId,
             int receiptId,
             CancellationToken ct);
+
+
+        Task CancelReceiptAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    string actor,
+    CancelRegistrationReceiptRequest request,
+    CancellationToken ct);
+
+        Task RefundReceiptAsync(
+            int tenantId,
+            int branchId,
+            int receiptId,
+            string actor,
+            RefundRegistrationReceiptRequest request,
+            CancellationToken ct);
     }
+
+
 }

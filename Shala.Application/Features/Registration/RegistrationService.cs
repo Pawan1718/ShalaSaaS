@@ -169,9 +169,9 @@ namespace Shala.Application.Features.Registration
         }
 
         private static StudentRegistration BuildEntity(
-            int tenantId,
-            int branchId,
-            CreateRegistrationRequest request)
+      int tenantId,
+      int branchId,
+      CreateRegistrationRequest request)
         {
             return new StudentRegistration
             {
@@ -188,8 +188,13 @@ namespace Shala.Application.Features.Registration
                 InterestedClassId = request.InterestedClassId,
                 DateOfBirth = request.DateOfBirth,
                 Gender = request.Gender!.Value,
+
+                // 🔥 FIX START
                 FeePaid = false,
+                PaymentStatus = RegistrationPaymentStatus.Unpaid,
                 Status = RegistrationStatus.Pending,
+                // 🔥 FIX END
+
                 IsDeleted = false
             };
         }

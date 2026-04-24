@@ -120,6 +120,8 @@ namespace Shala.Web.Repositories.Registration
         }
 
 
+
+
         public async Task<ConvertRegistrationResponse> ConvertAsync(
     int id,
     ConvertRegistrationRequest request,
@@ -135,6 +137,39 @@ namespace Shala.Web.Repositories.Registration
             return response.ServerResponse ?? new ConvertRegistrationResponse();
         }
 
+        public async Task CancelReceiptAsync(
+    int receiptId,
+    CancelRegistrationReceiptRequest request,
+    CancellationToken cancellationToken = default)
+        {
+            if (request is null)
+                throw new ArgumentNullException(nameof(request));
+
+            var response = await _httpService.PostAsync<
+                CancelRegistrationReceiptRequest,
+                object?>(
+                $"api/registrations/receipt/{receiptId}/cancel",
+                request);
+
+            EnsureSuccess(response);
+        }
+
+        public async Task RefundReceiptAsync(
+            int receiptId,
+            RefundRegistrationReceiptRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request is null)
+                throw new ArgumentNullException(nameof(request));
+
+            var response = await _httpService.PostAsync<
+                RefundRegistrationReceiptRequest,
+                object?>(
+                $"api/registrations/receipt/{receiptId}/refund",
+                request);
+
+            EnsureSuccess(response);
+        }
 
         private static void EnsureSuccess<T>(ServerResponseHelper<T> response)
         {

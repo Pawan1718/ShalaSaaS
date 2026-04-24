@@ -1,5 +1,6 @@
 ﻿using Shala.Domain.Common;
 using Shala.Domain.Enum;
+using Shala.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -54,5 +55,36 @@ namespace Shala.Domain.Entities.Registration
 
         [Required]
         public bool IsRegistrationReceipt { get; set; } = true;
+
+        [Required]
+        public bool IsCancelled { get; set; } = false;
+
+        [MaxLength(250)]
+        public string? CancelReason { get; set; }
+
+        public DateTime? CancelledOn { get; set; }
+
+        [MaxLength(100)]
+        public string? CancelledBy { get; set; }
+
+
+        [Required]
+        public RegistrationReceiptStatus ReceiptStatus { get; set; } = RegistrationReceiptStatus.Active;
+
+   
+
+        [Required]
+        public bool IsRefunded { get; set; } = false;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal RefundedAmount { get; set; } = 0m;
+
+        [MaxLength(250)]
+        public string? RefundReason { get; set; }
+
+        public DateTime? RefundedOn { get; set; }
+
+        [MaxLength(100)]
+        public string? RefundedBy { get; set; }
     }
 }

@@ -1,0 +1,74 @@
+﻿.supply-print {
+    display: none;
+}
+
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    #supply-bill-print,
+    #supply-bill-print * {
+        visibility: visible;
+    }
+
+    #supply-bill-print {
+        display: block;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    .supply-bill {
+        width: 190mm;
+        min-height: 270mm;
+        margin: 0 auto;
+        padding: 12mm;
+        font-family: Arial, sans-serif;
+        color: #000;
+        border: 1px solid #222;
+    }
+
+        .supply-bill h2,
+        .supply-bill h3 {
+            text-align: center;
+            margin: 0 0 8px 0;
+        }
+
+    .bill-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        font-size: 14px;
+    }
+
+    .supply-bill table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+    }
+
+    .supply-bill th,
+    .supply-bill td {
+        border: 1px solid #333;
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    .supply-bill .right {
+        text-align: right;
+    }
+
+    .supply-bill .totals {
+        margin-top: 16px;
+        text-align: right;
+        font-weight: bold;
+        line-height: 1.8;
+    }
+
+    .supply-bill .thanks {
+        text-align: center;
+        margin-top: 32px;
+    }
+}

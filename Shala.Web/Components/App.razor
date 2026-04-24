@@ -1,45 +1,4 @@
-﻿@* 
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
-
-    <ResourcePreloader />
-
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["Shala.Web.styles.css"]" />
-    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-    <link href="/registration-receipt-print.css" rel="stylesheet" />
-    <link href="/fee-receipt-print.css" rel="stylesheet" />
-    <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
-
-    <HeadOutlet @rendermode="InteractiveServer" />
-</head>
-
-<body>
-
-    <!-- ✅ ONLY ONE ROUTES -->
-    <Routes @rendermode="InteractiveServer" />
-
-    <ReconnectModal />
-
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
-    <script src="js/registration-receipt.js"></script>
-    <script src="/registrationReceipt.js"></script>
-
-    <script src="js/fee-receipt.js"></script>
-</body>
-
-</html> *@
-
-
-
+﻿
 
 <!DOCTYPE html>
 <html lang="en">
@@ -57,6 +16,7 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="/registration-receipt-print.css" rel="stylesheet" />
     <link href="/fee-receipt-print.css" rel="stylesheet" />
+    <link href="/supply-print.css" rel="stylesheet" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
 
@@ -74,6 +34,7 @@
     <script src="js/registration-receipt.js"></script>
     <script src="/registrationReceipt.js"></script>
     <script src="js/fee-receipt.js"></script>
+    <script src="js/supplyPrint.js"></script>
 </body>
 
 </html>

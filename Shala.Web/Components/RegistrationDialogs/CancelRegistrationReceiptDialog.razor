@@ -1,0 +1,47 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Registration
+
+<MudDialog>
+    <TitleContent>Cancel Receipt</TitleContent>
+
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Please enter reason for cancelling this receipt.
+        </MudText>
+
+        <MudTextField T="string"
+                      Label="Cancel Reason"
+                      Variant="Variant.Outlined"
+                      Lines="3"
+                      @bind-Value="_reason"
+                      Required="true" />
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>
+        <MudButton Color="Color.Error"
+                   Variant="Variant.Filled"
+                   OnClick="Submit">
+            Cancel Receipt
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _reason = string.Empty;
+
+    private void Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_reason))
+            return;
+
+        MudDialog.Close(DialogResult.Ok(new CancelRegistrationReceiptRequest
+        {
+            Reason = _reason.Trim()
+        }));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

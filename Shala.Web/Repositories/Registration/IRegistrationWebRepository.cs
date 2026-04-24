@@ -50,5 +50,19 @@ namespace Shala.Web.Repositories.Registration
     int id,
     ConvertRegistrationRequest request,
     CancellationToken cancellationToken = default);
+
+
+
+        Task CancelReceiptAsync(
+     int receiptId,
+     CancelRegistrationReceiptRequest request,
+     CancellationToken cancellationToken = default);
+
+        Task RefundReceiptAsync(
+            int receiptId,
+            RefundRegistrationReceiptRequest request,
+            CancellationToken cancellationToken = default);
+
+
     }
 }

@@ -203,7 +203,15 @@
                                          OnClick="@(() => OpenConvertDialogAsync(context))">
                                 Convert
                             </MudMenuItem>
+                            <MudMenuItem Disabled="@(!CanCancelReceipt(context))"
+                                         OnClick="@(() => CancelReceiptAsync(context))">
+                                Cancel Receipt
+                            </MudMenuItem>
 
+                            <MudMenuItem Disabled="@(!CanRefundReceipt(context))"
+                                         OnClick="@(() => RefundReceiptAsync(context))">
+                                Refund Receipt
+                            </MudMenuItem>
                             <MudMenuItem Disabled="@IsDeleteDisabled(context)"
                                          OnClick="@(() => ConfirmDeleteAsync(context.Id))">
                                 Delete
@@ -599,6 +607,86 @@
             if (_items.Count == 1 && _request.PageNumber > 1)
                 _request.PageNumber--;
 
+            await LoadRegistrationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static bool CanCancelReceipt(RegistrationDto item)
+    {
+        return item.FeePaid
+            && !IsConverted(item)
+            && item.LatestReceiptId.GetValueOrDefault() > 0;
+    }
+
+    private static bool CanRefundReceipt(RegistrationDto item)
+    {
+        return item.FeePaid
+            && !IsConverted(item)
+            && item.LatestReceiptId.GetValueOrDefault() > 0;
+    }
+
+    private async Task CancelReceiptAsync(RegistrationDto item)
+    {
+        if (item.LatestReceiptId.GetValueOrDefault() <= 0)
+        {
+            Snackbar.Add("Receipt not found.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await Dialog.ShowAsync<CancelRegistrationReceiptDialog>(
+            "Cancel Receipt");
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not CancelRegistrationReceiptRequest request)
+            return;
+
+        try
+        {
+            await Repo.CancelReceiptAsync(item.LatestReceiptId.Value, request);
+
+            Snackbar.Add($"Receipt {item.LatestReceiptNo} cancelled.", Severity.Success);
+            await LoadRegistrationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task RefundReceiptAsync(RegistrationDto item)
+    {
+        if (item.LatestReceiptId.GetValueOrDefault() <= 0)
+        {
+            Snackbar.Add("Receipt not found.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var receipt = await Repo.GetReceiptAsync(item.LatestReceiptId.Value);
+
+            var parameters = new DialogParameters
+            {
+                ["MaxAmount"] = receipt.TotalAmount
+            };
+
+            var dialog = await Dialog.ShowAsync<RefundRegistrationReceiptDialog>(
+                "Refund Receipt",
+                parameters);
+
+            var result = await dialog.Result;
+
+            if (result.Canceled || result.Data is not RefundRegistrationReceiptRequest request)
+                return;
+
+            await Repo.RefundReceiptAsync(item.LatestReceiptId.Value, request);
+
+            Snackbar.Add($"Receipt {item.LatestReceiptNo} refunded.", Severity.Success);
             await LoadRegistrationsAsync();
         }
         catch (Exception ex)

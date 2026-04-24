@@ -59,6 +59,8 @@ namespace Shala.Domain.Entities.Registration
 
         [Required]
         public RegistrationStatus Status { get; set; } = RegistrationStatus.Pending;
+        [Required]
+        public RegistrationPaymentStatus PaymentStatus { get; set; } = RegistrationPaymentStatus.Unpaid;
 
         [Required]
         public bool IsDeleted { get; set; } = false;

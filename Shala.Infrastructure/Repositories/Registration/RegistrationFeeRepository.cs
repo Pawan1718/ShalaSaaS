@@ -58,9 +58,12 @@ namespace Shala.Infrastructure.Repositories.Registration
                     DateOfBirth = request.Registration.DateOfBirth,
                     Gender = request.Registration.Gender,
                     FeePaid = feeContext.TotalAmount > 0m,
+                    PaymentStatus = feeContext.TotalAmount > 0m
+    ? RegistrationPaymentStatus.Paid
+    : RegistrationPaymentStatus.Unpaid,
                     Status = feeContext.TotalAmount > 0m
-                        ? RegistrationStatus.Confirmed
-                        : RegistrationStatus.Pending,
+    ? RegistrationStatus.Confirmed
+    : RegistrationStatus.Pending,
                     IsDeleted = false,
                     RegistrationNo = string.Empty
                 };
@@ -128,10 +131,11 @@ namespace Shala.Infrastructure.Repositories.Registration
                 if (registration is null)
                     throw new KeyNotFoundException("Registration not found.");
 
-                if (registration.FeePaid)
+                if (registration.PaymentStatus == RegistrationPaymentStatus.Paid || registration.FeePaid)
                     throw new InvalidOperationException("Fee already collected.");
 
                 registration.FeePaid = true;
+                registration.PaymentStatus = RegistrationPaymentStatus.Paid;
                 registration.Status = RegistrationStatus.Confirmed;
 
                 var receipt = await CreateReceiptAsync(
@@ -168,8 +172,9 @@ namespace Shala.Infrastructure.Repositories.Registration
                 join registration in _db.StudentRegistrations.AsNoTracking()
                     on receipt.RegistrationId equals registration.Id
                 where receipt.Id == receiptId
-                      && receipt.TenantId == tenantId
-                      && receipt.BranchId == branchId
+       && receipt.TenantId == tenantId
+       && receipt.BranchId == branchId
+       && !receipt.IsCancelled
                 select new
                 {
                     Receipt = receipt,
@@ -424,9 +429,9 @@ namespace Shala.Infrastructure.Repositories.Registration
         }
 
         private async Task<string> GenerateReceiptNoAsync(
-            int tenantId,
-            int branchId,
-            CancellationToken ct)
+     int tenantId,
+     int branchId,
+     CancellationToken ct)
         {
             var utcNow = DateTime.UtcNow;
             var today = utcNow.Date;
@@ -441,6 +446,187 @@ namespace Shala.Infrastructure.Repositories.Registration
             return $"RCP-{utcNow:yyyyMMdd}-{count + 1:D4}";
         }
 
+
+
+
+        public async Task CancelReceiptAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    string actor,
+    CancelRegistrationReceiptRequest request,
+    CancellationToken ct)
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Reason))
+                throw new InvalidOperationException("Cancel reason is required.");
+
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            try
+            {
+                var receipt = await _db.RegistrationFeeReceipts
+                    .FirstOrDefaultAsync(x =>
+                        x.Id == receiptId &&
+                        x.TenantId == tenantId &&
+                        x.BranchId == branchId,
+                        ct);
+
+                if (receipt is null)
+                    throw new KeyNotFoundException("Receipt not found.");
+
+                if (receipt.IsCancelled || receipt.ReceiptStatus == RegistrationReceiptStatus.Cancelled)
+                    throw new InvalidOperationException("Receipt is already cancelled.");
+
+                if (receipt.IsRefunded || receipt.ReceiptStatus == RegistrationReceiptStatus.Refunded)
+                    throw new InvalidOperationException("Refunded receipt cannot be cancelled.");
+
+                var registration = await _db.StudentRegistrations
+                    .FirstOrDefaultAsync(x =>
+                        x.Id == receipt.RegistrationId &&
+                        x.TenantId == tenantId &&
+                        x.BranchId == branchId,
+                        ct);
+
+                receipt.IsCancelled = true;
+                receipt.ReceiptStatus = RegistrationReceiptStatus.Cancelled;
+                receipt.CancelReason = request.Reason.Trim();
+                receipt.CancelledOn = DateTime.UtcNow;
+                receipt.CancelledBy = string.IsNullOrWhiteSpace(actor) ? "System" : actor.Trim();
+
+                if (registration is not null)
+                {
+                    registration.FeePaid = false;
+                    registration.PaymentStatus = RegistrationPaymentStatus.Cancelled;
+                    registration.Status = RegistrationStatus.Pending;
+                }
+
+                await AddAuditAsync(
+                    tenantId,
+                    branchId,
+                    receipt.Id,
+                    "Cancelled",
+                    request.Reason,
+                    receipt.TotalAmount,
+                    actor,
+                    ct);
+
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(ct);
+                throw;
+            }
+        }
+
+
+        public async Task RefundReceiptAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    string actor,
+    RefundRegistrationReceiptRequest request,
+    CancellationToken ct)
+        {
+            if (request is null)
+                throw new ArgumentNullException(nameof(request));
+
+            if (request.Amount <= 0)
+                throw new InvalidOperationException("Refund amount must be greater than zero.");
+
+            if (string.IsNullOrWhiteSpace(request.Reason))
+                throw new InvalidOperationException("Refund reason is required.");
+
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            try
+            {
+                var receipt = await _db.RegistrationFeeReceipts
+                    .FirstOrDefaultAsync(x =>
+                        x.Id == receiptId &&
+                        x.TenantId == tenantId &&
+                        x.BranchId == branchId,
+                        ct);
+
+                if (receipt is null)
+                    throw new KeyNotFoundException("Receipt not found.");
+
+                if (receipt.IsCancelled || receipt.ReceiptStatus == RegistrationReceiptStatus.Cancelled)
+                    throw new InvalidOperationException("Cancelled receipt cannot be refunded.");
+
+                if (receipt.IsRefunded || receipt.ReceiptStatus == RegistrationReceiptStatus.Refunded)
+                    throw new InvalidOperationException("Receipt is already refunded.");
+
+                if (request.Amount > receipt.TotalAmount)
+                    throw new InvalidOperationException("Refund amount cannot exceed receipt total amount.");
+
+                var registration = await _db.StudentRegistrations
+                    .FirstOrDefaultAsync(x =>
+                        x.Id == receipt.RegistrationId &&
+                        x.TenantId == tenantId &&
+                        x.BranchId == branchId,
+                        ct);
+
+                receipt.IsRefunded = true;
+                receipt.ReceiptStatus = RegistrationReceiptStatus.Refunded;
+                receipt.RefundedAmount = request.Amount;
+                receipt.RefundReason = request.Reason.Trim();
+                receipt.RefundedOn = DateTime.UtcNow;
+                receipt.RefundedBy = string.IsNullOrWhiteSpace(actor) ? "System" : actor.Trim();
+
+                if (registration is not null)
+                {
+                    registration.FeePaid = false;
+                    registration.PaymentStatus = RegistrationPaymentStatus.Refunded;
+                    registration.Status = RegistrationStatus.Pending;
+                }
+
+                await AddAuditAsync(
+                    tenantId,
+                    branchId,
+                    receipt.Id,
+                    "Refunded",
+                    request.Reason,
+                    request.Amount,
+                    actor,
+                    ct);
+
+                await _db.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(ct);
+                throw;
+            }
+        }
+
+        private async Task AddAuditAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    string action,
+    string? reason,
+    decimal? amount,
+    string actor,
+    CancellationToken ct)
+        {
+            var audit = new RegistrationFeeReceiptAudit
+            {
+                TenantId = tenantId,
+                BranchId = branchId,
+                ReceiptId = receiptId,
+                Action = action,
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                Amount = amount,
+                PerformedBy = string.IsNullOrWhiteSpace(actor) ? "System" : actor.Trim(),
+                PerformedOn = DateTime.UtcNow
+            };
+
+            await _db.RegistrationFeeReceiptAudits.AddAsync(audit, ct);
+        }
+
         private sealed class FeeComputation
         {
             public decimal RegistrationAmount { get; set; }
@@ -449,5 +635,9 @@ namespace Shala.Infrastructure.Repositories.Registration
             public string? ProspectusLabel { get; set; }
             public decimal TotalAmount { get; set; }
         }
+
+
+
+
     }
 }

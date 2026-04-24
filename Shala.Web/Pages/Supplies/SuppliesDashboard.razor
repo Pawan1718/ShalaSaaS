@@ -1,0 +1,96 @@
+﻿@page "/tenant/supplies"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using MudBlazor
+@using Shala.Web.Repositories.Supplies
+@using Shala.Shared.Responses.Supplies
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Student Supplies</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-5" Elevation="2" Style="border-radius:20px;">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4">Student Supplies</MudText>
+                <MudText Color="Color.Secondary">Simple counter screen: Add Stock, Give Items, Collect Due.</MudText>
+            </div>
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/give"))">Give Items</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/add-stock"))">Add Stock</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/collect-due"))">Collect Due</MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Style="border-radius:16px;">
+                    <MudText Color="Color.Secondary">Today Given Items</MudText>
+                    <MudText Typo="Typo.h4">@_dashboard.TodayIssueCount</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Style="border-radius:16px;">
+                    <MudText Color="Color.Secondary">Today Collection</MudText>
+                    <MudText Typo="Typo.h4">₹@_dashboard.TodayCollection.ToString("N2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Style="border-radius:16px;">
+                    <MudText Color="Color.Secondary">Pending Due</MudText>
+                    <MudText Typo="Typo.h4" Color="Color.Warning">₹@_dashboard.PendingDue.ToString("N2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Style="border-radius:16px;">
+                    <MudText Color="Color.Secondary">Low Stock Items</MudText>
+                    <MudText Typo="Typo.h4" Color="Color.Error">@_dashboard.LowStockItemCount</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/give"))">Give Items</MudButton>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/add-stock"))">Add Stock</MudButton>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Warning" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/collect-due"))">Collect Due</MudButton>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private SupplyDashboardResponse _dashboard = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dashboard = await SuppliesRepo.GetDashboardAsync() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

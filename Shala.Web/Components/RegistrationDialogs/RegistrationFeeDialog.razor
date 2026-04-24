@@ -157,6 +157,14 @@
             return;
         }
 
+        var total = GetTotal();
+
+        if (total <= 0)
+        {
+            Snackbar.Add("Total payable amount must be greater than zero.", Severity.Warning);
+            return;
+        }
+
         if (_model.Amount.HasValue && _model.Amount.Value < 0)
         {
             Snackbar.Add("Registration fee amount cannot be negative.", Severity.Warning);
@@ -191,6 +199,5 @@
 
         MudDialog.Close(DialogResult.Ok(_model));
     }
-
     private void Cancel() => MudDialog.Cancel();
 }

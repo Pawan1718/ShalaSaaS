@@ -1,0 +1,96 @@
+﻿@page "/tenant/supplies/collect-due"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using MudBlazor
+@using Shala.Domain.Enums
+@using Shala.Shared.Requests.Supplies
+@using Shala.Shared.Responses.Supplies
+@using Shala.Web.Repositories.Supplies
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject ISnackbar Snackbar
+
+<PageTitle>Collect Due</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudText Typo="Typo.h5">Collect Due</MudText>
+        <MudText Color="Color.Secondary">Collect remaining amount from pending supply bills.</MudText>
+    </MudPaper>
+
+    <MudTable Items="_dues" Loading="_loading" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Bill No</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Student</MudTh>
+            <MudTh>Total</MudTh>
+            <MudTh>Paid</MudTh>
+            <MudTh>Due</MudTh>
+            <MudTh>Pay Now</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.IssueNo</MudTd>
+            <MudTd>@context.IssueDate.ToString("dd-MMM-yyyy")</MudTd>
+            <MudTd>@context.StudentName</MudTd>
+            <MudTd>₹@context.TotalAmount.ToString("N2")</MudTd>
+            <MudTd>₹@context.PaidAmount.ToString("N2")</MudTd>
+            <MudTd>₹@context.DueAmount.ToString("N2")</MudTd>
+            <MudTd>
+                <MudNumericField T="decimal" @bind-Value="_payAmounts[context.IssueId]" Dense="true" Variant="Variant.Outlined" />
+            </MudTd>
+            <MudTd>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => CollectAsync(context))">
+                    Collect
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private List<PendingSupplyDueResponse> _dues = [];
+    private Dictionary<int, decimal> _payAmounts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _dues = await SuppliesRepo.GetDuesAsync();
+            _payAmounts = _dues.ToDictionary(x => x.IssueId, x => x.DueAmount);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _loading = false; }
+    }
+
+    private async Task CollectAsync(PendingSupplyDueResponse due)
+    {
+        var amount = _payAmounts.TryGetValue(due.IssueId, out var value) ? value : 0;
+
+        if (amount <= 0 || amount > due.DueAmount)
+        {
+            Snackbar.Add("Enter valid amount.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            await SuppliesRepo.CollectDueAsync(due.IssueId, new CollectSupplyDueRequest
+            {
+                Amount = amount,
+                PaymentMode = SupplyPaymentMode.Cash
+            });
+
+            Snackbar.Add("Payment collected.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+}

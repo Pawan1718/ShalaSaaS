@@ -37,6 +37,9 @@ public class Program
         builder.Services.AddPlatformServices();
         builder.Services.AddStudentServices();
         builder.Services.AddFeeServices();
+        builder.Services.AddSuppliesServices();
+
+
 
         builder.Services.AddJwtAuthentication(
             builder.Configuration,

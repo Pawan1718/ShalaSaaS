@@ -214,6 +214,49 @@ namespace Shala.Api.Controllers.Registration
             return ApiResponse<RegistrationReceiptResponse>.Ok(result);
         }
 
+
+        [HttpPost("receipt/{receiptId:int}/cancel")]
+        public async Task<ApiResponse<object?>> CancelReceiptAsync(
+    int receiptId,
+    [FromBody] CancelRegistrationReceiptRequest request,
+    CancellationToken cancellationToken)
+        {
+            if (request is null)
+                return ApiResponse<object?>.Fail("Request body is required.");
+
+            await _registrationFeeService.CancelReceiptAsync(
+                TenantId,
+                BranchId,
+                receiptId,
+                Actor,
+                request,
+                cancellationToken);
+
+            return ApiResponse<object?>.Ok(null, "Receipt cancelled successfully.");
+        }
+
+
+        [HttpPost("receipt/{receiptId:int}/refund")]
+        public async Task<ApiResponse<object?>> RefundReceiptAsync(
+    int receiptId,
+    [FromBody] RefundRegistrationReceiptRequest request,
+    CancellationToken cancellationToken)
+        {
+            if (request is null)
+                return ApiResponse<object?>.Fail("Request body is required.");
+
+            await _registrationFeeService.RefundReceiptAsync(
+                TenantId,
+                BranchId,
+                receiptId,
+                Actor,
+                request,
+                cancellationToken);
+
+            return ApiResponse<object?>.Ok(null, "Receipt refunded successfully.");
+        }
+
+
         private async Task<bool> IsRegistrationModuleEnabledAsync(CancellationToken cancellationToken)
         {
             var config = await _registrationConfigRepository.GetByScopeAsync(

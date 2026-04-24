@@ -9,6 +9,8 @@ using Shala.Domain.Entities.Registration;
 using Shala.Domain.Entities.Settings;
 using Shala.Domain.Entities.StudentDocuments;
 using Shala.Domain.Entities.Students;
+using Shala.Domain.Entities.Supplies;
+using Shala.Domain.Enums;
 
 namespace Shala.Infrastructure.Data;
 
@@ -47,6 +49,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RegistrationFeeConfiguration> RegistrationFeeConfigurations => Set<RegistrationFeeConfiguration>();
     public DbSet<RegistrationReceiptConfiguration> RegistrationReceiptConfigurations => Set<RegistrationReceiptConfiguration>();
     public DbSet<RegistrationProspectusConfiguration> RegistrationProspectusConfigurations => Set<RegistrationProspectusConfiguration>();
+    public DbSet<RegistrationFeeReceiptAudit> RegistrationFeeReceiptAudits { get; set; }
+
 
     public DbSet<BranchDocumentProfile> BranchDocumentProfiles => Set<BranchDocumentProfile>();
     public DbSet<DocumentModel> DocumentModels => Set<DocumentModel>();
@@ -54,6 +58,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudentDocumentAnalysis> StudentDocumentAnalyses => Set<StudentDocumentAnalysis>();
     public DbSet<StudentDocumentFieldMatch> StudentDocumentFieldMatches => Set<StudentDocumentFieldMatch>();
     public DbSet<StudentDocumentSuggestion> StudentDocumentSuggestions => Set<StudentDocumentSuggestion>();
+
+
+    public DbSet<SupplyItem> SupplyItems => Set<SupplyItem>();
+    public DbSet<StudentSupplyIssue> StudentSupplyIssues => Set<StudentSupplyIssue>();
+    public DbSet<StudentSupplyIssueItem> StudentSupplyIssueItems => Set<StudentSupplyIssueItem>();
+    public DbSet<StudentSupplyPayment> StudentSupplyPayments => Set<StudentSupplyPayment>();
+    public DbSet<SupplyStockLedger> SupplyStockLedgers => Set<SupplyStockLedger>();
+
+
+
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -64,6 +78,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         ConfigureRegistration(builder);
         ConfigureFees(builder);
         ConfigureDocuments(builder);
+        ConfigureSupplies(builder); 
+
     }
 
     private static void ConfigureIdentityAndOrg(ModelBuilder builder)
@@ -200,6 +216,88 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(x => new { x.TenantId, x.BranchId }).IsUnique();
             entity.Property(x => x.ReceiptTitle).HasMaxLength(150);
             entity.Property(x => x.ReceiptFooterNote).HasMaxLength(500);
+        });
+
+        builder.Entity<StudentRegistration>(entity =>
+        {
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.RegistrationNo })
+                .IsUnique();
+
+            entity.Property(x => x.PaymentStatus)
+                .HasDefaultValue(RegistrationPaymentStatus.Unpaid);
+        });
+
+        builder.Entity<RegistrationFeeReceipt>(entity =>
+        {
+            entity.Property(x => x.ReceiptNo)
+                .HasMaxLength(30)
+                .IsRequired();
+
+            entity.Property(x => x.TransactionReference)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.Remarks)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.CancelReason)
+                .HasMaxLength(250);
+
+            entity.Property(x => x.IsCancelled)
+                .HasDefaultValue(false);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo })
+                .IsUnique();
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.RegistrationId, x.IsCancelled });
+        });
+
+        builder.Entity<RegistrationFeeReceipt>(entity =>
+        {
+            entity.Property(x => x.ReceiptStatus)
+                .HasDefaultValue(RegistrationReceiptStatus.Active);
+
+            entity.Property(x => x.IsCancelled)
+                .HasDefaultValue(false);
+
+            entity.Property(x => x.CancelReason)
+                .HasMaxLength(250);
+
+            entity.Property(x => x.CancelledBy)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.IsRefunded)
+                .HasDefaultValue(false);
+
+            entity.Property(x => x.RefundedAmount)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m);
+
+            entity.Property(x => x.RefundReason)
+                .HasMaxLength(250);
+
+            entity.Property(x => x.RefundedBy)
+                .HasMaxLength(100);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo })
+                .IsUnique();
+        });
+
+        builder.Entity<RegistrationFeeReceiptAudit>(entity =>
+        {
+            entity.Property(x => x.Action)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(x => x.Reason)
+                .HasMaxLength(250);
+
+            entity.Property(x => x.Amount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.PerformedBy)
+                .HasMaxLength(100);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptId });
         });
     }
 
@@ -562,5 +660,185 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
 
 
+    }
+
+    private static void ConfigureSupplies(ModelBuilder builder)
+    {
+        builder.Entity<SupplyItem>(entity =>
+        {
+            entity.ToTable("SupplyItems");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Name)
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(x => x.Code)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(x => x.Description)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.SalePrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.CurrentStock)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.MinimumStock)
+                .HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code })
+                .IsUnique();
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name });
+        });
+
+        builder.Entity<StudentSupplyIssue>(entity =>
+        {
+            entity.ToTable("StudentSupplyIssues");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.IssueNo)
+                .HasMaxLength(40)
+                .IsRequired();
+
+            entity.Property(x => x.TotalAmount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.PaidAmount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.DueAmount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.Remarks)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.CancelReason)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.IsCancelled)
+                .HasDefaultValue(false);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IssueNo })
+                .IsUnique();
+
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.AcademicYearId,
+                x.StudentId
+            });
+
+            entity.HasOne(x => x.Student)
+                .WithMany()
+                .HasForeignKey(x => x.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.StudentAdmission)
+                .WithMany()
+                .HasForeignKey(x => x.StudentAdmissionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(x => x.Items)
+                .WithOne(x => x.StudentSupplyIssue)
+                .HasForeignKey(x => x.StudentSupplyIssueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.Payments)
+                .WithOne(x => x.StudentSupplyIssue)
+                .HasForeignKey(x => x.StudentSupplyIssueId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StudentSupplyIssueItem>(entity =>
+        {
+            entity.ToTable("StudentSupplyIssueItems");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.ItemName)
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(x => x.ItemCode)
+                .HasMaxLength(50);
+
+            entity.Property(x => x.Quantity)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.UnitPrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.LineTotal)
+                .HasColumnType("decimal(18,2)");
+
+            entity.HasOne(x => x.SupplyItem)
+                .WithMany(x => x.IssueItems)
+                .HasForeignKey(x => x.SupplyItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StudentSupplyPayment>(entity =>
+        {
+            entity.ToTable("StudentSupplyPayments");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Amount)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.ReferenceNo)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.Remarks)
+                .HasMaxLength(500);
+
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.AcademicYearId,
+                x.PaymentDate
+            });
+        });
+
+        builder.Entity<SupplyStockLedger>(entity =>
+        {
+            entity.ToTable("SupplyStockLedgers");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Quantity)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.BalanceAfter)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(x => x.ReferenceType)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(x => x.Remarks)
+                .HasMaxLength(500);
+
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.SupplyItemId,
+                x.MovementDate
+            });
+
+            entity.HasOne(x => x.SupplyItem)
+                .WithMany(x => x.StockLedgers)
+                .HasForeignKey(x => x.SupplyItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

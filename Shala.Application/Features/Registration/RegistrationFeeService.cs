@@ -22,5 +22,28 @@ namespace Shala.Application.Features.Registration
         {
             return _repo.GetReceiptAsync(tenantId, branchId, receiptId, ct);
         }
+
+
+        public Task CancelReceiptAsync(
+    int tenantId,
+    int branchId,
+    int receiptId,
+    string actor,
+    CancelRegistrationReceiptRequest request,
+    CancellationToken ct)
+        {
+            return _repo.CancelReceiptAsync(tenantId, branchId, receiptId, actor, request, ct);
+        }
+
+        public Task RefundReceiptAsync(
+            int tenantId,
+            int branchId,
+            int receiptId,
+            string actor,
+            RefundRegistrationReceiptRequest request,
+            CancellationToken ct)
+        {
+            return _repo.RefundReceiptAsync(tenantId, branchId, receiptId, actor, request, ct);
+        }
     }
 }

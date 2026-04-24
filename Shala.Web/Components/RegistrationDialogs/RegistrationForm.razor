@@ -369,6 +369,12 @@
             return false;
         }
 
+        if (!_createModel.Gender.HasValue)
+        {
+            Snackbar.Add("Please select gender.", Severity.Warning);
+            return false;
+        }
+
         return true;
     }
 
