@@ -788,6 +788,9 @@ namespace Shala.Api.Migrations
                     b.Property<int>("StudentId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StudentId1")
+                        .HasColumnType("int");
+
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
 
@@ -808,6 +811,8 @@ namespace Shala.Api.Migrations
                     b.HasIndex("StudentAdmissionId1");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("StudentId1");
 
                     b.HasIndex("TenantId", "BranchId", "StudentAdmissionId")
                         .IsUnique();
@@ -2408,10 +2413,14 @@ namespace Shala.Api.Migrations
                         .HasForeignKey("StudentAdmissionId1");
 
                     b.HasOne("Shala.Domain.Entities.Students.Student", "Student")
-                        .WithMany("FeeAssignments")
+                        .WithMany()
                         .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Shala.Domain.Entities.Students.Student", null)
+                        .WithMany("FeeAssignments")
+                        .HasForeignKey("StudentId1");
 
                     b.Navigation("FeeStructure");
 

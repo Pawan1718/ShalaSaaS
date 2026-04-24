@@ -1,32 +1,55 @@
-﻿using Shala.Application.Repositories.Fees;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Shala.Application.Common;
+using Shala.Application.Repositories.Fees;
+using Shala.Domain.Entities.Fees;
 
-namespace Shala.Application.Features.Fees
+namespace Shala.Application.Features.Fees;
+
+public sealed class FeeReceiptNumberGenerator : IFeeReceiptNumberGenerator
 {
-    public class FeeReceiptNumberGenerator : IFeeReceiptNumberGenerator
+    private readonly IFeeReceiptCounterRepository _counterRepository;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public FeeReceiptNumberGenerator(
+        IFeeReceiptCounterRepository counterRepository,
+        IUnitOfWork unitOfWork)
     {
-        private readonly IFeeReceiptRepository _repo;
+        _counterRepository = counterRepository;
+        _unitOfWork = unitOfWork;
+    }
 
-        public FeeReceiptNumberGenerator(IFeeReceiptRepository repo)
+    public async Task<string> GenerateAsync(
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var year = DateTime.UtcNow.Year;
+
+        var counter = await _counterRepository.GetAsync(
+            tenantId,
+            branchId,
+            year,
+            cancellationToken);
+
+        if (counter is null)
         {
-            _repo = repo;
+            counter = new FeeReceiptCounter
+            {
+                TenantId = tenantId,
+                BranchId = branchId,
+                Year = year,
+                LastNumber = 1
+            };
+
+            await _counterRepository.AddAsync(counter, cancellationToken);
+        }
+        else
+        {
+            counter.LastNumber++;
+            _counterRepository.Update(counter);
         }
 
-        public async Task<string> GenerateAsync(
-            int tenantId,
-            int branchId,
-            CancellationToken cancellationToken = default)
-        {
-            var receipts = await _repo.GetAllAsync(
-                tenantId,
-                branchId,
-                cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var count = receipts.Count + 1;
-
-            return $"RCPT-{DateTime.UtcNow.Year}-{count:D4}";
-        }
+        return $"RCPT-{year}-{counter.LastNumber:D4}";
     }
 }

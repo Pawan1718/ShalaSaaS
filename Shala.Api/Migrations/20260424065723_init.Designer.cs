@@ -12,15 +12,15 @@ using Shala.Infrastructure.Data;
 namespace Shala.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260414071057_fresh")]
-    partial class fresh
+    [Migration("20260424065723_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.4")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -500,6 +500,36 @@ namespace Shala.Api.Migrations
                     b.ToTable("FeeReceiptAllocations");
                 });
 
+            modelBuilder.Entity("Shala.Domain.Entities.Fees.FeeReceiptCounter", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LastNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "Year")
+                        .IsUnique();
+
+                    b.ToTable("FeeReceiptCounters", (string)null);
+                });
+
             modelBuilder.Entity("Shala.Domain.Entities.Fees.FeeStructure", b =>
                 {
                     b.Property<int>("Id")
@@ -761,6 +791,9 @@ namespace Shala.Api.Migrations
                     b.Property<int>("StudentId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StudentId1")
+                        .HasColumnType("int");
+
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
 
@@ -782,10 +815,91 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("StudentId1");
+
                     b.HasIndex("TenantId", "BranchId", "StudentAdmissionId")
                         .IsUnique();
 
                     b.ToTable("StudentFeeAssignments");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Fees.StudentFeeLedger", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("CreditAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("DebitAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("FeeHeadId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("FeeReceiptId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("RunningBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StudentAdmissionId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StudentChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "FeeReceiptId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentChargeId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId", "EntryDate", "Id");
+
+                    b.ToTable("StudentFeeLedgers", (string)null);
                 });
 
             modelBuilder.Entity("Shala.Domain.Entities.Identity.ApplicationUser", b =>
@@ -1030,6 +1144,9 @@ namespace Shala.Api.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsRegistrationFeeMandatory")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRegistrationModuleEnabled")
                         .HasColumnType("bit");
 
                     b.Property<decimal>("RegistrationFeeAmount")
@@ -2299,10 +2416,14 @@ namespace Shala.Api.Migrations
                         .HasForeignKey("StudentAdmissionId1");
 
                     b.HasOne("Shala.Domain.Entities.Students.Student", "Student")
-                        .WithMany("FeeAssignments")
+                        .WithMany()
                         .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Shala.Domain.Entities.Students.Student", null)
+                        .WithMany("FeeAssignments")
+                        .HasForeignKey("StudentId1");
 
                     b.Navigation("FeeStructure");
 

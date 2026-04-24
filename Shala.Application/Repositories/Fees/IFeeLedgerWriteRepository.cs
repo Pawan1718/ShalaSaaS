@@ -32,6 +32,13 @@ public interface IFeeLedgerWriteRepository
         int studentAdmissionId,
         CancellationToken cancellationToken = default);
 
+    Task RebuildRunningBalanceFromAsync(
+        int tenantId,
+        int branchId,
+        int studentAdmissionId,
+        DateTime fromEntryDate,
+        CancellationToken cancellationToken = default);
+
     Task<List<StudentFeeLedger>> GetByChargeIdsAsync(
         int tenantId,
         int branchId,

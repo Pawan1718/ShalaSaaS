@@ -2,5 +2,8 @@
 
 public interface IFeeReceiptNumberGenerator
 {
-    Task<string> GenerateAsync(int tenantId, int branchId, CancellationToken cancellationToken = default);
+    Task<string> GenerateAsync(
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default);
 }

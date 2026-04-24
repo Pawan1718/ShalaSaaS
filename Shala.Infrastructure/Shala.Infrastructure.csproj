@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shala.Domain\Shala.Domain.csproj" />
-    <ProjectReference Include="..\Shala.Web\Shala.Web.csproj" />
 	  <ProjectReference Include="..\Shala.Application\Shala.Application.csproj" />
 
 

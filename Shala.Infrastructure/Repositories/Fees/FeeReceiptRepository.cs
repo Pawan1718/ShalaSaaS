@@ -17,6 +17,7 @@ public class FeeReceiptRepository : GenericRepository<FeeReceipt>, IFeeReceiptRe
         CancellationToken cancellationToken = default)
     {
         return await _table
+            .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(x => x.StudentCharge)
             .Where(x => x.TenantId == tenantId && x.BranchId == branchId)
@@ -32,6 +33,7 @@ public class FeeReceiptRepository : GenericRepository<FeeReceipt>, IFeeReceiptRe
         CancellationToken cancellationToken = default)
     {
         return await _table
+            .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(x => x.StudentCharge)
             .Where(x =>
@@ -50,6 +52,7 @@ public class FeeReceiptRepository : GenericRepository<FeeReceipt>, IFeeReceiptRe
         CancellationToken cancellationToken = default)
     {
         return await _table
+            .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(x => x.StudentCharge)
             .FirstOrDefaultAsync(
@@ -66,6 +69,7 @@ public class FeeReceiptRepository : GenericRepository<FeeReceipt>, IFeeReceiptRe
         CancellationToken cancellationToken = default)
     {
         return await _table
+            .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(x => x.StudentCharge)
             .FirstOrDefaultAsync(

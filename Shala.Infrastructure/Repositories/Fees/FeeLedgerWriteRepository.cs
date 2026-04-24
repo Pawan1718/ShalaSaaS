@@ -128,22 +128,50 @@ public sealed class FeeLedgerWriteRepository : IFeeLedgerWriteRepository
             cancellationToken);
     }
 
-    public async Task RebuildRunningBalanceAsync(
+    public Task RebuildRunningBalanceAsync(
         int tenantId,
         int branchId,
         int studentAdmissionId,
         CancellationToken cancellationToken = default)
     {
+        return RebuildRunningBalanceFromAsync(
+            tenantId,
+            branchId,
+            studentAdmissionId,
+            DateTime.MinValue,
+            cancellationToken);
+    }
+
+    public async Task RebuildRunningBalanceFromAsync(
+        int tenantId,
+        int branchId,
+        int studentAdmissionId,
+        DateTime fromEntryDate,
+        CancellationToken cancellationToken = default)
+    {
+        var previousBalance = await _db.StudentFeeLedgers
+            .AsNoTracking()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.BranchId == branchId &&
+                x.StudentAdmissionId == studentAdmissionId &&
+                x.EntryDate < fromEntryDate)
+            .OrderByDescending(x => x.EntryDate)
+            .ThenByDescending(x => x.Id)
+            .Select(x => (decimal?)x.RunningBalance)
+            .FirstOrDefaultAsync(cancellationToken) ?? 0m;
+
         var rows = await _db.StudentFeeLedgers
             .Where(x =>
                 x.TenantId == tenantId &&
                 x.BranchId == branchId &&
-                x.StudentAdmissionId == studentAdmissionId)
+                x.StudentAdmissionId == studentAdmissionId &&
+                x.EntryDate >= fromEntryDate)
             .OrderBy(x => x.EntryDate)
             .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
 
-        decimal runningBalance = 0m;
+        var runningBalance = previousBalance;
 
         foreach (var row in rows)
         {
