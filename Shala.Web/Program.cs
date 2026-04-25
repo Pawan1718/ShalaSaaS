@@ -6,7 +6,7 @@ using Shala.Web.Repositories.AuthRepo;
 using Shala.Web.Repositories.Fees;
 using Shala.Web.Repositories.Interfaces;
 using Shala.Web.Repositories.PlatformRepo;
-
+using Shala.Web.Repositories.Reports;
 using Shala.Web.Repositories.Settings;
 using Shala.Web.Repositories.StudentDocuments;
 using Shala.Web.Repositories.StudentRepo;
@@ -64,6 +64,7 @@ public class Program
         builder.Services.AddScoped<IStudentDocumentChecklistWebRepository, StudentDocumentChecklistWebRepository>();
         builder.Services.AddScoped<IDocumentModelWebRepository, DocumentModelWebRepository>();
 
+        builder.Services.AddScoped<IReportsWebRepository, ReportsWebRepository>();
 
         builder.Services.AddScoped<ISuppliesWebRepository, SuppliesWebRepository>();
 

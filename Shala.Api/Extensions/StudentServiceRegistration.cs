@@ -1,12 +1,15 @@
 ﻿using Shala.Application.Features.Academics;
+using Shala.Application.Features.Reports;
 using Shala.Application.Features.StudentDocument;
 using Shala.Application.Features.Students;
 using Shala.Application.Features.TenantConfig;
 using Shala.Application.Repositories.Academics;
+using Shala.Application.Repositories.Reports;
 using Shala.Application.Repositories.StudentDocumentRepo;
 using Shala.Application.Repositories.Students;
 using Shala.Application.Repositories.TenantConfig;
 using Shala.Infrastructure.Repositories.Academics;
+using Shala.Infrastructure.Repositories.Reports;
 using Shala.Infrastructure.Repositories.StudentDocumentRepo;
 using Shala.Infrastructure.Repositories.Students;
 using Shala.Infrastructure.Repositories.TenantConfig;
@@ -39,6 +42,12 @@ public static class StudentServiceRegistration
         services.AddScoped<IStudentDocumentChecklistRepository, StudentDocumentChecklistRepository>();
         services.AddScoped<IDocumentModelService, DocumentModelService>();
         services.AddScoped<IStudentDocumentChecklistService, StudentDocumentChecklistService>();
+
+        services.AddScoped<IReportsService, ReportsService>();
+
+        // Repositories
+        services.AddScoped<IReportsRepository, ReportsRepository>();
+
 
         return services;
     }
