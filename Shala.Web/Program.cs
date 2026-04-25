@@ -61,8 +61,8 @@ public class Program
         builder.Services.AddScoped<IBranchDocumentProfileWebRepository, BranchDocumentProfileWebRepository>();
         builder.Services.AddScoped<IFeeWebRepository, FeeWebRepository>();
 
+        builder.Services.AddScoped<IStudentDocumentChecklistWebRepository, StudentDocumentChecklistWebRepository>();
         builder.Services.AddScoped<IDocumentModelWebRepository, DocumentModelWebRepository>();
-        builder.Services.AddScoped<IStudentDocumentWebRepository, StudentDocumentWebRepository>();
 
 
         builder.Services.AddScoped<ISuppliesWebRepository, SuppliesWebRepository>();

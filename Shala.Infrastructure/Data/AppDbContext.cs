@@ -43,11 +43,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<FeeReceiptCounter> FeeReceiptCounters => Set<FeeReceiptCounter>();
 
     public DbSet<BranchDocumentProfile> BranchDocumentProfiles => Set<BranchDocumentProfile>();
+
+
     public DbSet<DocumentModel> DocumentModels => Set<DocumentModel>();
-    public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
-    public DbSet<StudentDocumentAnalysis> StudentDocumentAnalyses => Set<StudentDocumentAnalysis>();
-    public DbSet<StudentDocumentFieldMatch> StudentDocumentFieldMatches => Set<StudentDocumentFieldMatch>();
-    public DbSet<StudentDocumentSuggestion> StudentDocumentSuggestions => Set<StudentDocumentSuggestion>();
+    public DbSet<StudentDocumentChecklist> StudentDocumentChecklists => Set<StudentDocumentChecklist>();
+
 
     public DbSet<SupplyItem> SupplyItems => Set<SupplyItem>();
     public DbSet<StudentSupplyIssue> StudentSupplyIssues => Set<StudentSupplyIssue>();
@@ -434,120 +434,55 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<DocumentModel>(entity =>
         {
             entity.ToTable("DocumentModels");
+
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Name).IsRequired().HasMaxLength(150);
-            entity.Property(x => x.Code).IsRequired().HasMaxLength(100);
-            entity.Property(x => x.Description).HasMaxLength(500);
-            entity.Property(x => x.AllowedFileTypes).HasMaxLength(250);
-            entity.Property(x => x.RequiredFieldsJson).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Code).HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(1000);
+
             entity.Property(x => x.CreatedBy).HasMaxLength(100);
             entity.Property(x => x.UpdatedBy).HasMaxLength(100);
 
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code }).IsUnique();
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.DisplayOrder });
         });
 
-        builder.Entity<StudentDocument>(entity =>
+        builder.Entity<StudentDocumentChecklist>(entity =>
         {
-            entity.ToTable("StudentDocuments");
+            entity.ToTable("StudentDocumentChecklists");
+
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.DocumentType).IsRequired().HasMaxLength(100);
-            entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
-            entity.Property(x => x.FileName).IsRequired().HasMaxLength(255);
-            entity.Property(x => x.FilePath).IsRequired().HasMaxLength(500);
-            entity.Property(x => x.MimeType).IsRequired().HasMaxLength(100);
-            entity.Property(x => x.Status).IsRequired().HasMaxLength(50);
-            entity.Property(x => x.Remarks).HasMaxLength(1000);
+            entity.Property(x => x.Remark).HasMaxLength(1000);
             entity.Property(x => x.CreatedBy).HasMaxLength(100);
             entity.Property(x => x.UpdatedBy).HasMaxLength(100);
 
-            entity.HasOne(x => x.Student)
-                .WithMany(x => x.Documents)
-                .HasForeignKey(x => x.StudentId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // IMPORTANT:
+            // Checklist admission ke against hai, direct Student ke against nahi.
+            entity.HasOne(x => x.StudentAdmission)
+                .WithMany(x => x.DocumentChecklists)
+                .HasForeignKey(x => x.StudentAdmissionId)
+                .OnDelete(DeleteBehavior.NoAction)
+                .IsRequired();
 
             entity.HasOne(x => x.DocumentModel)
                 .WithMany()
                 .HasForeignKey(x => x.DocumentModelId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
 
-            entity.HasOne(x => x.Analysis)
-                .WithOne(x => x.StudentDocuments)
-                .HasForeignKey<StudentDocumentAnalysis>(x => x.StudentDocumentId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.StudentAdmissionId,
+                x.DocumentModelId
+            }).IsUnique();
 
-            entity.HasMany(x => x.Suggestions)
-                .WithOne(x => x.StudentDocument)
-                .HasForeignKey(x => x.StudentDocumentId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsReceived });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.DocumentModelId });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.CreatedAt });
-        });
-
-        builder.Entity<StudentDocumentAnalysis>(entity =>
-        {
-            entity.ToTable("StudentDocumentAnalyses");
-            entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.ExtractedText).HasColumnType("nvarchar(max)");
-            entity.Property(x => x.ExtractedJson).HasColumnType("nvarchar(max)");
-            entity.Property(x => x.DetectedDocumentType).HasMaxLength(100);
-            entity.Property(x => x.AnalysisStatus).HasMaxLength(50);
-            entity.Property(x => x.OcrConfidence).HasColumnType("decimal(5,2)");
-            entity.Property(x => x.AiConfidence).HasColumnType("decimal(5,2)");
-            entity.Property(x => x.CreatedBy).HasMaxLength(100);
-            entity.Property(x => x.UpdatedBy).HasMaxLength(100);
-
-            entity.HasMany(x => x.FieldMatches)
-                .WithOne(x => x.StudentDocumentAnalysis)
-                .HasForeignKey(x => x.StudentDocumentAnalysisId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasIndex(x => x.StudentDocumentId).IsUnique();
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AnalysisStatus });
-        });
-
-        builder.Entity<StudentDocumentFieldMatch>(entity =>
-        {
-            entity.ToTable("StudentDocumentFieldMatches");
-            entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.FieldName).IsRequired().HasMaxLength(100);
-            entity.Property(x => x.DocumentValue).HasMaxLength(500);
-            entity.Property(x => x.FormValue).HasMaxLength(500);
-            entity.Property(x => x.MatchStatus).HasMaxLength(50);
-            entity.Property(x => x.Suggestion).HasMaxLength(1000);
-            entity.Property(x => x.ConfidenceScore).HasColumnType("decimal(5,2)");
-            entity.Property(x => x.CreatedBy).HasMaxLength(100);
-            entity.Property(x => x.UpdatedBy).HasMaxLength(100);
-
-            entity.HasIndex(x => new { x.StudentDocumentAnalysisId, x.FieldName });
-            entity.HasIndex(x => x.MatchStatus);
-        });
-
-        builder.Entity<StudentDocumentSuggestion>(entity =>
-        {
-            entity.ToTable("StudentDocumentSuggestions");
-            entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.SuggestionType).HasMaxLength(50);
-            entity.Property(x => x.Message).IsRequired().HasMaxLength(1000);
-            entity.Property(x => x.SuggestedValue).HasMaxLength(500);
-            entity.Property(x => x.ConfidenceScore).HasColumnType("decimal(5,2)");
-            entity.Property(x => x.CreatedBy).HasMaxLength(100);
-            entity.Property(x => x.UpdatedBy).HasMaxLength(100);
-
-            entity.HasIndex(x => x.StudentDocumentId);
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.SuggestionType });
         });
     }
 

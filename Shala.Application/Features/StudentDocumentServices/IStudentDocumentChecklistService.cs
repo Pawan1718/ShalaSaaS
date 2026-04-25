@@ -3,29 +3,26 @@ using Shala.Shared.Responses.StudentDocument;
 
 namespace Shala.Application.Features.StudentDocument;
 
-public interface IDocumentModelService
+public interface IStudentDocumentChecklistService
 {
-    Task<List<DocumentModelResponse>> GetAllAsync(
+    Task<StudentDocumentChecklistResponse> GetByAdmissionAsync(
         int tenantId,
         int branchId,
+        int studentAdmissionId,
         CancellationToken cancellationToken = default);
 
-    Task<List<DocumentModelResponse>> GetActiveAsync(
-        int tenantId,
-        int branchId,
-        CancellationToken cancellationToken = default);
-
-    Task<DocumentModelResponse> CreateAsync(
+    Task<StudentDocumentChecklistResponse> SaveAsync(
         int tenantId,
         int branchId,
         string actor,
-        CreateDocumentModelRequest request,
+        SaveStudentDocumentChecklistRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<DocumentModelResponse> UpdateAsync(
+    Task<StudentDocumentChecklistResponse> ValidateAsync(
         int tenantId,
         int branchId,
-        string actor,
-        UpdateDocumentModelRequest request,
+        int studentAdmissionId,
         CancellationToken cancellationToken = default);
+
+
 }

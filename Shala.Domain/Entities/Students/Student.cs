@@ -25,7 +25,7 @@ public class Student : AuditableEntity, ITenantEntity
 
     public ICollection<Guardian> Guardians { get; set; } = new List<Guardian>();
     public ICollection<StudentAdmission> Admissions { get; set; } = new List<StudentAdmission>();
-    public ICollection<StudentDocument> Documents { get; set; } = new List<StudentDocument>();
     public ICollection<StudentFeeAssignment> FeeAssignments { get; set; } = new List<StudentFeeAssignment>();
     public ICollection<StudentCharge> StudentCharges { get; set; } = new List<StudentCharge>();
+
 }

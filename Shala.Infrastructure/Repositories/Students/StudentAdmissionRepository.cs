@@ -294,5 +294,18 @@ public class StudentAdmissionRepository : IStudentAdmissionRepository
 
 
 
-
+    public async Task<StudentAdmission?> GetByIdAsync(
+      int admissionId,
+      int tenantId,
+      int branchId,
+      CancellationToken cancellationToken = default)
+    {
+        return await _context.StudentAdmissions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                x.Id == admissionId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId,
+                cancellationToken);
+    }
 }

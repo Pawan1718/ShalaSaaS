@@ -12,7 +12,7 @@ using Shala.Infrastructure.Data;
 namespace Shala.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260424065723_init")]
+    [Migration("20260425102642_init")]
     partial class init
     {
         /// <inheritdoc />
@@ -196,6 +196,10 @@ namespace Shala.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.HasIndex("TenantId", "Sequence");
+
                     b.ToTable("AcademicClasses");
                 });
 
@@ -239,6 +243,8 @@ namespace Shala.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive");
 
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
@@ -338,6 +344,10 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("AcademicClassId");
 
+                    b.HasIndex("TenantId", "BranchId", "AcademicClassId");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
+
                     b.ToTable("Sections");
                 });
 
@@ -388,6 +398,10 @@ namespace Shala.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "Code");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
 
                     b.HasIndex("TenantId", "BranchId", "Name")
                         .IsUnique();
@@ -455,8 +469,16 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("TenantId", "BranchId", "IsCancelled");
+
+                    b.HasIndex("TenantId", "BranchId", "ReceiptDate");
+
                     b.HasIndex("TenantId", "BranchId", "ReceiptNo")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentId");
 
                     b.ToTable("FeeReceipts");
                 });
@@ -576,6 +598,12 @@ namespace Shala.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "BranchId", "AcademicClassId");
+
+                    b.HasIndex("TenantId", "BranchId", "AcademicYearId");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
+
                     b.HasIndex("TenantId", "BranchId", "AcademicYearId", "AcademicClassId", "Name")
                         .IsUnique();
 
@@ -645,6 +673,8 @@ namespace Shala.Api.Migrations
                     b.HasIndex("FeeHeadId");
 
                     b.HasIndex("FeeHeadId1");
+
+                    b.HasIndex("IsActive");
 
                     b.HasIndex("FeeStructureId", "FeeHeadId", "Label");
 
@@ -747,6 +777,18 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("StudentId1");
 
+                    b.HasIndex("TenantId", "BranchId", "DueDate");
+
+                    b.HasIndex("TenantId", "BranchId", "FeeHeadId");
+
+                    b.HasIndex("TenantId", "BranchId", "IsCancelled");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentFeeAssignmentId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentId");
+
                     b.ToTable("StudentCharges");
                 });
 
@@ -817,8 +859,14 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("StudentId1");
 
+                    b.HasIndex("TenantId", "BranchId", "FeeStructureId");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
+
                     b.HasIndex("TenantId", "BranchId", "StudentAdmissionId")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "BranchId", "StudentId");
 
                     b.ToTable("StudentFeeAssignments");
                 });
@@ -890,6 +938,10 @@ namespace Shala.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "EntryDate");
+
+                    b.HasIndex("TenantId", "BranchId", "EntryType");
 
                     b.HasIndex("TenantId", "BranchId", "FeeReceiptId");
 
@@ -979,7 +1031,7 @@ namespace Shala.Api.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId", "BranchId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -1123,358 +1175,6 @@ namespace Shala.Api.Migrations
                     b.ToTable("Tenants");
                 });
 
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.RegistrationFeeConfiguration", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsRegistrationFeeMandatory")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsRegistrationModuleEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal>("RegistrationFeeAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("RegistrationFeeHeadId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "BranchId")
-                        .IsUnique();
-
-                    b.ToTable("RegistrationFeeConfigurations");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.RegistrationFeeReceipt", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsProspectusIncluded")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsRegistrationReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("PaymentMode")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("ProspectusAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ProspectusLabel")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("ReceiptDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ReceiptNo")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<decimal>("RegistrationAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("RegistrationId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Remarks")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int?>("StudentAdmissionId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("StudentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TotalAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("TransactionReference")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentAdmissionId");
-
-                    b.HasIndex("StudentId");
-
-                    b.ToTable("RegistrationFeeReceipts");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.RegistrationProspectusConfiguration", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IncludeProspectus")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsProspectusMandatory")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal>("ProspectusAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ProspectusDisplayName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int?>("ProspectusFeeHeadId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("ShowProspectusInReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "BranchId")
-                        .IsUnique();
-
-                    b.ToTable("RegistrationProspectusConfigurations");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.RegistrationReceiptConfiguration", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("AllowDownloadReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("AllowPrintReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("AutoPrintAfterSave")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("ReceiptFooterNote")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("ReceiptTitle")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<bool>("ShowAmountInWords")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ShowFeeHeadInReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ShowStudentDetailsInReceipt")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "BranchId")
-                        .IsUnique();
-
-                    b.ToTable("RegistrationReceiptConfigurations");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.StudentRegistration", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConvertedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("ConvertedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("FeePaid")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int?>("Gender")
-                        .HasColumnType("int");
-
-                    b.Property<string>("GuardianName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<int>("InterestedClassId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("MiddleName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("RegistrationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("RegistrationNo")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("StudentAdmissionId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("StudentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("StudentRegistrations");
-                });
-
             modelBuilder.Entity("Shala.Domain.Entities.Settings.BranchDocumentProfile", b =>
                 {
                     b.Property<int>("Id")
@@ -1572,6 +1272,10 @@ namespace Shala.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "BranchId");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
+
                     b.ToTable("BranchDocumentProfiles");
                 });
 
@@ -1582,13 +1286,6 @@ namespace Shala.Api.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AllowedFileTypes")
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<bool>("BlockAdmissionOnMismatch")
-                        .HasColumnType("bit");
 
                     b.Property<int>("BranchId")
                         .HasColumnType("int");
@@ -1606,8 +1303,8 @@ namespace Shala.Api.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
@@ -1615,22 +1312,13 @@ namespace Shala.Api.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsAiValidationEnabled")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsRequired")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("MaxFileSizeInKb")
-                        .HasColumnType("int");
-
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("RequiredFieldsJson")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
@@ -1644,15 +1332,14 @@ namespace Shala.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "BranchId", "Code")
-                        .IsUnique();
+                    b.HasIndex("TenantId", "BranchId", "DisplayOrder");
 
                     b.HasIndex("TenantId", "BranchId", "IsActive");
 
                     b.ToTable("DocumentModels", (string)null);
                 });
 
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocument", b =>
+            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentChecklist", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1670,66 +1357,27 @@ namespace Shala.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int?>("DocumentModelId")
+                    b.Property<int>("DocumentModelId")
                         .HasColumnType("int");
-
-                    b.Property<string>("DocumentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsRequired")
+                    b.Property<bool>("IsReceived")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsVerified")
-                        .HasColumnType("bit");
+                    b.Property<DateTime?>("ReceivedDate")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("MimeType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Remarks")
+                    b.Property<string>("Remark")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("StudentAdmissionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("StudentId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("StudentRegistrationId")
+                    b.Property<int>("StudentAdmissionId")
                         .HasColumnType("int");
 
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1742,215 +1390,18 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("DocumentModelId");
 
-                    b.HasIndex("StudentId");
+                    b.HasIndex("StudentAdmissionId");
 
                     b.HasIndex("TenantId", "BranchId", "IsActive");
 
-                    b.HasIndex("TenantId", "BranchId", "Status");
+                    b.HasIndex("TenantId", "BranchId", "IsReceived");
 
-                    b.HasIndex("TenantId", "BranchId", "StudentId");
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId");
 
-                    b.ToTable("StudentDocuments", (string)null);
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentAnalysis", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("AiConfidence")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<string>("AnalysisStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("DetectedDocumentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("ExtractedJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ExtractedText")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal?>("OcrConfidence")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<int>("StudentDocumentId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentDocumentId")
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId", "DocumentModelId")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "BranchId", "IsActive");
-
-                    b.ToTable("StudentDocumentAnalyses", (string)null);
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentFieldMatch", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("ConfidenceScore")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("DocumentValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("FieldName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FormValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCritical")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("MatchStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("StudentDocumentAnalysisId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Suggestion")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentDocumentAnalysisId", "FieldName");
-
-                    b.ToTable("StudentDocumentFieldMatches", (string)null);
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentSuggestion", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("BranchId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("ConfidenceScore")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsApplied")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDismissed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("StudentDocumentId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SuggestedValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("SuggestionType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentDocumentId");
-
-                    b.HasIndex("TenantId", "BranchId", "IsActive");
-
-                    b.ToTable("StudentDocumentSuggestions", (string)null);
+                    b.ToTable("StudentDocumentChecklists", (string)null);
                 });
 
             modelBuilder.Entity("Shala.Domain.Entities.Students.Guardian", b =>
@@ -1978,7 +1429,7 @@ namespace Shala.Api.Migrations
 
                     b.Property<string>("Mobile")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2005,6 +1456,12 @@ namespace Shala.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("TenantId", "IsPrimary");
+
+                    b.HasIndex("TenantId", "Mobile");
+
+                    b.HasIndex("TenantId", "StudentId");
 
                     b.ToTable("Guardians");
                 });
@@ -2115,24 +1572,24 @@ namespace Shala.Api.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("Gender")
                         .HasColumnType("int");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("MiddleName")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Mobile")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PhotoUrl")
                         .HasColumnType("nvarchar(max)");
@@ -2150,6 +1607,20 @@ namespace Shala.Api.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId");
+
+                    b.HasIndex("TenantId", "BranchId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "BranchId", "Email");
+
+                    b.HasIndex("TenantId", "BranchId", "FirstName");
+
+                    b.HasIndex("TenantId", "BranchId", "LastName");
+
+                    b.HasIndex("TenantId", "BranchId", "Mobile");
+
+                    b.HasIndex("TenantId", "BranchId", "Status");
 
                     b.ToTable("Students");
                 });
@@ -2173,7 +1644,7 @@ namespace Shala.Api.Migrations
 
                     b.Property<string>("AdmissionNo")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("BranchId")
                         .HasColumnType("int");
@@ -2218,6 +1689,14 @@ namespace Shala.Api.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("TenantId", "BranchId", "AdmissionNo");
+
+                    b.HasIndex("TenantId", "BranchId", "IsCurrent");
+
+                    b.HasIndex("TenantId", "BranchId", "Status");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentId");
+
                     b.HasIndex("TenantId", "BranchId", "AcademicYearId", "AcademicClassId", "SectionId");
 
                     b.HasIndex("TenantId", "BranchId", "AcademicYearId", "AcademicClassId", "SectionId", "RollNo")
@@ -2225,6 +1704,340 @@ namespace Shala.Api.Migrations
                         .HasFilter("[RollNo] IS NOT NULL");
 
                     b.ToTable("StudentAdmissions");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyIssue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("DueAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsCancelled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IssueNo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("PaymentStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StudentAdmissionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentAdmissionId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TenantId", "BranchId", "DueAmount");
+
+                    b.HasIndex("TenantId", "BranchId", "IsCancelled");
+
+                    b.HasIndex("TenantId", "BranchId", "IssueDate");
+
+                    b.HasIndex("TenantId", "BranchId", "IssueNo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "BranchId", "StudentAdmissionId");
+
+                    b.HasIndex("TenantId", "BranchId", "AcademicYearId", "StudentId");
+
+                    b.ToTable("StudentSupplyIssues", (string)null);
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyIssueItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("StudentSupplyIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SupplyItemId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentSupplyIssueId");
+
+                    b.HasIndex("SupplyItemId");
+
+                    b.ToTable("StudentSupplyIssueItems", (string)null);
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyPayment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcademicYearId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PaymentMode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("StudentSupplyIssueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentSupplyIssueId");
+
+                    b.HasIndex("TenantId", "BranchId", "StudentSupplyIssueId");
+
+                    b.HasIndex("TenantId", "BranchId", "AcademicYearId", "PaymentDate");
+
+                    b.ToTable("StudentSupplyPayments", (string)null);
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.SupplyItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("CurrentStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MinimumStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("SalePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "BranchId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "BranchId", "CurrentStock");
+
+                    b.HasIndex("TenantId", "BranchId", "IsActive");
+
+                    b.HasIndex("TenantId", "BranchId", "Name");
+
+                    b.ToTable("SupplyItems", (string)null);
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.SupplyStockLedger", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("MovementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MovementType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ReferenceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("SupplyItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupplyItemId");
+
+                    b.HasIndex("TenantId", "BranchId", "ReferenceType");
+
+                    b.HasIndex("TenantId", "BranchId", "SupplyItemId", "MovementDate");
+
+                    b.ToTable("SupplyStockLedgers", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -2479,66 +2292,23 @@ namespace Shala.Api.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("Shala.Domain.Entities.Registration.RegistrationFeeReceipt", b =>
-                {
-                    b.HasOne("Shala.Domain.Entities.Students.StudentAdmission", null)
-                        .WithMany("FeeReceipts")
-                        .HasForeignKey("StudentAdmissionId");
-
-                    b.HasOne("Shala.Domain.Entities.Students.Student", null)
-                        .WithMany("FeeReceipts")
-                        .HasForeignKey("StudentId");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocument", b =>
+            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentChecklist", b =>
                 {
                     b.HasOne("Shala.Domain.Entities.StudentDocuments.DocumentModel", "DocumentModel")
                         .WithMany()
                         .HasForeignKey("DocumentModelId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.HasOne("Shala.Domain.Entities.Students.Student", "Student")
-                        .WithMany("Documents")
-                        .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("Shala.Domain.Entities.Students.StudentAdmission", "StudentAdmission")
+                        .WithMany("DocumentChecklists")
+                        .HasForeignKey("StudentAdmissionId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("DocumentModel");
 
-                    b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentAnalysis", b =>
-                {
-                    b.HasOne("Shala.Domain.Entities.StudentDocuments.StudentDocument", "StudentDocuments")
-                        .WithOne("Analysis")
-                        .HasForeignKey("Shala.Domain.Entities.StudentDocuments.StudentDocumentAnalysis", "StudentDocumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("StudentDocuments");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentFieldMatch", b =>
-                {
-                    b.HasOne("Shala.Domain.Entities.StudentDocuments.StudentDocumentAnalysis", "StudentDocumentAnalysis")
-                        .WithMany("FieldMatches")
-                        .HasForeignKey("StudentDocumentAnalysisId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("StudentDocumentAnalysis");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentSuggestion", b =>
-                {
-                    b.HasOne("Shala.Domain.Entities.StudentDocuments.StudentDocument", "StudentDocument")
-                        .WithMany("Suggestions")
-                        .HasForeignKey("StudentDocumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("StudentDocument");
+                    b.Navigation("StudentAdmission");
                 });
 
             modelBuilder.Entity("Shala.Domain.Entities.Students.Guardian", b =>
@@ -2584,6 +2354,66 @@ namespace Shala.Api.Migrations
                     b.Navigation("Section");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyIssue", b =>
+                {
+                    b.HasOne("Shala.Domain.Entities.Students.StudentAdmission", "StudentAdmission")
+                        .WithMany()
+                        .HasForeignKey("StudentAdmissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Shala.Domain.Entities.Students.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Student");
+
+                    b.Navigation("StudentAdmission");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyIssueItem", b =>
+                {
+                    b.HasOne("Shala.Domain.Entities.Supplies.StudentSupplyIssue", "StudentSupplyIssue")
+                        .WithMany("Items")
+                        .HasForeignKey("StudentSupplyIssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Shala.Domain.Entities.Supplies.SupplyItem", "SupplyItem")
+                        .WithMany("IssueItems")
+                        .HasForeignKey("SupplyItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StudentSupplyIssue");
+
+                    b.Navigation("SupplyItem");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyPayment", b =>
+                {
+                    b.HasOne("Shala.Domain.Entities.Supplies.StudentSupplyIssue", "StudentSupplyIssue")
+                        .WithMany("Payments")
+                        .HasForeignKey("StudentSupplyIssueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StudentSupplyIssue");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.SupplyStockLedger", b =>
+                {
+                    b.HasOne("Shala.Domain.Entities.Supplies.SupplyItem", "SupplyItem")
+                        .WithMany("StockLedgers")
+                        .HasForeignKey("SupplyItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SupplyItem");
                 });
 
             modelBuilder.Entity("Shala.Domain.Entities.Academics.AcademicClass", b =>
@@ -2651,27 +2481,11 @@ namespace Shala.Api.Migrations
                     b.Navigation("Users");
                 });
 
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocument", b =>
-                {
-                    b.Navigation("Analysis");
-
-                    b.Navigation("Suggestions");
-                });
-
-            modelBuilder.Entity("Shala.Domain.Entities.StudentDocuments.StudentDocumentAnalysis", b =>
-                {
-                    b.Navigation("FieldMatches");
-                });
-
             modelBuilder.Entity("Shala.Domain.Entities.Students.Student", b =>
                 {
                     b.Navigation("Admissions");
 
-                    b.Navigation("Documents");
-
                     b.Navigation("FeeAssignments");
-
-                    b.Navigation("FeeReceipts");
 
                     b.Navigation("Guardians");
 
@@ -2680,11 +2494,25 @@ namespace Shala.Api.Migrations
 
             modelBuilder.Entity("Shala.Domain.Entities.Students.StudentAdmission", b =>
                 {
+                    b.Navigation("DocumentChecklists");
+
                     b.Navigation("FeeAssignments");
 
-                    b.Navigation("FeeReceipts");
-
                     b.Navigation("StudentCharges");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.StudentSupplyIssue", b =>
+                {
+                    b.Navigation("Items");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Shala.Domain.Entities.Supplies.SupplyItem", b =>
+                {
+                    b.Navigation("IssueItems");
+
+                    b.Navigation("StockLedgers");
                 });
 #pragma warning restore 612, 618
         }

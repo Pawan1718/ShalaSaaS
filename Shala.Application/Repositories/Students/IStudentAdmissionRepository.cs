@@ -107,4 +107,10 @@ public interface IStudentAdmissionRepository
 
 
 
+    Task<StudentAdmission?> GetByIdAsync(
+        int admissionId,
+        int tenantId,
+        int branchId,
+        CancellationToken cancellationToken = default);
+
 }

@@ -73,7 +73,9 @@ else
 
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.Description">
+                           StartIcon="@Icons.Material.Filled.Description"
+                           Disabled="@(!_student.Admissions.Any())"
+                           OnClick="OpenLatestAdmissionDocuments">
                     Documents
                 </MudButton>
 
@@ -407,6 +409,7 @@ else
     {
         Navigation.NavigateTo($"/tenant/students/{Id}/admission/{admission.Id}/edit");
     }
+
     private void OpenAdmissionFees(StudentAdmissionResponse admission)
     {
         Navigation.NavigateTo($"/tenant/students/{Id}/admissions/{admission.Id}/fees");
@@ -426,6 +429,7 @@ else
 
         Navigation.NavigateTo($"/tenant/students/{Id}/admissions/{latestAdmission.Id}/fees");
     }
+
     private async Task OpenDeleteAdmissionDialogAsync(StudentAdmissionResponse admission)
     {
         if (_student is null)
@@ -476,6 +480,7 @@ else
             Snackbar.Add(ex.Message, Severity.Error);
         }
     }
+
     private async Task OpenAssignSectionRollDialogAsync(StudentAdmissionResponse admission)
     {
         var parameters = new DialogParameters
@@ -500,6 +505,7 @@ else
         if (result is not null && !result.Canceled)
             await LoadStudentAsync();
     }
+
     private async Task OpenAddGuardianDialogAsync()
     {
         if (_student is null || _student.Guardians.Count >= 4)
@@ -577,6 +583,26 @@ else
         {
             Snackbar.Add(response?.Message ?? "Failed to update guardian.", Severity.Error);
         }
+    }
+
+    private void OpenAdmissionDocuments(StudentAdmissionResponse admission)
+    {
+        Navigation.NavigateTo($"/tenant/admissions/{admission.Id}/documents");
+    }
+
+    private void OpenLatestAdmissionDocuments()
+    {
+        if (_student is null || _student.Admissions is null || _student.Admissions.Count == 0)
+        {
+            Snackbar.Add("No admissions found for this student.", Severity.Warning);
+            return;
+        }
+
+        var latestAdmission = _student.Admissions
+            .OrderByDescending(x => x.AdmissionDate)
+            .First();
+
+        Navigation.NavigateTo($"/tenant/admissions/{latestAdmission.Id}/documents");
     }
 
     private async Task RemoveGuardianAsync(GuardianResponse guardian)

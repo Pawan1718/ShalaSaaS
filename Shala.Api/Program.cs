@@ -4,12 +4,10 @@ using Shala.Api.Middlewares;
 using Shala.Api.Services;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Settings;
-using Shala.Application.Features.StudentDocument;
 using Shala.Application.Features.Students;
 using Shala.Application.Repositories.Settings;
 using Shala.Infrastructure.Repositories.Settings;
 using Shala.Infrastructure.Seed;
-using Shala.Infrastructure.Storage;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
@@ -30,7 +28,6 @@ public class Program
 
         builder.Services.AddScoped<IBranchDocumentProfileRepository, BranchDocumentProfileRepository>();
         builder.Services.AddScoped<IBranchDocumentProfileService, BranchDocumentProfileService>();
-        builder.Services.AddScoped<IStudentDocumentFileStorage, LocalStudentDocumentFileStorage>();
 
         builder.Services.AddInfrastructureServices(builder.Configuration);
         builder.Services.AddIdentityServices();

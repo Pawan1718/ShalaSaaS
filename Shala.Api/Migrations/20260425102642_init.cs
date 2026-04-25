@@ -137,17 +137,12 @@ namespace Shala.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TenantId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Code = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     IsRequired = table.Column<bool>(type: "bit", nullable: false),
-                    IsAiValidationEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    BlockAdmissionOnMismatch = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    AllowedFileTypes = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
-                    MaxFileSizeInKb = table.Column<int>(type: "int", nullable: true),
-                    RequiredFieldsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     DisplayOrder = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
@@ -221,81 +216,6 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "RegistrationFeeConfigurations",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    IsRegistrationModuleEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    RegistrationFeeAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IsRegistrationFeeMandatory = table.Column<bool>(type: "bit", nullable: false),
-                    RegistrationFeeHeadId = table.Column<int>(type: "int", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RegistrationFeeConfigurations", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "RegistrationProspectusConfigurations",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    IncludeProspectus = table.Column<bool>(type: "bit", nullable: false),
-                    ProspectusAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IsProspectusMandatory = table.Column<bool>(type: "bit", nullable: false),
-                    ProspectusFeeHeadId = table.Column<int>(type: "int", nullable: true),
-                    ProspectusDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    ShowProspectusInReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RegistrationProspectusConfigurations", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "RegistrationReceiptConfigurations",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    AllowPrintReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    AllowDownloadReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    AutoPrintAfterSave = table.Column<bool>(type: "bit", nullable: false),
-                    ReceiptTitle = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
-                    ReceiptFooterNote = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ShowStudentDetailsInReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    ShowFeeHeadInReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    ShowAmountInWords = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RegistrationReceiptConfigurations", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "RollNumberSettings",
                 columns: table => new
                 {
@@ -352,43 +272,6 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "StudentRegistrations",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    RegistrationNo = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
-                    RegistrationDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    FirstName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    MiddleName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    LastName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    Gender = table.Column<int>(type: "int", nullable: true),
-                    GuardianName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    Phone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    InterestedClassId = table.Column<int>(type: "int", nullable: false),
-                    FeePaid = table.Column<bool>(type: "bit", nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
-                    StudentId = table.Column<int>(type: "int", nullable: true),
-                    StudentAdmissionId = table.Column<int>(type: "int", nullable: true),
-                    ConvertedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ConvertedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_StudentRegistrations", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Students",
                 columns: table => new
                 {
@@ -396,15 +279,15 @@ namespace Shala.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TenantId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
-                    FirstName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FirstName = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     MiddleName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    LastName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    LastName = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     AadhaarNo = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Gender = table.Column<int>(type: "int", nullable: false),
                     DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: false),
                     BloodGroup = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Mobile = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Email = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Mobile = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     Address = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PhotoUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Status = table.Column<int>(type: "int", nullable: false),
@@ -416,6 +299,31 @@ namespace Shala.Api.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Students", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SupplyItems",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TenantId = table.Column<int>(type: "int", nullable: false),
+                    BranchId = table.Column<int>(type: "int", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    SalePrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    CurrentStock = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    MinimumStock = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplyItems", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -541,7 +449,7 @@ namespace Shala.Api.Migrations
                     StudentId = table.Column<int>(type: "int", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     RelationType = table.Column<int>(type: "int", nullable: false),
-                    Mobile = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Mobile = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Occupation = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Address = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -563,48 +471,35 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "StudentDocuments",
+                name: "SupplyStockLedgers",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TenantId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
-                    StudentId = table.Column<int>(type: "int", nullable: false),
-                    StudentRegistrationId = table.Column<int>(type: "int", nullable: true),
-                    StudentAdmissionId = table.Column<int>(type: "int", nullable: true),
-                    DocumentModelId = table.Column<int>(type: "int", nullable: true),
-                    DocumentType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    FileName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    FilePath = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
-                    MimeType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    FileSize = table.Column<long>(type: "bigint", nullable: false),
-                    IsRequired = table.Column<bool>(type: "bit", nullable: false),
-                    IsVerified = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Remarks = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    SupplyItemId = table.Column<int>(type: "int", nullable: false),
+                    MovementDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    MovementType = table.Column<int>(type: "int", nullable: false),
+                    Quantity = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    BalanceAfter = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    ReferenceType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    ReferenceId = table.Column<int>(type: "int", nullable: true),
+                    Remarks = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_StudentDocuments", x => x.Id);
+                    table.PrimaryKey("PK_SupplyStockLedgers", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_StudentDocuments_DocumentModels_DocumentModelId",
-                        column: x => x.DocumentModelId,
-                        principalTable: "DocumentModels",
+                        name: "FK_SupplyStockLedgers_SupplyItems_SupplyItemId",
+                        column: x => x.SupplyItemId,
+                        principalTable: "SupplyItems",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_StudentDocuments_Students_StudentId",
-                        column: x => x.StudentId,
-                        principalTable: "Students",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -652,7 +547,7 @@ namespace Shala.Api.Migrations
                     AcademicYearId = table.Column<int>(type: "int", nullable: false),
                     AcademicClassId = table.Column<int>(type: "int", nullable: false),
                     SectionId = table.Column<int>(type: "int", nullable: true),
-                    AdmissionNo = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AdmissionNo = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     RollNo = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     AdmissionDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
@@ -684,70 +579,6 @@ namespace Shala.Api.Migrations
                         name: "FK_StudentAdmissions_Students_StudentId",
                         column: x => x.StudentId,
                         principalTable: "Students",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "StudentDocumentAnalyses",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    StudentDocumentId = table.Column<int>(type: "int", nullable: false),
-                    ExtractedText = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ExtractedJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DetectedDocumentType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    OcrConfidence = table.Column<decimal>(type: "decimal(5,2)", nullable: true),
-                    AiConfidence = table.Column<decimal>(type: "decimal(5,2)", nullable: true),
-                    AnalysisStatus = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_StudentDocumentAnalyses", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_StudentDocumentAnalyses_StudentDocuments_StudentDocumentId",
-                        column: x => x.StudentDocumentId,
-                        principalTable: "StudentDocuments",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "StudentDocumentSuggestions",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TenantId = table.Column<int>(type: "int", nullable: false),
-                    BranchId = table.Column<int>(type: "int", nullable: false),
-                    StudentDocumentId = table.Column<int>(type: "int", nullable: false),
-                    SuggestionType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Message = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
-                    SuggestedValue = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    ConfidenceScore = table.Column<decimal>(type: "decimal(5,2)", nullable: true),
-                    IsApplied = table.Column<bool>(type: "bit", nullable: false),
-                    IsDismissed = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_StudentDocumentSuggestions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_StudentDocumentSuggestions_StudentDocuments_StudentDocumentId",
-                        column: x => x.StudentDocumentId,
-                        principalTable: "StudentDocuments",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -831,44 +662,37 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "RegistrationFeeReceipts",
+                name: "StudentDocumentChecklists",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TenantId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
-                    RegistrationId = table.Column<int>(type: "int", nullable: true),
-                    ReceiptNo = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
-                    ReceiptDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    PaymentMode = table.Column<int>(type: "int", nullable: false),
-                    TransactionReference = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    Remarks = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    RegistrationAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IsProspectusIncluded = table.Column<bool>(type: "bit", nullable: false),
-                    ProspectusAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    ProspectusLabel = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    IsRegistrationReceipt = table.Column<bool>(type: "bit", nullable: false),
-                    StudentAdmissionId = table.Column<int>(type: "int", nullable: true),
-                    StudentId = table.Column<int>(type: "int", nullable: true),
+                    StudentAdmissionId = table.Column<int>(type: "int", nullable: false),
+                    DocumentModelId = table.Column<int>(type: "int", nullable: false),
+                    IsReceived = table.Column<bool>(type: "bit", nullable: false),
+                    ReceivedDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Remark = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RegistrationFeeReceipts", x => x.Id);
+                    table.PrimaryKey("PK_StudentDocumentChecklists", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_RegistrationFeeReceipts_StudentAdmissions_StudentAdmissionId",
+                        name: "FK_StudentDocumentChecklists_DocumentModels_DocumentModelId",
+                        column: x => x.DocumentModelId,
+                        principalTable: "DocumentModels",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StudentDocumentChecklists_StudentAdmissions_StudentAdmissionId",
                         column: x => x.StudentAdmissionId,
                         principalTable: "StudentAdmissions",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_RegistrationFeeReceipts_Students_StudentId",
-                        column: x => x.StudentId,
-                        principalTable: "Students",
                         principalColumn: "Id");
                 });
 
@@ -933,36 +757,45 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "StudentDocumentFieldMatches",
+                name: "StudentSupplyIssues",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     TenantId = table.Column<int>(type: "int", nullable: false),
                     BranchId = table.Column<int>(type: "int", nullable: false),
-                    StudentDocumentAnalysisId = table.Column<int>(type: "int", nullable: false),
-                    FieldName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    DocumentValue = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    FormValue = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    MatchStatus = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    ConfidenceScore = table.Column<decimal>(type: "decimal(5,2)", nullable: true),
-                    IsCritical = table.Column<bool>(type: "bit", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    Suggestion = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    AcademicYearId = table.Column<int>(type: "int", nullable: false),
+                    StudentId = table.Column<int>(type: "int", nullable: false),
+                    StudentAdmissionId = table.Column<int>(type: "int", nullable: false),
+                    IssueNo = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    IssueDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    TotalAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PaidAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    DueAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PaymentStatus = table.Column<int>(type: "int", nullable: false),
+                    Remarks = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsCancelled = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    CancelReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    UpdatedBy = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_StudentDocumentFieldMatches", x => x.Id);
+                    table.PrimaryKey("PK_StudentSupplyIssues", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_StudentDocumentFieldMatches_StudentDocumentAnalyses_StudentDocumentAnalysisId",
-                        column: x => x.StudentDocumentAnalysisId,
-                        principalTable: "StudentDocumentAnalyses",
+                        name: "FK_StudentSupplyIssues_StudentAdmissions_StudentAdmissionId",
+                        column: x => x.StudentAdmissionId,
+                        principalTable: "StudentAdmissions",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StudentSupplyIssues_Students_StudentId",
+                        column: x => x.StudentId,
+                        principalTable: "Students",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -1153,6 +986,72 @@ namespace Shala.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StudentSupplyIssueItems",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    StudentSupplyIssueId = table.Column<int>(type: "int", nullable: false),
+                    SupplyItemId = table.Column<int>(type: "int", nullable: false),
+                    ItemName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    ItemCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Quantity = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    UnitPrice = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    LineTotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StudentSupplyIssueItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StudentSupplyIssueItems_StudentSupplyIssues_StudentSupplyIssueId",
+                        column: x => x.StudentSupplyIssueId,
+                        principalTable: "StudentSupplyIssues",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_StudentSupplyIssueItems_SupplyItems_SupplyItemId",
+                        column: x => x.SupplyItemId,
+                        principalTable: "SupplyItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StudentSupplyPayments",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TenantId = table.Column<int>(type: "int", nullable: false),
+                    BranchId = table.Column<int>(type: "int", nullable: false),
+                    AcademicYearId = table.Column<int>(type: "int", nullable: false),
+                    StudentSupplyIssueId = table.Column<int>(type: "int", nullable: false),
+                    PaymentDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PaymentMode = table.Column<int>(type: "int", nullable: false),
+                    ReferenceNo = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Remarks = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StudentSupplyPayments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StudentSupplyPayments_StudentSupplyIssues_StudentSupplyIssueId",
+                        column: x => x.StudentSupplyIssueId,
+                        principalTable: "StudentSupplyIssues",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FeeReceiptAllocations",
                 columns: table => new
                 {
@@ -1182,6 +1081,21 @@ namespace Shala.Api.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AcademicClasses_TenantId_IsActive",
+                table: "AcademicClasses",
+                columns: new[] { "TenantId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AcademicClasses_TenantId_Sequence",
+                table: "AcademicClasses",
+                columns: new[] { "TenantId", "Sequence" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AcademicYears_TenantId_IsActive",
+                table: "AcademicYears",
+                columns: new[] { "TenantId", "IsActive" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AcademicYears_TenantId_Name",
@@ -1233,9 +1147,9 @@ namespace Shala.Api.Migrations
                 column: "BranchId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_TenantId",
+                name: "IX_AspNetUsers_TenantId_BranchId",
                 table: "AspNetUsers",
-                column: "TenantId");
+                columns: new[] { "TenantId", "BranchId" });
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
@@ -1245,19 +1159,38 @@ namespace Shala.Api.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_BranchDocumentProfiles_TenantId_BranchId",
+                table: "BranchDocumentProfiles",
+                columns: new[] { "TenantId", "BranchId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BranchDocumentProfiles_TenantId_BranchId_IsActive",
+                table: "BranchDocumentProfiles",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Branches_TenantId",
                 table: "Branches",
                 column: "TenantId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DocumentModels_TenantId_BranchId_Code",
+                name: "IX_DocumentModels_TenantId_BranchId_DisplayOrder",
                 table: "DocumentModels",
-                columns: new[] { "TenantId", "BranchId", "Code" },
-                unique: true);
+                columns: new[] { "TenantId", "BranchId", "DisplayOrder" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_DocumentModels_TenantId_BranchId_IsActive",
                 table: "DocumentModels",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeHeads_TenantId_BranchId_Code",
+                table: "FeeHeads",
+                columns: new[] { "TenantId", "BranchId", "Code" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeHeads_TenantId_BranchId_IsActive",
+                table: "FeeHeads",
                 columns: new[] { "TenantId", "BranchId", "IsActive" });
 
             migrationBuilder.CreateIndex(
@@ -1294,10 +1227,30 @@ namespace Shala.Api.Migrations
                 column: "StudentId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FeeReceipts_TenantId_BranchId_IsCancelled",
+                table: "FeeReceipts",
+                columns: new[] { "TenantId", "BranchId", "IsCancelled" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeReceipts_TenantId_BranchId_ReceiptDate",
+                table: "FeeReceipts",
+                columns: new[] { "TenantId", "BranchId", "ReceiptDate" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeeReceipts_TenantId_BranchId_ReceiptNo",
                 table: "FeeReceipts",
                 columns: new[] { "TenantId", "BranchId", "ReceiptNo" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeReceipts_TenantId_BranchId_StudentAdmissionId",
+                table: "FeeReceipts",
+                columns: new[] { "TenantId", "BranchId", "StudentAdmissionId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeReceipts_TenantId_BranchId_StudentId",
+                table: "FeeReceipts",
+                columns: new[] { "TenantId", "BranchId", "StudentId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_FeeStructureItems_FeeHeadId",
@@ -1315,10 +1268,30 @@ namespace Shala.Api.Migrations
                 columns: new[] { "FeeStructureId", "FeeHeadId", "Label" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_FeeStructureItems_IsActive",
+                table: "FeeStructureItems",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeStructures_TenantId_BranchId_AcademicClassId",
+                table: "FeeStructures",
+                columns: new[] { "TenantId", "BranchId", "AcademicClassId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeStructures_TenantId_BranchId_AcademicYearId",
+                table: "FeeStructures",
+                columns: new[] { "TenantId", "BranchId", "AcademicYearId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeeStructures_TenantId_BranchId_AcademicYearId_AcademicClassId_Name",
                 table: "FeeStructures",
                 columns: new[] { "TenantId", "BranchId", "AcademicYearId", "AcademicClassId", "Name" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FeeStructures_TenantId_BranchId_IsActive",
+                table: "FeeStructures",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Guardians_StudentId",
@@ -1326,32 +1299,19 @@ namespace Shala.Api.Migrations
                 column: "StudentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_RegistrationFeeConfigurations_TenantId_BranchId",
-                table: "RegistrationFeeConfigurations",
-                columns: new[] { "TenantId", "BranchId" },
-                unique: true);
+                name: "IX_Guardians_TenantId_IsPrimary",
+                table: "Guardians",
+                columns: new[] { "TenantId", "IsPrimary" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_RegistrationFeeReceipts_StudentAdmissionId",
-                table: "RegistrationFeeReceipts",
-                column: "StudentAdmissionId");
+                name: "IX_Guardians_TenantId_Mobile",
+                table: "Guardians",
+                columns: new[] { "TenantId", "Mobile" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_RegistrationFeeReceipts_StudentId",
-                table: "RegistrationFeeReceipts",
-                column: "StudentId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_RegistrationProspectusConfigurations_TenantId_BranchId",
-                table: "RegistrationProspectusConfigurations",
-                columns: new[] { "TenantId", "BranchId" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_RegistrationReceiptConfigurations_TenantId_BranchId",
-                table: "RegistrationReceiptConfigurations",
-                columns: new[] { "TenantId", "BranchId" },
-                unique: true);
+                name: "IX_Guardians_TenantId_StudentId",
+                table: "Guardians",
+                columns: new[] { "TenantId", "StudentId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_RollNumberSettings_TenantId",
@@ -1363,6 +1323,16 @@ namespace Shala.Api.Migrations
                 name: "IX_Sections_AcademicClassId",
                 table: "Sections",
                 column: "AcademicClassId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sections_TenantId_BranchId_AcademicClassId",
+                table: "Sections",
+                columns: new[] { "TenantId", "BranchId", "AcademicClassId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sections_TenantId_BranchId_IsActive",
+                table: "Sections",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_StudentAdmissions_AcademicClassId",
@@ -1395,6 +1365,26 @@ namespace Shala.Api.Migrations
                 columns: new[] { "TenantId", "BranchId", "AcademicYearId", "AcademicClassId", "SectionId", "RollNo" },
                 unique: true,
                 filter: "[RollNo] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentAdmissions_TenantId_BranchId_AdmissionNo",
+                table: "StudentAdmissions",
+                columns: new[] { "TenantId", "BranchId", "AdmissionNo" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentAdmissions_TenantId_BranchId_IsCurrent",
+                table: "StudentAdmissions",
+                columns: new[] { "TenantId", "BranchId", "IsCurrent" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentAdmissions_TenantId_BranchId_Status",
+                table: "StudentAdmissions",
+                columns: new[] { "TenantId", "BranchId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentAdmissions_TenantId_BranchId_StudentId",
+                table: "StudentAdmissions",
+                columns: new[] { "TenantId", "BranchId", "StudentId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_StudentCharges_FeeHeadId",
@@ -1432,55 +1422,65 @@ namespace Shala.Api.Migrations
                 column: "StudentId1");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocumentAnalyses_StudentDocumentId",
-                table: "StudentDocumentAnalyses",
-                column: "StudentDocumentId",
-                unique: true);
+                name: "IX_StudentCharges_TenantId_BranchId_DueDate",
+                table: "StudentCharges",
+                columns: new[] { "TenantId", "BranchId", "DueDate" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocumentAnalyses_TenantId_BranchId_IsActive",
-                table: "StudentDocumentAnalyses",
-                columns: new[] { "TenantId", "BranchId", "IsActive" });
+                name: "IX_StudentCharges_TenantId_BranchId_FeeHeadId",
+                table: "StudentCharges",
+                columns: new[] { "TenantId", "BranchId", "FeeHeadId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocumentFieldMatches_StudentDocumentAnalysisId_FieldName",
-                table: "StudentDocumentFieldMatches",
-                columns: new[] { "StudentDocumentAnalysisId", "FieldName" });
+                name: "IX_StudentCharges_TenantId_BranchId_IsCancelled",
+                table: "StudentCharges",
+                columns: new[] { "TenantId", "BranchId", "IsCancelled" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocuments_DocumentModelId",
-                table: "StudentDocuments",
-                column: "DocumentModelId");
+                name: "IX_StudentCharges_TenantId_BranchId_StudentAdmissionId",
+                table: "StudentCharges",
+                columns: new[] { "TenantId", "BranchId", "StudentAdmissionId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocuments_StudentId",
-                table: "StudentDocuments",
-                column: "StudentId");
+                name: "IX_StudentCharges_TenantId_BranchId_StudentFeeAssignmentId",
+                table: "StudentCharges",
+                columns: new[] { "TenantId", "BranchId", "StudentFeeAssignmentId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocuments_TenantId_BranchId_IsActive",
-                table: "StudentDocuments",
-                columns: new[] { "TenantId", "BranchId", "IsActive" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StudentDocuments_TenantId_BranchId_Status",
-                table: "StudentDocuments",
-                columns: new[] { "TenantId", "BranchId", "Status" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_StudentDocuments_TenantId_BranchId_StudentId",
-                table: "StudentDocuments",
+                name: "IX_StudentCharges_TenantId_BranchId_StudentId",
+                table: "StudentCharges",
                 columns: new[] { "TenantId", "BranchId", "StudentId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocumentSuggestions_StudentDocumentId",
-                table: "StudentDocumentSuggestions",
-                column: "StudentDocumentId");
+                name: "IX_StudentDocumentChecklists_DocumentModelId",
+                table: "StudentDocumentChecklists",
+                column: "DocumentModelId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_StudentDocumentSuggestions_TenantId_BranchId_IsActive",
-                table: "StudentDocumentSuggestions",
+                name: "IX_StudentDocumentChecklists_StudentAdmissionId",
+                table: "StudentDocumentChecklists",
+                column: "StudentAdmissionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentDocumentChecklists_TenantId_BranchId_IsActive",
+                table: "StudentDocumentChecklists",
                 columns: new[] { "TenantId", "BranchId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentDocumentChecklists_TenantId_BranchId_IsReceived",
+                table: "StudentDocumentChecklists",
+                columns: new[] { "TenantId", "BranchId", "IsReceived" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentDocumentChecklists_TenantId_BranchId_StudentAdmissionId",
+                table: "StudentDocumentChecklists",
+                columns: new[] { "TenantId", "BranchId", "StudentAdmissionId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentDocumentChecklists_TenantId_BranchId_StudentAdmissionId_DocumentModelId",
+                table: "StudentDocumentChecklists",
+                columns: new[] { "TenantId", "BranchId", "StudentAdmissionId", "DocumentModelId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_StudentFeeAssignments_FeeStructureId",
@@ -1513,10 +1513,35 @@ namespace Shala.Api.Migrations
                 column: "StudentId1");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StudentFeeAssignments_TenantId_BranchId_FeeStructureId",
+                table: "StudentFeeAssignments",
+                columns: new[] { "TenantId", "BranchId", "FeeStructureId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentFeeAssignments_TenantId_BranchId_IsActive",
+                table: "StudentFeeAssignments",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StudentFeeAssignments_TenantId_BranchId_StudentAdmissionId",
                 table: "StudentFeeAssignments",
                 columns: new[] { "TenantId", "BranchId", "StudentAdmissionId" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentFeeAssignments_TenantId_BranchId_StudentId",
+                table: "StudentFeeAssignments",
+                columns: new[] { "TenantId", "BranchId", "StudentId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentFeeLedgers_TenantId_BranchId_EntryDate",
+                table: "StudentFeeLedgers",
+                columns: new[] { "TenantId", "BranchId", "EntryDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentFeeLedgers_TenantId_BranchId_EntryType",
+                table: "StudentFeeLedgers",
+                columns: new[] { "TenantId", "BranchId", "EntryType" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_StudentFeeLedgers_TenantId_BranchId_FeeReceiptId",
@@ -1537,6 +1562,143 @@ namespace Shala.Api.Migrations
                 name: "IX_StudentFeeLedgers_TenantId_BranchId_StudentId",
                 table: "StudentFeeLedgers",
                 columns: new[] { "TenantId", "BranchId", "StudentId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_CreatedAt",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "CreatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_Email",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "Email" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_FirstName",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "FirstName" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_LastName",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "LastName" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_Mobile",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "Mobile" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Students_TenantId_BranchId_Status",
+                table: "Students",
+                columns: new[] { "TenantId", "BranchId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssueItems_StudentSupplyIssueId",
+                table: "StudentSupplyIssueItems",
+                column: "StudentSupplyIssueId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssueItems_SupplyItemId",
+                table: "StudentSupplyIssueItems",
+                column: "SupplyItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_StudentAdmissionId",
+                table: "StudentSupplyIssues",
+                column: "StudentAdmissionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_StudentId",
+                table: "StudentSupplyIssues",
+                column: "StudentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_AcademicYearId_StudentId",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "AcademicYearId", "StudentId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_DueAmount",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "DueAmount" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_IsCancelled",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "IsCancelled" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_IssueDate",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "IssueDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_IssueNo",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "IssueNo" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyIssues_TenantId_BranchId_StudentAdmissionId",
+                table: "StudentSupplyIssues",
+                columns: new[] { "TenantId", "BranchId", "StudentAdmissionId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyPayments_StudentSupplyIssueId",
+                table: "StudentSupplyPayments",
+                column: "StudentSupplyIssueId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyPayments_TenantId_BranchId_AcademicYearId_PaymentDate",
+                table: "StudentSupplyPayments",
+                columns: new[] { "TenantId", "BranchId", "AcademicYearId", "PaymentDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StudentSupplyPayments_TenantId_BranchId_StudentSupplyIssueId",
+                table: "StudentSupplyPayments",
+                columns: new[] { "TenantId", "BranchId", "StudentSupplyIssueId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyItems_TenantId_BranchId_Code",
+                table: "SupplyItems",
+                columns: new[] { "TenantId", "BranchId", "Code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyItems_TenantId_BranchId_CurrentStock",
+                table: "SupplyItems",
+                columns: new[] { "TenantId", "BranchId", "CurrentStock" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyItems_TenantId_BranchId_IsActive",
+                table: "SupplyItems",
+                columns: new[] { "TenantId", "BranchId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyItems_TenantId_BranchId_Name",
+                table: "SupplyItems",
+                columns: new[] { "TenantId", "BranchId", "Name" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyStockLedgers_SupplyItemId",
+                table: "SupplyStockLedgers",
+                column: "SupplyItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyStockLedgers_TenantId_BranchId_ReferenceType",
+                table: "SupplyStockLedgers",
+                columns: new[] { "TenantId", "BranchId", "ReferenceType" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplyStockLedgers_TenantId_BranchId_SupplyItemId_MovementDate",
+                table: "SupplyStockLedgers",
+                columns: new[] { "TenantId", "BranchId", "SupplyItemId", "MovementDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserBranchAccesses_BranchId",
@@ -1587,31 +1749,22 @@ namespace Shala.Api.Migrations
                 name: "Guardians");
 
             migrationBuilder.DropTable(
-                name: "RegistrationFeeConfigurations");
-
-            migrationBuilder.DropTable(
-                name: "RegistrationFeeReceipts");
-
-            migrationBuilder.DropTable(
-                name: "RegistrationProspectusConfigurations");
-
-            migrationBuilder.DropTable(
-                name: "RegistrationReceiptConfigurations");
-
-            migrationBuilder.DropTable(
                 name: "RollNumberSettings");
 
             migrationBuilder.DropTable(
-                name: "StudentDocumentFieldMatches");
-
-            migrationBuilder.DropTable(
-                name: "StudentDocumentSuggestions");
+                name: "StudentDocumentChecklists");
 
             migrationBuilder.DropTable(
                 name: "StudentFeeLedgers");
 
             migrationBuilder.DropTable(
-                name: "StudentRegistrations");
+                name: "StudentSupplyIssueItems");
+
+            migrationBuilder.DropTable(
+                name: "StudentSupplyPayments");
+
+            migrationBuilder.DropTable(
+                name: "SupplyStockLedgers");
 
             migrationBuilder.DropTable(
                 name: "UserBranchAccesses");
@@ -1626,7 +1779,13 @@ namespace Shala.Api.Migrations
                 name: "StudentCharges");
 
             migrationBuilder.DropTable(
-                name: "StudentDocumentAnalyses");
+                name: "DocumentModels");
+
+            migrationBuilder.DropTable(
+                name: "StudentSupplyIssues");
+
+            migrationBuilder.DropTable(
+                name: "SupplyItems");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
@@ -1638,9 +1797,6 @@ namespace Shala.Api.Migrations
                 name: "StudentFeeAssignments");
 
             migrationBuilder.DropTable(
-                name: "StudentDocuments");
-
-            migrationBuilder.DropTable(
                 name: "Branches");
 
             migrationBuilder.DropTable(
@@ -1648,9 +1804,6 @@ namespace Shala.Api.Migrations
 
             migrationBuilder.DropTable(
                 name: "StudentAdmissions");
-
-            migrationBuilder.DropTable(
-                name: "DocumentModels");
 
             migrationBuilder.DropTable(
                 name: "Tenants");

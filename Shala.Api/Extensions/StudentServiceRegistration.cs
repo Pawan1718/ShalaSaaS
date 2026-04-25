@@ -35,14 +35,10 @@ public static class StudentServiceRegistration
         services.AddScoped<IStudentGuardianService, StudentGuardianService>();
         services.AddScoped<IStudentGuardianRepository, StudentGuardianRepository>();
 
-
-
-   
         services.AddScoped<IDocumentModelRepository, DocumentModelRepository>();
-        services.AddScoped<IStudentDocumentRepository, StudentDocumentRepository>();
-
+        services.AddScoped<IStudentDocumentChecklistRepository, StudentDocumentChecklistRepository>();
         services.AddScoped<IDocumentModelService, DocumentModelService>();
-        services.AddScoped<IStudentDocumentService, StudentDocumentService>();
+        services.AddScoped<IStudentDocumentChecklistService, StudentDocumentChecklistService>();
 
         return services;
     }

@@ -37,7 +37,6 @@ public class StudentRepository : GenericRepository<Student>, IStudentRepository
         return await _context.Students
             .AsSplitQuery()
             .Include(x => x.Guardians)
-            .Include(x => x.Documents)
             .Include(x => x.Admissions).ThenInclude(x => x.AcademicYear)
             .Include(x => x.Admissions).ThenInclude(x => x.AcademicClass)
             .Include(x => x.Admissions).ThenInclude(x => x.Section)

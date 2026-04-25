@@ -6,25 +6,25 @@ using Shala.Infrastructure.Repositories;
 
 namespace Shala.Infrastructure.Repositories.StudentDocumentRepo;
 
-public sealed class DocumentModelRepository
-    : GenericRepository<DocumentModel>, IDocumentModelRepository
+public sealed class StudentDocumentChecklistRepository
+    : GenericRepository<StudentDocumentChecklist>, IStudentDocumentChecklistRepository
 {
-    public DocumentModelRepository(AppDbContext db) : base(db)
+    public StudentDocumentChecklistRepository(AppDbContext db) : base(db)
     {
     }
 
-    public async Task<List<DocumentModel>> GetActiveAsync(
+    public async Task<List<StudentDocumentChecklist>> GetByAdmissionAsync(
         int tenantId,
         int branchId,
+        int studentAdmissionId,
         CancellationToken cancellationToken = default)
     {
         return await _table
             .Where(x =>
                 x.TenantId == tenantId &&
                 x.BranchId == branchId &&
+                x.StudentAdmissionId == studentAdmissionId &&
                 x.IsActive)
-            .OrderBy(x => x.DisplayOrder)
-            .ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
     }
 }

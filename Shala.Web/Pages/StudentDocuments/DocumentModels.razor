@@ -1,0 +1,271 @@
+﻿@page "/tenant/settings/document-models"
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses.StudentDocument
+@using Shala.Web.Components.StudentDocuments
+@using Shala.Web.Repositories.StudentDocuments
+
+@inject IDocumentModelWebRepository DocumentRepo
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Document Checklist Config</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+    <MudStack Spacing="3">
+
+        <MudPaper Class="pa-5" Style="border-radius:18px;">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-bold">Document Checklist Config</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Configure required and optional documents for admission checklist.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="_loading"
+                               OnClick="LoadAsync">
+                        Reload
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenCreateDialog">
+                        Add Document
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.caption">Total</MudText>
+                    <MudText Typo="Typo.h5">@_items.Count</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.caption">Required</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Warning">@_items.Count(x => x.IsRequired)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.caption">Optional</MudText>
+                    <MudText Typo="Typo.h5">@_items.Count(x => !x.IsRequired)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true">
+                    <MudText Typo="Typo.caption">Active</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success">@_items.Count(x => x.IsActive)</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudTextField T="string"
+                          @bind-Value="_search"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Placeholder="Search document..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Style="max-width:360px;" />
+        </MudPaper>
+
+        <MudPaper Style="overflow:hidden;">
+            @if (_loading)
+            {
+                <MudStack Class="pa-6" AlignItems="AlignItems.Center">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText>Loading documents...</MudText>
+                </MudStack>
+            }
+            else if (!FilteredItems.Any())
+            {
+                <MudStack Class="pa-8" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No checklist documents found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Add documents to start building admission checklist.
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenCreateDialog">
+                        Add First Document
+                    </MudButton>
+                </MudStack>
+            }
+            else
+            {
+                <MudTable Items="FilteredItems" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Order</MudTh>
+                        <MudTh>Document</MudTh>
+                        <MudTh>Required</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh Style="text-align:right;">Actions</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd DataLabel="Order">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                @context.DisplayOrder
+                            </MudChip>
+                        </MudTd>
+
+                        <MudTd DataLabel="Document">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+
+                                @if (!string.IsNullOrWhiteSpace(context.Code))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Code: @context.Code
+                                    </MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(context.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.Description
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudTd>
+
+                        <MudTd DataLabel="Required">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@(context.IsRequired ? Color.Warning : Color.Default)"
+                                     Variant="@(context.IsRequired ? Variant.Filled : Variant.Outlined)">
+                                @(context.IsRequired ? "Required" : "Optional")
+                            </MudChip>
+                        </MudTd>
+
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@(context.IsActive ? Color.Success : Color.Error)"
+                                     Variant="Variant.Outlined">
+                                @(context.IsActive ? "Active" : "Inactive")
+                            </MudChip>
+                        </MudTd>
+
+                        <MudTd DataLabel="Actions" Style="text-align:right;">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => OpenEditDialog(context))" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<DocumentModelResponse> _items = new();
+    private bool _loading;
+    private string _search = string.Empty;
+
+    private IEnumerable<DocumentModelResponse> FilteredItems =>
+        _items
+            .Where(x =>
+                string.IsNullOrWhiteSpace(_search) ||
+                x.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                x.Code.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                (x.Description?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.Name);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var response = await DocumentRepo.GetAllAsync();
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _items = response.Data;
+            }
+            else
+            {
+                _items = new();
+                Snackbar.Add(response?.Message ?? "Failed to load document checklist config.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _items = new();
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var dialog = await DialogService.ShowAsync<DocumentModelDialog>(
+            "Add Document",
+            new DialogParameters(),
+            new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenEditDialog(DocumentModelResponse item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Model"] = item
+        };
+
+        var dialog = await DialogService.ShowAsync<DocumentModelDialog>(
+            "Edit Document",
+            parameters,
+            new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadAsync();
+    }
+}
