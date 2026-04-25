@@ -1,7 +1,6 @@
 ﻿using Shala.Domain.Common;
 using Shala.Domain.Entities.Academics;
 using Shala.Domain.Entities.Fees;
-using Shala.Domain.Entities.Registration;
 using Shala.Domain.Enums;
 
 
@@ -31,5 +30,4 @@ public class StudentAdmission : AuditableEntity, ITenantEntity
 
     public ICollection<StudentFeeAssignment> FeeAssignments { get; set; } = new List<StudentFeeAssignment>();
 public ICollection<StudentCharge> StudentCharges { get; set; } = new List<StudentCharge>();
-public ICollection<RegistrationFeeReceipt> FeeReceipts { get; set; } = new List<RegistrationFeeReceipt>();
 }

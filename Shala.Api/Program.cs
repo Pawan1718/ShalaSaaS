@@ -136,8 +136,9 @@ public class Program
 
         var app = builder.Build();
 
-        using (var scope = app.Services.CreateScope())
+        if (app.Environment.IsDevelopment())
         {
+            using var scope = app.Services.CreateScope();
             await SeedData.InitializeAsync(scope.ServiceProvider);
         }
 

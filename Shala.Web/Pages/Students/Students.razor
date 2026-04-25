@@ -4,6 +4,7 @@
 @using Shala.Shared.Common
 @using Shala.Shared.Requests.Students
 @using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Interfaces
 @using Shala.Web.Services.State
 
@@ -12,115 +13,133 @@
 @inject ApiSession Session
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+
 @layout Components.Layouts.TenantMainLayout
 
 <PageTitle>Students</PageTitle>
 
-<MudStack Spacing="3">
-
-    <MudPaper Class="page-header pa-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
-            <div>
-                <MudText Typo="Typo.h4" Class="fw-bold">Student Management</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Manage student records, academic placement, and class-wise filtering.
-                </MudText>
-            </div>
-
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.PersonAdd"
-                       Size="Size.Medium"
-                       OnClick="GoToCreate">
+<AppPageShell>
+    <AppPageHeader Title="Student Management"
+                   Subtitle="Manage student records, academic placement and class-wise filtering">
+        <Actions>
+            <AppButton StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="@((MouseEventArgs _) => GoToCreate())">
                 Add Student
-            </MudButton>
-        </MudStack>
-    </MudPaper>
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-    <MudPaper Class="filter-card pa-4">
-        <MudText Typo="Typo.subtitle1" Class="mb-3 fw-semibold">Filters</MudText>
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Total Students"
+                         Value="@_totalCount.ToString()"
+                         Icon="@Icons.Material.Filled.Groups" />
+        </MudItem>
 
-        <MudGrid Spacing="2">
-            <MudItem xs="12" md="4">
-                <MudTextField T="string"
-                              Label="Search student"
-                              Placeholder="Search by name, admission no, mobile"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              @bind-Value="_request.Search"
-                              Immediate="true" />
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Academic Years"
+                         Value="@_academicYears.Count.ToString()"
+                         Icon="@Icons.Material.Filled.CalendarMonth"
+                         Color="Color.Secondary" />
+        </MudItem>
 
-            <MudItem xs="12" sm="6" md="2">
-                <MudSelect T="int?"
-                           Label="Academic Year"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense"
-                           @bind-Value="_request.AcademicYearId">
-                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
-                    @foreach (var item in _academicYears)
-                    {
-                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Classes"
+                         Value="@_classes.Count.ToString()"
+                         Icon="@Icons.Material.Filled.School"
+                         Color="Color.Info" />
+        </MudItem>
 
-            <MudItem xs="12" sm="6" md="2">
-                <MudSelect T="int?"
-                           Label="Class"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense"
-                           Value="_request.ClassId"
-                           ValueChanged="OnClassChanged">
-                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
-                    @foreach (var item in _classes)
-                    {
-                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Sections"
+                         Value="@_sections.Count.ToString()"
+                         Icon="@Icons.Material.Filled.AccountTree"
+                         Color="Color.Warning" />
+        </MudItem>
+    </MudGrid>
 
-            <MudItem xs="12" sm="6" md="2">
-                <MudSelect T="int?"
-                           Label="Section"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense"
-                           @bind-Value="_request.SectionId"
-                           Disabled="@(!_request.ClassId.HasValue)">
-                    <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
-                    @foreach (var item in _sections)
-                    {
-                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
+    <AppToolbar>
+        <Filters>
+            <MudTextField T="string"
+                          Label="Search student"
+                          Placeholder="Name, admission no, mobile..."
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          Style="min-width:280px;"
+                          @bind-Value="_request.Search" />
 
-            <MudItem xs="12" sm="6" md="2" Class="d-flex align-end">
-                <MudStack Row="true" Spacing="1" Class="w-100">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               FullWidth="true"
-                               OnClick="SearchAsync">
-                        Search
-                    </MudButton>
+            <MudSelect T="int?"
+                       Label="Academic Year"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Style="min-width:170px;"
+                       @bind-Value="_request.AcademicYearId">
+                <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                @foreach (var item in _academicYears)
+                {
+                    <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                }
+            </MudSelect>
 
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               OnClick="ResetFiltersAsync">
-                        Reset
-                    </MudButton>
-                </MudStack>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+            <MudSelect T="int?"
+                       Label="Class"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Style="min-width:150px;"
+                       Value="_request.ClassId"
+                       ValueChanged="OnClassChanged">
+                <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                @foreach (var item in _classes)
+                {
+                    <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                }
+            </MudSelect>
 
-    <MudPaper Class="table-card pa-0">
-        <div class="table-toolbar">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudSelect T="int?"
+                       Label="Section"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Style="min-width:150px;"
+                       @bind-Value="_request.SectionId"
+                       Disabled="@(!_request.ClassId.HasValue)">
+                <MudSelectItem T="int?" Value="@((int?)null)">All</MudSelectItem>
+                @foreach (var item in _sections)
+                {
+                    <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </Filters>
+
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="@(async (MouseEventArgs _) => await ResetFiltersAsync())">
+                Reset
+            </AppButton>
+
+            <AppButton StartIcon="@Icons.Material.Filled.Search"
+                       OnClick="@(async (MouseEventArgs _) => await SearchAsync())">
+                Search
+            </AppButton>
+        </Actions>
+    </AppToolbar>
+
+    <AppCard PaddingClass="pa-0" Class="overflow-hidden">
+        <div class="shala-table-header">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap"
+                      Spacing="2">
                 <div>
                     <MudText Typo="Typo.subtitle1" Class="fw-semibold">Students</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Total records: @_totalCount
+                        Showing student records from current filters
                     </MudText>
                 </div>
 
@@ -148,10 +167,12 @@
                   Dense="true"
                   Striped="true"
                   Loading="_loading"
-                  Class="students-table">
+                  Breakpoint="Breakpoint.Md"
+                  Class="shala-table">
+
             <HeaderContent>
                 <MudTh>Admission No</MudTh>
-                <MudTh>Name</MudTh>
+                <MudTh>Student</MudTh>
                 <MudTh>Gender</MudTh>
                 <MudTh>Mobile</MudTh>
                 <MudTh>Academic Year</MudTh>
@@ -163,10 +184,20 @@
 
             <RowTemplate>
                 <MudTd DataLabel="Admission No">
-                    <MudText Typo="Typo.body2" Class="fw-semibold">@context.AdmissionNo</MudText>
+                    <MudText Typo="Typo.body2" Class="fw-semibold brand-text">
+                        @context.AdmissionNo
+                    </MudText>
                 </MudTd>
 
-                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Student">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2" Class="fw-semibold">@context.FullName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @context.CurrentClass @context.CurrentSection
+                        </MudText>
+                    </MudStack>
+                </MudTd>
+
                 <MudTd DataLabel="Gender">@context.Gender</MudTd>
                 <MudTd DataLabel="Mobile">@context.Mobile</MudTd>
                 <MudTd DataLabel="Academic Year">@context.CurrentAcademicYear</MudTd>
@@ -183,53 +214,94 @@
                 </MudTd>
 
                 <MudTd DataLabel="Actions" Align="Align.Right">
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Primary"
-                               Size="Size.Small"
-                               EndIcon="@Icons.Material.Filled.ArrowForward"
-                               OnClick="@(() => GoToDetails(context.Id))">
-                        View
-                    </MudButton>
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+                                     OnClick="@(() => GoToDetails(context.Id))">
+                            View Details
+                        </MudMenuItem>
+                    </MudMenu>
                 </MudTd>
             </RowTemplate>
 
             <NoRecordsContent>
-                <div class="empty-state">
-                    <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" Color="Color.Default" />
-                    <MudText Typo="Typo.h6" Class="mt-2">No students found</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Try changing filters or add your first student.
-                    </MudText>
-                </div>
+                <AppEmptyState Title="No students found"
+                               Message="Filters change karo ya first student add karo."
+                               Icon="@Icons.Material.Filled.Groups"
+                               IconColor="Color.Secondary">
+                    <Actions>
+                        <AppButton StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   OnClick="@((MouseEventArgs _) => GoToCreate())">
+                            Add Student
+                        </AppButton>
+                    </Actions>
+                </AppEmptyState>
             </NoRecordsContent>
         </MudTable>
 
         <MudDivider />
 
-        <div class="table-footer">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <div class="shala-table-footer">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap"
+                      Spacing="2">
+
                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Page @_request.PageNumber of @_totalPages
+                    Page @_request.PageNumber of @_totalPages • Total @_totalCount
                 </MudText>
 
                 <MudStack Row="true" Spacing="1">
                     <MudButton Variant="Variant.Outlined"
-                               Disabled="@(_request.PageNumber <= 1)"
+                               StartIcon="@Icons.Material.Filled.NavigateBefore"
+                               Disabled="@(_request.PageNumber <= 1 || _loading)"
                                OnClick="PreviousPage">
                         Prev
                     </MudButton>
 
                     <MudButton Variant="Variant.Outlined"
-                               Disabled="@(_request.PageNumber >= _totalPages)"
+                               EndIcon="@Icons.Material.Filled.NavigateNext"
+                               Disabled="@(_request.PageNumber >= _totalPages || _loading)"
                                OnClick="NextPage">
                         Next
                     </MudButton>
                 </MudStack>
             </MudStack>
         </div>
-    </MudPaper>
+    </AppCard>
+</AppPageShell>
 
-</MudStack>
+<style>
+    .fw-semibold {
+        font-weight: 600;
+    }
+
+    .brand-text {
+        color: #0B2A4A;
+    }
+
+    .shala-table-header {
+        padding: 16px;
+        background: #FFFFFF;
+    }
+
+    .shala-table-footer {
+        padding: 14px 16px;
+        background: #FFFFFF;
+    }
+
+    .shala-table .mud-table-head {
+        background: #F7F9FB;
+    }
+
+    .shala-table .mud-table-cell {
+        border-bottom: 1px solid #E5EAF0;
+    }
+
+    .overflow-hidden {
+        overflow: hidden;
+    }
+</style>
 
 @code {
     private readonly StudentListRequest _request = new();
@@ -237,12 +309,16 @@
     private List<LookupItemResponse> _academicYears = [];
     private List<LookupItemResponse> _classes = [];
     private List<LookupItemResponse> _sections = [];
+
     private bool _loading;
     private int _totalCount;
     private int _totalPages = 1;
 
     protected override async Task OnInitializedAsync()
     {
+        _request.PageNumber = Math.Max(1, _request.PageNumber);
+        _request.PageSize = _request.PageSize <= 0 ? 10 : _request.PageSize;
+
         await LoadInitialDataAsync();
     }
 
@@ -259,8 +335,6 @@
                 Snackbar.Add("Tenant or Branch context is missing.", Severity.Error);
                 return;
             }
-
-    
 
             await LoadLookupsAsync();
             await LoadStudentsAsync();
@@ -333,6 +407,12 @@
                 _students = response.Data.Items.ToList();
                 _totalCount = response.Data.TotalCount;
                 _totalPages = Math.Max(1, (int)Math.Ceiling((double)_totalCount / _request.PageSize));
+
+                if (_request.PageNumber > _totalPages)
+                {
+                    _request.PageNumber = 1;
+                    await LoadStudentsAsync();
+                }
             }
             else
             {
@@ -369,6 +449,7 @@
         _request.SectionId = null;
         _request.PageNumber = 1;
         _sections = [];
+
         await LoadStudentsAsync();
     }
 

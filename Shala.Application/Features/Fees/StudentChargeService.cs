@@ -1,8 +1,9 @@
-﻿using System.Data;
-using Shala.Application.Common;
+﻿using Shala.Application.Common;
 using Shala.Application.Repositories.Fees;
 using Shala.Domain.Entities.Fees;
+using Shala.Shared.Common;
 using Shala.Shared.Responses.Fees;
+using System.Data;
 
 namespace Shala.Application.Features.Fees;
 
@@ -97,7 +98,33 @@ public class StudentChargeService : IStudentChargeService
             throw;
         }
     }
+    public async Task<PagedResult<StudentChargeResponse>> GetPagedByStudentIdAsync(
+       int tenantId,
+       int branchId,
+       int studentId,
+       int pageNumber,
+       int pageSize,
+       CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
 
+        var (items, totalCount) = await _repo.GetPagedByStudentIdAsync(
+            studentId,
+            tenantId,
+            branchId,
+            pageNumber,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResult<StudentChargeResponse>
+        {
+            Items = items.ToList(),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
     public async Task<(bool Success, string Message)> MarkCancelledAsync(
         int tenantId,
         int branchId,

@@ -31,4 +31,6 @@ public interface IStudentRepository : IGenericRepository<Student>
 
 
 
+
+
 }

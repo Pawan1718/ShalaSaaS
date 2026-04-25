@@ -1,8 +1,9 @@
-﻿using System.Data;
-using Shala.Application.Common;
+﻿using Shala.Application.Common;
 using Shala.Application.Repositories.Fees;
 using Shala.Domain.Entities.Fees;
+using Shala.Shared.Common;
 using Shala.Shared.Responses.Fees;
+using System.Data;
 
 namespace Shala.Application.Features.Fees;
 
@@ -287,6 +288,34 @@ public class FeeReceiptService : IFeeReceiptService
         }
     }
 
+    public async Task<PagedResult<FeeReceiptResponse>> GetPagedByStudentIdAsync(
+     int tenantId,
+     int branchId,
+     int studentId,
+     int pageNumber,
+     int pageSize,
+     CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
+
+        var (items, totalCount) = await _receiptRepo.GetPagedByStudentIdAsync(
+            studentId,
+            tenantId,
+            branchId,
+            pageNumber,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResult<FeeReceiptResponse>
+        {
+            Items = items.ToList(),
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
     private async Task<(bool Success, string Message, FeeReceipt? Data)> RollbackWithMessage(
         string message,
         CancellationToken cancellationToken)
@@ -302,4 +331,7 @@ public class FeeReceiptService : IFeeReceiptService
         await _unitOfWork.RollbackTransactionAsync(cancellationToken);
         return (false, message);
     }
+
+
+
 }

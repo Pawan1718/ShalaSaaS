@@ -6,8 +6,7 @@ using Shala.Web.Repositories.AuthRepo;
 using Shala.Web.Repositories.Fees;
 using Shala.Web.Repositories.Interfaces;
 using Shala.Web.Repositories.PlatformRepo;
-using Shala.Web.Repositories.Registration;
-using Shala.Web.Repositories.Registration.RegistrationConfig;
+
 using Shala.Web.Repositories.Settings;
 using Shala.Web.Repositories.StudentDocuments;
 using Shala.Web.Repositories.StudentRepo;
@@ -58,12 +57,7 @@ public class Program
         builder.Services.AddScoped<IAcademicClassRepository, AcademicClassRepository>();
         builder.Services.AddScoped<ISectionRepository, SectionRepository>();
         builder.Services.AddScoped<IRollNumberSettingRepository, RollNumberSettingRepository>();
-        builder.Services.AddScoped<IRegistrationWebRepository, RegistrationWebRepository>();
-
-        builder.Services.AddScoped<IRegistrationFeeConfigurationWebRepository, RegistrationFeeConfigurationWebRepository>();
-        builder.Services.AddScoped<IRegistrationReceiptConfigurationWebRepository, RegistrationReceiptConfigurationWebRepository>();
-        builder.Services.AddScoped<IRegistrationProspectusConfigurationWebRepository, RegistrationProspectusConfigurationWebRepository>();
-        builder.Services.AddScoped<IRegistrationFeeHeadLookupWebRepository, RegistrationFeeHeadLookupWebRepository>();
+      
         builder.Services.AddScoped<IBranchDocumentProfileWebRepository, BranchDocumentProfileWebRepository>();
         builder.Services.AddScoped<IFeeWebRepository, FeeWebRepository>();
 

@@ -240,3 +240,50 @@ h1:focus {
         background-color: rgba(25, 118, 210, 0.12);
         font-weight: 600;
     }
+
+
+
+
+/* Page spacing */
+.page-container {
+    padding: 20px;
+}
+
+/* Cards */
+.app-card {
+    border: 1px solid #E5EAF0;
+    border-radius: 12px;
+    background: white;
+}
+
+/* Section spacing */
+.section {
+    margin-bottom: 20px;
+}
+
+/* Table clean */
+.mud-table {
+    border: 1px solid #E5EAF0;
+    border-radius: 12px;
+}
+
+/* Header */
+.app-header {
+    margin-bottom: 16px;
+}
+
+/* Buttons */
+.mud-button-filled-primary {
+    background-color: #0B2A4A;
+}
+
+/* Accent highlight */
+.accent {
+    color: #1FA6A0;
+}
+
+/* CTA */
+.cta {
+    background-color: #F7931A;
+    color: white;
+}

@@ -4,9 +4,7 @@
 @using MudBlazor
 @using Shala.Shared.Requests.Settings
 @using Shala.Shared.Responses.Settings
-@using Shala.Web.Components.RegistrationDialogs
 @using Shala.Web.Repositories.Settings
-@using Shala.Shared.Responses.Registration
 @using Shala.Web.Components.Receipts
 
 @inject IBranchDocumentProfileWebRepository Repo
@@ -133,25 +131,7 @@ else
                     </MudPaper>
                 </MudItem>
 
-                <!-- Preview -->
-            <MudItem xs="12" md="5">
-    <MudPaper Class="pa-4 rounded-xl h-100">
-        <MudStack Spacing="2">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Primary" />
-                <MudText Typo="Typo.h6" Class="fw-semibold">Live Preview</MudText>
-            </MudStack>
-
-            <MudDivider />
-
-            <RegistrationReceiptCanvas TargetId="branch-document-profile-preview"
-                                       Receipt="@PreviewReceipt"
-                                       Profile="@PreviewProfile"
-                                       Mode="ReceiptCanvasMode.SinglePreview"
-                                       RootCssClass="receipt-preview-root" />
-        </MudStack>
-    </MudPaper>
-</MudItem>
+             
 
                 <!-- Receipt Behavior -->
                 <MudItem xs="12">
@@ -355,21 +335,6 @@ else
             _loading = false;
         }
     }
-    private RegistrationReceiptResponse PreviewReceipt => new()
-    {
-        ReceiptNo = "RCP-20260409-0001",
-        ReceiptDate = DateTime.Today,
-        RegistrationDate = DateTime.Today,
-        StudentName = "Aarav Sharma",
-        GuardianName = "Rajesh Sharma",
-        Phone = "9876543210",
-        TotalAmount = 350,
-        Lines = new List<RegistrationReceiptLineResponse>
-    {
-        new() { Label = "Registration Fee", Amount = 200 },
-        new() { Label = "Prospectus", Amount = 150 }
-    }
-    };
 
     private BranchDocumentProfileResponse PreviewProfile => new()
     {

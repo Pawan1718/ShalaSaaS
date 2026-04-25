@@ -1,5 +1,6 @@
 ﻿using Shala.Application.Common;
 using Shala.Domain.Entities.Fees;
+using Shala.Shared.Responses.Fees;
 
 namespace Shala.Application.Repositories.Fees;
 
@@ -54,5 +55,13 @@ public interface IStudentChargeRepository : IGenericRepository<StudentCharge>
         int tenantId,
         int branchId,
         int? excludeAssignmentId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<StudentChargeResponse> Items, int TotalCount)> GetPagedByStudentIdAsync(
+        int studentId,
+        int tenantId,
+        int branchId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 }

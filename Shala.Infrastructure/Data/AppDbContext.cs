@@ -5,12 +5,10 @@ using Shala.Domain.Entities.Fees;
 using Shala.Domain.Entities.Identity;
 using Shala.Domain.Entities.Organization;
 using Shala.Domain.Entities.Platform;
-using Shala.Domain.Entities.Registration;
 using Shala.Domain.Entities.Settings;
 using Shala.Domain.Entities.StudentDocuments;
 using Shala.Domain.Entities.Students;
 using Shala.Domain.Entities.Supplies;
-using Shala.Domain.Enums;
 
 namespace Shala.Infrastructure.Data;
 
@@ -33,7 +31,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Guardian> Guardians => Set<Guardian>();
     public DbSet<StudentAdmission> StudentAdmissions => Set<StudentAdmission>();
     public DbSet<UserBranchAccess> UserBranchAccesses => Set<UserBranchAccess>();
-    public DbSet<StudentRegistration> StudentRegistrations => Set<StudentRegistration>();
 
     public DbSet<FeeHead> FeeHeads => Set<FeeHead>();
     public DbSet<FeeStructure> FeeStructures => Set<FeeStructure>();
@@ -45,13 +42,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudentFeeLedger> StudentFeeLedgers => Set<StudentFeeLedger>();
     public DbSet<FeeReceiptCounter> FeeReceiptCounters => Set<FeeReceiptCounter>();
 
-    public DbSet<RegistrationFeeReceipt> RegistrationFeeReceipts => Set<RegistrationFeeReceipt>();
-    public DbSet<RegistrationFeeConfiguration> RegistrationFeeConfigurations => Set<RegistrationFeeConfiguration>();
-    public DbSet<RegistrationReceiptConfiguration> RegistrationReceiptConfigurations => Set<RegistrationReceiptConfiguration>();
-    public DbSet<RegistrationProspectusConfiguration> RegistrationProspectusConfigurations => Set<RegistrationProspectusConfiguration>();
-    public DbSet<RegistrationFeeReceiptAudit> RegistrationFeeReceiptAudits { get; set; }
-
-
     public DbSet<BranchDocumentProfile> BranchDocumentProfiles => Set<BranchDocumentProfile>();
     public DbSet<DocumentModel> DocumentModels => Set<DocumentModel>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
@@ -59,15 +49,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudentDocumentFieldMatch> StudentDocumentFieldMatches => Set<StudentDocumentFieldMatch>();
     public DbSet<StudentDocumentSuggestion> StudentDocumentSuggestions => Set<StudentDocumentSuggestion>();
 
-
     public DbSet<SupplyItem> SupplyItems => Set<SupplyItem>();
     public DbSet<StudentSupplyIssue> StudentSupplyIssues => Set<StudentSupplyIssue>();
     public DbSet<StudentSupplyIssueItem> StudentSupplyIssueItems => Set<StudentSupplyIssueItem>();
     public DbSet<StudentSupplyPayment> StudentSupplyPayments => Set<StudentSupplyPayment>();
     public DbSet<SupplyStockLedger> SupplyStockLedgers => Set<SupplyStockLedger>();
-
-
-
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -75,15 +61,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
         ConfigureIdentityAndOrg(builder);
         ConfigureAcademics(builder);
-        ConfigureRegistration(builder);
+        ConfigureStudents(builder);
         ConfigureFees(builder);
         ConfigureDocuments(builder);
-        ConfigureSupplies(builder); 
-
+        ConfigureSupplies(builder);
     }
 
     private static void ConfigureIdentityAndOrg(ModelBuilder builder)
     {
+        builder.Entity<ApplicationUser>()
+            .HasIndex(x => new { x.TenantId, x.BranchId });
+
         builder.Entity<ApplicationUser>()
             .HasOne(x => x.Tenant)
             .WithMany(x => x.Users)
@@ -112,14 +100,34 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(x => new { x.UserId, x.BranchId }).IsUnique();
+            entity.HasIndex(x => x.BranchId);
         });
     }
 
     private static void ConfigureAcademics(ModelBuilder builder)
     {
-        builder.Entity<AcademicYear>()
-            .HasIndex(x => new { x.TenantId, x.Name })
-            .IsUnique();
+        builder.Entity<AcademicYear>(entity =>
+        {
+            entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.IsActive });
+        });
+
+        builder.Entity<AcademicClass>(entity =>
+        {
+            entity.HasIndex(x => new { x.TenantId, x.IsActive });
+            entity.HasIndex(x => new { x.TenantId, x.Sequence });
+        });
+
+        builder.Entity<Section>(entity =>
+        {
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AcademicClassId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+
+            entity.HasOne(x => x.AcademicClass)
+                .WithMany(x => x.Sections)
+                .HasForeignKey(x => x.AcademicClassId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
 
         builder.Entity<AcademicYearSetting>(entity =>
         {
@@ -144,12 +152,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Format).HasMaxLength(100).IsRequired();
         });
 
-        builder.Entity<Section>()
-            .HasOne(x => x.AcademicClass)
-            .WithMany(x => x.Sections)
-            .HasForeignKey(x => x.AcademicClassId)
-            .OnDelete(DeleteBehavior.NoAction);
-
         builder.Entity<StudentAdmission>(entity =>
         {
             entity.HasIndex(x => new
@@ -172,6 +174,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 x.AcademicClassId,
                 x.SectionId
             });
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AdmissionNo });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsCurrent });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
 
             entity.HasOne(x => x.Student)
                 .WithMany(x => x.Admissions)
@@ -196,108 +203,24 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         });
     }
 
-    private static void ConfigureRegistration(ModelBuilder builder)
+    private static void ConfigureStudents(ModelBuilder builder)
     {
-        builder.Entity<RegistrationFeeConfiguration>(entity =>
+        builder.Entity<Student>(entity =>
         {
-            entity.HasIndex(x => new { x.TenantId, x.BranchId }).IsUnique();
-            entity.Property(x => x.RegistrationFeeAmount).HasColumnType("decimal(18,2)");
+            entity.HasIndex(x => new { x.TenantId, x.BranchId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FirstName });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.LastName });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Mobile });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Email });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.CreatedAt });
         });
 
-        builder.Entity<RegistrationProspectusConfiguration>(entity =>
+        builder.Entity<Guardian>(entity =>
         {
-            entity.HasIndex(x => new { x.TenantId, x.BranchId }).IsUnique();
-            entity.Property(x => x.ProspectusAmount).HasColumnType("decimal(18,2)");
-            entity.Property(x => x.ProspectusDisplayName).HasMaxLength(100);
-        });
-
-        builder.Entity<RegistrationReceiptConfiguration>(entity =>
-        {
-            entity.HasIndex(x => new { x.TenantId, x.BranchId }).IsUnique();
-            entity.Property(x => x.ReceiptTitle).HasMaxLength(150);
-            entity.Property(x => x.ReceiptFooterNote).HasMaxLength(500);
-        });
-
-        builder.Entity<StudentRegistration>(entity =>
-        {
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.RegistrationNo })
-                .IsUnique();
-
-            entity.Property(x => x.PaymentStatus)
-                .HasDefaultValue(RegistrationPaymentStatus.Unpaid);
-        });
-
-        builder.Entity<RegistrationFeeReceipt>(entity =>
-        {
-            entity.Property(x => x.ReceiptNo)
-                .HasMaxLength(30)
-                .IsRequired();
-
-            entity.Property(x => x.TransactionReference)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.CancelReason)
-                .HasMaxLength(250);
-
-            entity.Property(x => x.IsCancelled)
-                .HasDefaultValue(false);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo })
-                .IsUnique();
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.RegistrationId, x.IsCancelled });
-        });
-
-        builder.Entity<RegistrationFeeReceipt>(entity =>
-        {
-            entity.Property(x => x.ReceiptStatus)
-                .HasDefaultValue(RegistrationReceiptStatus.Active);
-
-            entity.Property(x => x.IsCancelled)
-                .HasDefaultValue(false);
-
-            entity.Property(x => x.CancelReason)
-                .HasMaxLength(250);
-
-            entity.Property(x => x.CancelledBy)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.IsRefunded)
-                .HasDefaultValue(false);
-
-            entity.Property(x => x.RefundedAmount)
-                .HasColumnType("decimal(18,2)")
-                .HasDefaultValue(0m);
-
-            entity.Property(x => x.RefundReason)
-                .HasMaxLength(250);
-
-            entity.Property(x => x.RefundedBy)
-                .HasMaxLength(100);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo })
-                .IsUnique();
-        });
-
-        builder.Entity<RegistrationFeeReceiptAudit>(entity =>
-        {
-            entity.Property(x => x.Action)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(x => x.Reason)
-                .HasMaxLength(250);
-
-            entity.Property(x => x.Amount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.PerformedBy)
-                .HasMaxLength(100);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptId });
+            entity.HasIndex(x => new { x.TenantId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.Mobile });
+            entity.HasIndex(x => new { x.TenantId, x.IsPrimary });
         });
     }
 
@@ -305,28 +228,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     {
         builder.Entity<FeeHead>(entity =>
         {
-            entity.Property(x => x.Name)
-                .HasMaxLength(100)
-                .IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Code).HasMaxLength(50);
+            entity.Property(x => x.Description).HasMaxLength(500);
 
-            entity.Property(x => x.Code)
-                .HasMaxLength(50);
-
-            entity.Property(x => x.Description)
-                .HasMaxLength(500);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name })
-                .IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
         });
 
         builder.Entity<FeeStructure>(entity =>
         {
-            entity.Property(x => x.Name)
-                .HasMaxLength(150)
-                .IsRequired();
-
-            entity.Property(x => x.Description)
-                .HasMaxLength(500);
+            entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(500);
 
             entity.HasIndex(x => new
             {
@@ -337,6 +251,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 x.Name
             }).IsUnique();
 
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AcademicYearId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AcademicClassId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+
             entity.HasMany(x => x.Items)
                 .WithOne(x => x.FeeStructure)
                 .HasForeignKey(x => x.FeeStructureId)
@@ -345,12 +263,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<FeeStructureItem>(entity =>
         {
-            entity.Property(x => x.Label)
-                .HasMaxLength(150)
-                .IsRequired();
-
-            entity.Property(x => x.Amount)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Label).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Amount).HasColumnType("decimal(18,2)");
 
             entity.HasOne(x => x.FeeHead)
                 .WithMany()
@@ -358,15 +272,14 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(x => new { x.FeeStructureId, x.FeeHeadId, x.Label });
+            entity.HasIndex(x => new { x.FeeHeadId });
+            entity.HasIndex(x => new { x.IsActive });
         });
 
         builder.Entity<StudentFeeAssignment>(entity =>
         {
-            entity.Property(x => x.DiscountAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.AdditionalChargeAmount)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.AdditionalChargeAmount).HasColumnType("decimal(18,2)");
 
             entity.HasOne(x => x.Student)
                 .WithMany()
@@ -383,30 +296,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(x => x.FeeStructureId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId })
-                .IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FeeStructureId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
         });
 
         builder.Entity<StudentCharge>(entity =>
         {
-            entity.Property(x => x.ChargeLabel)
-                .HasMaxLength(200)
-                .IsRequired();
-
-            entity.Property(x => x.PeriodLabel)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.Amount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.DiscountAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.FineAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.PaidAmount)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ChargeLabel).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.PeriodLabel).HasMaxLength(100);
+            entity.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.FineAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.PaidAmount).HasColumnType("decimal(18,2)");
 
             entity.HasOne(x => x.Student)
                 .WithMany()
@@ -432,31 +335,23 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithOne(x => x.StudentCharge)
                 .HasForeignKey(x => x.StudentChargeId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentFeeAssignmentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FeeHeadId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsCancelled });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.DueDate });
         });
 
         builder.Entity<FeeReceipt>(entity =>
         {
-            entity.Property(x => x.TotalAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.ReceiptNo)
-                .HasMaxLength(30)
-                .IsRequired();
-
-            entity.Property(x => x.TransactionReference)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.CancelReason)
-                .HasMaxLength(250);
-
-            entity.Property(x => x.IsCancelled)
-                .HasDefaultValue(false);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo })
-                .IsUnique();
+            entity.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ReceiptNo).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.TransactionReference).HasMaxLength(100);
+            entity.Property(x => x.Remarks).HasMaxLength(500);
+            entity.Property(x => x.CancelReason).HasMaxLength(250);
+            entity.Property(x => x.IsCancelled).HasDefaultValue(false);
 
             entity.HasOne(x => x.Student)
                 .WithMany()
@@ -472,15 +367,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithOne(x => x.FeeReceipt)
                 .HasForeignKey(x => x.FeeReceiptId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptNo }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReceiptDate });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsCancelled });
         });
 
         builder.Entity<FeeReceiptAllocation>(entity =>
         {
-            entity.Property(x => x.AllocatedAmount)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
 
-            entity.HasIndex(x => new { x.FeeReceiptId, x.StudentChargeId })
-                .IsUnique();
+            entity.HasIndex(x => new { x.FeeReceiptId, x.StudentChargeId }).IsUnique();
+            entity.HasIndex(x => x.StudentChargeId);
 
             entity.HasOne(x => x.FeeReceipt)
                 .WithMany(x => x.Allocations)
@@ -496,54 +396,41 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<StudentFeeLedger>(entity =>
         {
             entity.ToTable("StudentFeeLedgers");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.EntryType)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(x => x.DebitAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.CreditAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.RunningBalance)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.ReferenceNo)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
+            entity.Property(x => x.EntryType).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.DebitAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.CreditAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.RunningBalance).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ReferenceNo).HasMaxLength(100);
+            entity.Property(x => x.Remarks).HasMaxLength(500);
 
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId, x.EntryDate, x.Id });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FeeReceiptId });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentChargeId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.EntryType });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.EntryDate });
         });
 
         builder.Entity<FeeReceiptCounter>(entity =>
         {
             entity.ToTable("FeeReceiptCounters");
-
             entity.HasKey(x => x.Id);
 
-            entity.HasIndex(x => new
-            {
-                x.TenantId,
-                x.BranchId,
-                x.Year
-            }).IsUnique();
-
-            entity.Property(x => x.LastNumber)
-                .HasDefaultValue(0);
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Year }).IsUnique();
+            entity.Property(x => x.LastNumber).HasDefaultValue(0);
         });
     }
 
     private static void ConfigureDocuments(ModelBuilder builder)
     {
+        builder.Entity<BranchDocumentProfile>(entity =>
+        {
+            entity.HasIndex(x => new { x.TenantId, x.BranchId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+        });
+
         builder.Entity<DocumentModel>(entity =>
         {
             entity.ToTable("DocumentModels");
@@ -559,6 +446,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code }).IsUnique();
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name });
         });
 
         builder.Entity<StudentDocument>(entity =>
@@ -599,6 +487,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Status });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.DocumentModelId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.CreatedAt });
         });
 
         builder.Entity<StudentDocumentAnalysis>(entity =>
@@ -622,6 +512,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
             entity.HasIndex(x => x.StudentDocumentId).IsUnique();
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AnalysisStatus });
         });
 
         builder.Entity<StudentDocumentFieldMatch>(entity =>
@@ -639,6 +530,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.UpdatedBy).HasMaxLength(100);
 
             entity.HasIndex(x => new { x.StudentDocumentAnalysisId, x.FieldName });
+            entity.HasIndex(x => x.MatchStatus);
         });
 
         builder.Entity<StudentDocumentSuggestion>(entity =>
@@ -655,11 +547,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
             entity.HasIndex(x => x.StudentDocumentId);
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.SuggestionType });
         });
-
-
-
-
     }
 
     private static void ConfigureSupplies(ModelBuilder builder)
@@ -667,73 +556,40 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<SupplyItem>(entity =>
         {
             entity.ToTable("SupplyItems");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Name)
-                .HasMaxLength(150)
-                .IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.SalePrice).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.CurrentStock).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.MinimumStock).HasColumnType("decimal(18,2)");
 
-            entity.Property(x => x.Code)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(x => x.Description)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.SalePrice)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.CurrentStock)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.MinimumStock)
-                .HasColumnType("decimal(18,2)");
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code })
-                .IsUnique();
-
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Code }).IsUnique();
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.Name });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.CurrentStock });
         });
 
         builder.Entity<StudentSupplyIssue>(entity =>
         {
             entity.ToTable("StudentSupplyIssues");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.IssueNo)
-                .HasMaxLength(40)
-                .IsRequired();
+            entity.Property(x => x.IssueNo).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.TotalAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.PaidAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.DueAmount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Remarks).HasMaxLength(500);
+            entity.Property(x => x.CancelReason).HasMaxLength(500);
+            entity.Property(x => x.IsCancelled).HasDefaultValue(false);
 
-            entity.Property(x => x.TotalAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.PaidAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.DueAmount)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.CancelReason)
-                .HasMaxLength(500);
-
-            entity.Property(x => x.IsCancelled)
-                .HasDefaultValue(false);
-
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IssueNo })
-                .IsUnique();
-
-            entity.HasIndex(x => new
-            {
-                x.TenantId,
-                x.BranchId,
-                x.AcademicYearId,
-                x.StudentId
-            });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IssueNo }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AcademicYearId, x.StudentId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IssueDate });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsCancelled });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.DueAmount });
 
             entity.HasOne(x => x.Student)
                 .WithMany()
@@ -759,81 +615,48 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<StudentSupplyIssueItem>(entity =>
         {
             entity.ToTable("StudentSupplyIssueItems");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.ItemName)
-                .HasMaxLength(150)
-                .IsRequired();
-
-            entity.Property(x => x.ItemCode)
-                .HasMaxLength(50);
-
-            entity.Property(x => x.Quantity)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.UnitPrice)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.LineTotal)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ItemName).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.ItemCode).HasMaxLength(50);
+            entity.Property(x => x.Quantity).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
 
             entity.HasOne(x => x.SupplyItem)
                 .WithMany(x => x.IssueItems)
                 .HasForeignKey(x => x.SupplyItemId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(x => x.StudentSupplyIssueId);
+            entity.HasIndex(x => x.SupplyItemId);
         });
 
         builder.Entity<StudentSupplyPayment>(entity =>
         {
             entity.ToTable("StudentSupplyPayments");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Amount)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ReferenceNo).HasMaxLength(100);
+            entity.Property(x => x.Remarks).HasMaxLength(500);
 
-            entity.Property(x => x.ReferenceNo)
-                .HasMaxLength(100);
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
-
-            entity.HasIndex(x => new
-            {
-                x.TenantId,
-                x.BranchId,
-                x.AcademicYearId,
-                x.PaymentDate
-            });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.AcademicYearId, x.PaymentDate });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentSupplyIssueId });
         });
 
         builder.Entity<SupplyStockLedger>(entity =>
         {
             entity.ToTable("SupplyStockLedgers");
-
             entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.Quantity)
-                .HasColumnType("decimal(18,2)");
+            entity.Property(x => x.Quantity).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.BalanceAfter).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.ReferenceType).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Remarks).HasMaxLength(500);
 
-            entity.Property(x => x.BalanceAfter)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.ReferenceType)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(x => x.Remarks)
-                .HasMaxLength(500);
-
-            entity.HasIndex(x => new
-            {
-                x.TenantId,
-                x.BranchId,
-                x.SupplyItemId,
-                x.MovementDate
-            });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.SupplyItemId, x.MovementDate });
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.ReferenceType });
 
             entity.HasOne(x => x.SupplyItem)
                 .WithMany(x => x.StockLedgers)

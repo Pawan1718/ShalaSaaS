@@ -1,10 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
-@using Shala.Web.Repositories.Registration.RegistrationConfig
 @using Shala.Web.Services.State
 @inject NavigationManager Nav
 @inject ApiSession Session
-@inject IRegistrationFeeConfigurationWebRepository FeeConfigRepo
 
 <MudThemeProvider />
 <MudDialogProvider />
@@ -111,14 +109,7 @@
                 MAIN MODULES
             </MudText>
 
-            @if (_registrationModuleEnabled)
-            {
-                <MudNavLink Href="/student/registrations"
-                            Match="NavLinkMatch.Prefix"
-                            Icon="@Icons.Material.Filled.HowToReg">
-                    Registration
-                </MudNavLink>
-            }
+           
 
             <MudNavLink Href="/tenant/students/create"
                         Match="NavLinkMatch.Prefix"
@@ -348,7 +339,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadRegistrationModuleStatusAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -375,18 +365,7 @@
         StateHasChanged();
     }
 
-    private async Task LoadRegistrationModuleStatusAsync()
-    {
-        try
-        {
-            var config = await FeeConfigRepo.GetAsync();
-            _registrationModuleEnabled = config?.IsRegistrationModuleEnabled ?? true;
-        }
-        catch
-        {
-            _registrationModuleEnabled = true;
-        }
-    }
+   
 
     private void ToggleDrawer()
     {

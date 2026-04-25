@@ -2,6 +2,7 @@
 using Shala.Application.Repositories.Fees;
 using Shala.Domain.Entities.Fees;
 using Shala.Infrastructure.Data;
+using Shala.Shared.Responses.Fees;
 
 namespace Shala.Infrastructure.Repositories.Fees;
 
@@ -145,4 +146,53 @@ public class StudentChargeRepository : GenericRepository<StudentCharge>, IStuden
             (!excludeAssignmentId.HasValue || x.StudentFeeAssignmentId != excludeAssignmentId.Value),
             cancellationToken);
     }
+    public async Task<(IReadOnlyList<StudentChargeResponse> Items, int TotalCount)> GetPagedByStudentIdAsync(
+    int studentId,
+    int tenantId,
+    int branchId,
+    int pageNumber,
+    int pageSize,
+    CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
+
+        var query = _table
+            .AsNoTracking()
+            .Where(x =>
+                x.StudentId == studentId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(x => x.DueDate)
+            .ThenBy(x => x.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new StudentChargeResponse
+            {
+                Id = x.Id,
+                StudentId = x.StudentId ?? 0,
+                StudentAdmissionId = x.StudentAdmissionId ?? 0,
+                StudentFeeAssignmentId = x.StudentFeeAssignmentId ?? 0,
+                FeeHeadId = x.FeeHeadId,
+                ChargeLabel = x.ChargeLabel,
+                PeriodLabel = x.PeriodLabel,
+                DueDate = x.DueDate,
+                Amount = x.Amount,
+                DiscountAmount = x.DiscountAmount,
+                FineAmount = x.FineAmount,
+                PaidAmount = x.PaidAmount,
+                NetAmount = x.NetAmount,
+                BalanceAmount = x.BalanceAmount,
+                IsSettled = x.IsSettled,
+                IsCancelled = x.IsCancelled
+            })
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
 }

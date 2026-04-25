@@ -1,4 +1,6 @@
 ﻿using Shala.Domain.Entities.Fees;
+using Shala.Shared.Common;
+using Shala.Shared.Responses.Fees;
 
 namespace Shala.Application.Features.Fees;
 
@@ -30,5 +32,13 @@ public interface IStudentChargeService
         int tenantId,
         int branchId,
         int id,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<StudentChargeResponse>> GetPagedByStudentIdAsync(
+        int tenantId,
+        int branchId,
+        int studentId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 }

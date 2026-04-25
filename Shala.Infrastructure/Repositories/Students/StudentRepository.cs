@@ -29,12 +29,13 @@ public class StudentRepository : GenericRepository<Student>, IStudentRepository
     }
 
     public async Task<Student?> GetDetailsAsync(
-        int id,
-        int tenantId,
-        int branchId,
-        CancellationToken cancellationToken = default)
+     int id,
+     int tenantId,
+     int branchId,
+     CancellationToken cancellationToken = default)
     {
         return await _context.Students
+            .AsSplitQuery()
             .Include(x => x.Guardians)
             .Include(x => x.Documents)
             .Include(x => x.Admissions).ThenInclude(x => x.AcademicYear)
@@ -42,13 +43,14 @@ public class StudentRepository : GenericRepository<Student>, IStudentRepository
             .Include(x => x.Admissions).ThenInclude(x => x.Section)
             .Include(x => x.FeeAssignments)
             .Include(x => x.StudentCharges).ThenInclude(x => x.FeeHead)
-            .Include(x => x.FeeReceipts)
             .FirstOrDefaultAsync(
                 x => x.Id == id &&
                      x.TenantId == tenantId &&
                      x.BranchId == branchId,
                 cancellationToken);
     }
+
+
 
     public async Task<(IReadOnlyList<Student> Items, int TotalCount)> GetPagedAsync(
         int tenantId,
