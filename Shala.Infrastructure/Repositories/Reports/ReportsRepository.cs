@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shala.Application.Common;
+using Shala.Application.Features.Reports;
 using Shala.Application.Repositories.Reports;
 using Shala.Domain.Enums;
 using Shala.Infrastructure.Data;
@@ -505,6 +506,80 @@ public sealed class ReportsRepository : IReportsRepository
             .ThenBy(x => x.StudentName);
 
         return await resultQuery.ToPagedResultAsync(request.PageNumber, request.PageSize);
+    }
+
+
+    public async Task<PagedResult<StudentDobAgeReportResponse>> GetStudentDobAgeReportAsync(
+      int tenantId,
+      int branchId,
+      ReportFilterRequest request,
+      CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.Today;
+
+        var query = CurrentAdmissionQuery(tenantId, branchId, request);
+
+        if (!string.IsNullOrWhiteSpace(request.SearchText))
+        {
+            var search = request.SearchText.Trim();
+
+            query = query.Where(x =>
+                x.AdmissionNo.Contains(search) ||
+                x.Student.FirstName.Contains(search) ||
+                x.Student.LastName.Contains(search) ||
+                (x.Student.MiddleName != null && x.Student.MiddleName.Contains(search)) ||
+                (x.RollNo != null && x.RollNo.Contains(search)));
+        }
+
+        var rawQuery = query
+            .OrderBy(x => x.AcademicClass.Sequence)
+            .ThenBy(x => x.Section != null ? x.Section.Name : string.Empty)
+            .ThenBy(x => x.RollNo)
+            .ThenBy(x => x.Student.FirstName)
+            .Select(x => new
+            {
+                x.StudentId,
+                AdmissionNo = x.AdmissionNo,
+                StudentName = (
+                    x.Student.FirstName + " " +
+                    (x.Student.MiddleName ?? string.Empty) + " " +
+                    x.Student.LastName
+                ).Trim(),
+                ClassName = x.AcademicClass.Name,
+                SectionName = x.Section != null ? x.Section.Name : null,
+                RollNo = x.RollNo,
+                DateOfBirth = x.Student.DateOfBirth
+            });
+
+        var totalCount = await rawQuery.CountAsync(cancellationToken);
+
+        var rows = request.PageSize == -1
+            ? await rawQuery.ToListAsync(cancellationToken)
+            : await rawQuery
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+
+        var items = rows.Select(x => new StudentDobAgeReportResponse
+        {
+            StudentId = x.StudentId,
+            AdmissionNo = x.AdmissionNo ?? string.Empty,
+            StudentName = x.StudentName,
+            ClassName = x.ClassName,
+            SectionName = x.SectionName,
+            RollNo = x.RollNo,
+            DateOfBirth = x.DateOfBirth,
+            AgeInYears = ReportAgeHelper.GetAgeInYears(x.DateOfBirth, today),
+            AgeText = ReportAgeHelper.GetAgeText(x.DateOfBirth, today)
+        }).ToList();
+
+        return new PagedResult<StudentDobAgeReportResponse>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
     }
 
     private IQueryable<Shala.Domain.Entities.Students.StudentAdmission> AdmissionQuery(

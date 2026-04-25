@@ -1,0 +1,29 @@
+@using MudBlazor
+
+<MudPaper Class="pa-3 report-toolbar" Elevation="1">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+        <div>
+            <MudText Typo="Typo.h6">@Title</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Subtitle</MudText>
+        </div>
+
+        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" OnClick="() => OnApply.InvokeAsync()">Apply</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Refresh" OnClick="() => OnReset.InvokeAsync()">Reset</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Success" StartIcon="@Icons.Material.Filled.Download" Disabled="@DisableExport" OnClick="() => OnExcel.InvokeAsync()">Excel</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Info" StartIcon="@Icons.Material.Filled.Print" OnClick="() => OnPrint.InvokeAsync()">Print / PDF</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Share" OnClick="() => OnShare.InvokeAsync()">Share</MudButton>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Reports";
+    [Parameter] public string Subtitle { get; set; } = string.Empty;
+    [Parameter] public bool DisableExport { get; set; }
+    [Parameter] public EventCallback OnApply { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public EventCallback OnExcel { get; set; }
+    [Parameter] public EventCallback OnPrint { get; set; }
+    [Parameter] public EventCallback OnShare { get; set; }
+}

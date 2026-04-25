@@ -13,4 +13,5 @@ public sealed class ReportFilterRequest : PagedRequest
     public DateTime? ToDate { get; set; }
 
     public string? Status { get; set; }
+    public string? PaymentMode { get; set; }
 }

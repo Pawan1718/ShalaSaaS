@@ -23,4 +23,10 @@ public interface IReportsService
     Task<PagedResult<AcademicStrengthReportResponse>> GetAcademicStrengthAsync(int tenantId, int branchId, ReportFilterRequest request, CancellationToken cancellationToken = default);
 
     Task<PagedResult<PendingDocumentReportResponse>> GetPendingDocumentsAsync(int tenantId, int branchId, ReportFilterRequest request, CancellationToken cancellationToken = default);
+
+    Task<PagedResult<StudentDobAgeReportResponse>> GetStudentDobAgeReportAsync(
+    int tenantId,
+    int branchId,
+    ReportFilterRequest request,
+    CancellationToken cancellationToken = default);
 }

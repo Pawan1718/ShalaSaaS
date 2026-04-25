@@ -68,6 +68,20 @@ public sealed class ReportsService : IReportsService
         return _reportsRepository.GetPendingDocumentsAsync(tenantId, branchId, request, cancellationToken);
     }
 
+    public Task<PagedResult<StudentDobAgeReportResponse>> GetStudentDobAgeReportAsync(
+    int tenantId,
+    int branchId,
+    ReportFilterRequest request,
+    CancellationToken cancellationToken = default)
+    {
+        Normalize(request);
+        return _reportsRepository.GetStudentDobAgeReportAsync(
+            tenantId,
+            branchId,
+            request,
+            cancellationToken);
+    }
+
     private static void Normalize(ReportFilterRequest request)
     {
         request.PageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;

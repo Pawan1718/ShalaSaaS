@@ -20,6 +20,7 @@ public sealed class StudentMasterReportResponse
     public string? GuardianName { get; set; }
     public string? GuardianMobile { get; set; }
 
+
     public string StudentStatus { get; set; } = string.Empty;
     public string AdmissionStatus { get; set; } = string.Empty;
 }
