@@ -1,295 +1,76 @@
 @page "/tenant/dashboard"
 @implements IDisposable
-@using Microsoft.AspNetCore.Components.Web
+
 @using MudBlazor
 @using Shala.Shared.Requests.Tenant
 @using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dashboard
 @using Shala.Web.Repositories.TenantRepo
 @using Shala.Web.Services.State
+
 @layout Shala.Web.Components.Layouts.TenantMainLayout
+
 @inject ITenantDashboardWebRepository DashboardRepository
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject ApiSession Session
+<AppPageShell>
 
-<PageTitle>@DashboardTitle</PageTitle>
-
-<section class="shala-dashboard">
-    <header class="shala-dashboard-header">
-        <div>
-            <p class="dashboard-eyebrow">@GetTenantDisplay()</p>
-            <h1>@DashboardHeading</h1>
-            <p class="dashboard-subtitle">@DashboardSubtitle</p>
-        </div>
-
-        <div class="dashboard-header-actions">
-            <button class="quick-action-btn" type="button" @onclick="GoToAddStudent">
-                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" />
+    <AppPageHeader Title="@DashboardHeading"
+                   Subtitle="@DashboardSubtitle">
+        <Actions>
+            <AppButton OnClick="@GoToAddStudent">
                 New Admission
-            </button>
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-            <div class="profile-chip">
-                <div class="profile-avatar">@UserInitial</div>
-                <div>
-                    <strong>@GetUserDisplay()</strong>
-                    <small>@GetRoleDisplay()</small>
-                </div>
+    <AppDataState Loading="@_isLoading"
+                  Error="@_error"
+                  Empty="@(_dashboard is null)">
+
+        <ChildContent>
+
+            <DashboardKpiGrid Data="_dashboard" />
+
+            <MudGrid Class="mt-3" Spacing="3">
+                <MudItem xs="12" md="8">
+                    <DashboardChart Data="_dashboard" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <DashboardAlerts Data="_dashboard" />
+                </MudItem>
+            </MudGrid>
+
+            <div class="mt-4">
+                <DashboardRecentAdmissions Data="_dashboard" />
             </div>
-        </div>
-    </header>
+            <DashboardQuickActions />
 
-    @if (_isLoading)
-    {
-        <div class="dashboard-loading">
-            <MudProgressCircular Indeterminate="true" />
-            <span>Loading dashboard...</span>
-        </div>
-    }
-    else if (_dashboard is null)
-    {
-        <MudAlert Severity="Severity.Warning">
-            Dashboard data not available.
-        </MudAlert>
-    }
-    else
-    {
-        <div class="kpi-grid">
-            <article class="kpi-card teal">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Groups" /></div>
-                <div class="kpi-content">
-                    <p>Total Students</p>
-                    <h2>@_dashboard.TotalStudents</h2>
-                    <span class="trend positive">@_dashboard.ActiveStudents active</span>
-                </div>
-            </article>
+        </ChildContent>
 
-            <article class="kpi-card teal">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.PersonAddAlt1" /></div>
-                <div class="kpi-content">
-                    <p>Current Admissions</p>
-                    <h2>@_dashboard.CurrentAdmissions</h2>
-                    <span class="trend positive">@_dashboard.TodayAdmissions today</span>
-                </div>
-            </article>
+    </AppDataState>
 
-            <article class="kpi-card teal">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" /></div>
-                <div class="kpi-content">
-                    <p>Month Collection</p>
-                    <h2>@Money(_dashboard.MonthCollection)</h2>
-                    <span class="trend positive">@Money(_dashboard.TodayCollection) today</span>
-                </div>
-            </article>
+</AppPageShell>
 
-            <article class="kpi-card orange">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.ReceiptLong" /></div>
-                <div class="kpi-content">
-                    <p>Outstanding Fees</p>
-                    <h2>@Money(_dashboard.TotalOutstanding)</h2>
-                    <span class="trend negative">@_dashboard.DefaulterCount defaulters</span>
-                </div>
-            </article>
 
-            <article class="kpi-card orange">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.FolderCopy" /></div>
-                <div class="kpi-content">
-                    <p>Pending Documents</p>
-                    <h2>@_dashboard.PendingDocuments</h2>
-                    <span class="trend negative">Need verification</span>
-                </div>
-            </article>
-
-            <article class="kpi-card orange">
-                <div class="kpi-icon"><MudIcon Icon="@Icons.Material.Filled.Inventory2" /></div>
-                <div class="kpi-content">
-                    <p>Low Stock Items</p>
-                    <h2>@_dashboard.LowStockItems</h2>
-                    <span class="trend negative">Supplies alert</span>
-                </div>
-            </article>
-        </div>
-
-        <div class="dashboard-main-grid">
-            <section class="dashboard-card chart-card fee-chart-card">
-                <div class="section-title-row">
-                    <div>
-                        <h3>Fee Collection Trend</h3>
-                        <p>Last 6 months collection for @GetBranchDisplay()</p>
-                    </div>
-                </div>
-
-                <div class="trend-bars">
-                    @foreach (var point in _dashboard.FeeTrend)
-                    {
-                        <div class="trend-bar-item" @key="point.Label">
-                            <div class="trend-bar-track">
-                                <div class="trend-bar-fill" style="height:@GetBarHeight(point.Amount)%"></div>
-                            </div>
-                            <span>@point.Label</span>
-                            <strong>@ShortMoney(point.Amount)</strong>
-                        </div>
-                    }
-                </div>
-            </section>
-
-            <aside class="dashboard-card alerts-card">
-                <div class="section-title-row compact">
-                    <div>
-                        <h3>Attention Required</h3>
-                        <p>Important items for today</p>
-                    </div>
-                    <a href="/tenant/reports">View All</a>
-                </div>
-
-                <div class="alert-list">
-                    @if (_dashboard.Alerts.Count == 0)
-                    {
-                        <MudAlert Severity="Severity.Success">No critical alerts.</MudAlert>
-                    }
-                    else
-                    {
-                        @foreach (var alert in _dashboard.Alerts)
-                        {
-                            <article class="alert-item" @key="alert.Title">
-                                <div>
-                                    <MudIcon Icon="@GetAlertIcon(alert.Type)" />
-                                </div>
-                                <span>
-                                    <strong>@alert.Title</strong>
-                                    <small>@alert.Description</small>
-                                </span>
-                                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
-                            </article>
-                        }
-                    }
-                </div>
-            </aside>
-        </div>
-
-        <div class="dashboard-bottom-grid">
-            <section class="dashboard-card admissions-card">
-                <div class="section-title-row compact">
-                    <div>
-                        <h3>Recent Admissions</h3>
-                        <p>Latest enrolled students in @GetBranchDisplay()</p>
-                    </div>
-                    <a href="/tenant/students">View All</a>
-                </div>
-
-                <div class="responsive-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Student Name</th>
-                                <th>Class</th>
-                                <th>Admission No.</th>
-
-                                @if (ShowBranchColumn)
-                                {
-                                    <th>Branch</th>
-                                }
-
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @if (_dashboard.RecentAdmissions.Count == 0)
-                            {
-                                <tr>
-                                    <td colspan="@(ShowBranchColumn ? 5 : 4)">No recent admissions found.</td>
-                                </tr>
-                            }
-                            else
-                            {
-                                @foreach (var student in _dashboard.RecentAdmissions)
-                                {
-                                    <tr @key="student.AdmissionId">
-                                        <td data-label="Student">
-                                            <span class="student-mini-avatar">@student.Initials</span>
-                                            @student.StudentName
-                                        </td>
-
-                                        <td data-label="Class">
-                                            @student.ClassName
-                                            @if (!string.IsNullOrWhiteSpace(student.SectionName))
-                                            {
-                                                <span> - @student.SectionName</span>
-                                            }
-                                        </td>
-
-                                        <td data-label="Admission No.">@student.AdmissionNo</td>
-
-                                        @if (ShowBranchColumn)
-                                        {
-                                            <td data-label="Branch">@student.BranchName</td>
-                                        }
-
-                                        <td data-label="Date">@student.AdmissionDateText</td>
-                                    </tr>
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="dashboard-card quick-actions-card">
-                <div class="section-title-row compact">
-                    <div>
-                        <h3>Quick Actions</h3>
-                        <p>Most used workflows</p>
-                    </div>
-                </div>
-
-                <div class="quick-actions-grid">
-                    <button type="button" class="quick-card teal" @onclick="GoToAddStudent">
-                        <MudIcon Icon="@Icons.Material.Filled.PersonAddAlt1" />
-                        <span>Add Student</span>
-                    </button>
-
-                    <button type="button" class="quick-card orange" @onclick="@(() => Navigation.NavigateTo("/tenant/fees/dashboard"))">
-                        <MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" />
-                        <span>Collect Fee</span>
-                    </button>
-
-                    <button type="button" class="quick-card teal" @onclick="@(() => Navigation.NavigateTo("/tenant/students"))">
-                        <MudIcon Icon="@Icons.Material.Filled.Groups" />
-                        <span>Students</span>
-                    </button>
-
-                    <button type="button" class="quick-card orange" @onclick="@(() => Navigation.NavigateTo("/tenant/reports"))">
-                        <MudIcon Icon="@Icons.Material.Filled.Assessment" />
-                        <span>Reports</span>
-                    </button>
-                </div>
-            </section>
-        </div>
-    }
-</section>
 
 @code {
     private TenantDashboardResponse? _dashboard;
     private bool _isLoading;
-
-    private string DashboardTitle => $"{GetTenantDisplay()} Dashboard";
+    private string? _error;
 
     private string DashboardHeading =>
         Session.IsAllBranchesSelected
             ? "All Branches Dashboard"
-            : $"{GetBranchDisplay()} Dashboard";
+            : "Branch Dashboard";
 
     private string DashboardSubtitle =>
         Session.IsAllBranchesSelected
-            ? "Aggregated overview across all branches you can access."
-            : "Branch-specific overview for the selected branch.";
-
-    private bool ShowBranchColumn => Session.IsAllBranchesSelected || (_dashboard?.IsAllBranches ?? false);
-
-    private string UserInitial =>
-        string.IsNullOrWhiteSpace(Session.FullName)
-            ? "U"
-            : Session.FullName.Trim()[0].ToString().ToUpperInvariant();
+            ? "Aggregated overview across all selected branches."
+            : "Branch-specific overview for selected branch.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -297,15 +78,15 @@
         await LoadDashboardAsync();
     }
 
-    private async void HandleBranchChanged()
+    private void HandleBranchChanged()
     {
-        await LoadDashboardAsync();
+        _ = InvokeAsync(LoadDashboardAsync);
     }
 
     private async Task LoadDashboardAsync()
     {
         _isLoading = true;
-        await InvokeAsync(StateHasChanged);
+        _error = null;
 
         try
         {
@@ -319,8 +100,8 @@
 
             if (!response.IsSuccess || response.ServerResponse is null)
             {
-                Snackbar.Add(response.Message ?? "Unable to load dashboard.", Severity.Error);
                 _dashboard = null;
+                _error = response.Message ?? "Unable to load dashboard.";
                 return;
             }
 
@@ -328,109 +109,19 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
             _dashboard = null;
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
         }
         finally
         {
             _isLoading = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
     private void GoToAddStudent()
     {
         Navigation.NavigateTo("/tenant/students/create");
-    }
-
-    private string GetTenantDisplay()
-    {
-        return _dashboard?.TenantName
-               ?? Session.TenantName
-               ?? "Shala CRM";
-    }
-
-    private string GetUserDisplay()
-    {
-        return string.IsNullOrWhiteSpace(Session.FullName)
-            ? "User"
-            : Session.FullName;
-    }
-
-    private string GetRoleDisplay()
-    {
-        return string.IsNullOrWhiteSpace(Session.Role)
-            ? "Tenant User"
-            : Session.Role;
-    }
-
-    private string GetBranchDisplay()
-    {
-        if (_dashboard is not null)
-        {
-            if (_dashboard.IsAllBranches)
-                return "All Branches";
-
-            if (!string.IsNullOrWhiteSpace(_dashboard.SelectedBranchCode))
-                return $"{_dashboard.SelectedBranchName} ({_dashboard.SelectedBranchCode})";
-
-            return _dashboard.SelectedBranchName;
-        }
-
-        if (Session.IsAllBranchesSelected)
-            return "All Branches";
-
-        if (string.IsNullOrWhiteSpace(Session.SelectedBranchName))
-            return "No branch selected";
-
-        if (string.IsNullOrWhiteSpace(Session.SelectedBranchCode))
-            return Session.SelectedBranchName;
-
-        return $"{Session.SelectedBranchName} ({Session.SelectedBranchCode})";
-    }
-
-    private string Money(decimal amount)
-    {
-        return $"₹ {amount:N0}";
-    }
-
-    private string ShortMoney(decimal amount)
-    {
-        if (amount >= 10000000)
-            return $"₹{amount / 10000000:N1}Cr";
-
-        if (amount >= 100000)
-            return $"₹{amount / 100000:N1}L";
-
-        if (amount >= 1000)
-            return $"₹{amount / 1000:N1}K";
-
-        return $"₹{amount:N0}";
-    }
-
-    private int GetBarHeight(decimal amount)
-    {
-        if (_dashboard?.FeeTrend is null || _dashboard.FeeTrend.Count == 0)
-            return 8;
-
-        var max = _dashboard.FeeTrend.Max(x => x.Amount);
-
-        if (max <= 0)
-            return 8;
-
-        var height = (int)Math.Round((amount / max) * 100);
-        return Math.Clamp(height, 8, 100);
-    }
-
-    private string GetAlertIcon(string type)
-    {
-        return type.ToLowerInvariant() switch
-        {
-            "documents" => Icons.Material.Filled.Description,
-            "fees" => Icons.Material.Filled.CurrencyRupee,
-            "supplies" => Icons.Material.Filled.Inventory2,
-            _ => Icons.Material.Filled.Notifications
-        };
     }
 
     public void Dispose()

@@ -1,0 +1,40 @@
+﻿@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+
+<MudGrid Spacing="2">
+
+    <MudItem xs="12" md="3">
+        <AppStatCard Label="Students"
+                     Value="@Data?.TotalStudents.ToString()"
+                     Icon="@Icons.Material.Filled.Groups"
+                     Hint="@($"{Data?.ActiveStudents} active")" />
+    </MudItem>
+
+    <MudItem xs="12" md="3">
+        <AppStatCard Label="Admissions"
+                     Value="@Data?.CurrentAdmissions.ToString()"
+                     Icon="@Icons.Material.Filled.PersonAddAlt1"
+                     Hint="@($"{Data?.TodayAdmissions} today")" />
+    </MudItem>
+
+    <MudItem xs="12" md="3">
+        <AppStatCard Label="Collection"
+                     Value="@Money(Data?.MonthCollection ?? 0)"
+                     Icon="@Icons.Material.Filled.CurrencyRupee"
+                     Hint="@($"{Money(Data?.TodayCollection ?? 0)} today")" />
+    </MudItem>
+
+    <MudItem xs="12" md="3">
+        <AppStatCard Label="Outstanding"
+                     Value="@Money(Data?.TotalOutstanding ?? 0)"
+                     Icon="@Icons.Material.Filled.ReceiptLong"
+                     Hint="@($"{Data?.DefaulterCount} defaulters")" />
+    </MudItem>
+
+</MudGrid>
+
+@code {
+    [Parameter] public TenantDashboardResponse? Data { get; set; }
+
+    private string Money(decimal v) => $"₹ {v:N0}";
+}

@@ -1,3 +1,31 @@
+:root {
+    --shala-primary: #082A4D;
+    --shala-primary-dark: #061F3A;
+    --shala-primary-light: #E6F1F8;
+    --shala-secondary: #0FA3A0;
+    --shala-secondary-dark: #0B7F7C;
+    --shala-accent: #FF8A1F;
+    --shala-info: #2563EB;
+    --shala-success: #0FA3A0;
+    --shala-warning: #FF8A1F;
+    --shala-error: #DC2626;
+    --shala-bg: #F6F8FB;
+    --shala-surface: #FFFFFF;
+    --shala-border: #E3EAF2;
+    --shala-text: #0B1F3A;
+    --shala-muted: #64748B;
+    --shala-disabled: #CBD5E1;
+    --shala-disabled-bg: #F1F5F9;
+    --shala-radius: 14px;
+    --shala-radius-lg: 18px;
+    --shala-drawer-width: 292px;
+    --shala-appbar-height: 64px;
+    --shala-shadow: 0 10px 30px rgba(8, 42, 77, 0.08);
+    --shala-shadow-soft: 0 4px 14px rgba(8, 42, 77, 0.06);
+}
+
+
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }

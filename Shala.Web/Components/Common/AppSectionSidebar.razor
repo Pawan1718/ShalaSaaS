@@ -1,0 +1,59 @@
+﻿@using MudBlazor
+
+<div class="app-section-sidebar">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <div class="app-section-sidebar__header">
+            <MudText Typo="Typo.subtitle1" Class="fw-semibold">@Title</MudText>
+
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @Subtitle
+                </MudText>
+            }
+        </div>
+    }
+
+    <div class="app-section-sidebar__items">
+        @foreach (var item in Items)
+        {
+            <button type="button"
+                    class="@GetItemClass(item)"
+                    disabled="@item.Disabled"
+                    @onclick="@(() => OnSelected.InvokeAsync(item.Key))">
+
+                <MudIcon Icon="@item.Icon" Size="Size.Small" />
+
+                <span>@item.Text</span>
+
+                @if (!string.IsNullOrWhiteSpace(item.Badge))
+                {
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@item.BadgeColor"
+                             Variant="Variant.Filled">
+                        @item.Badge
+                    </MudChip>
+                }
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+
+    [Parameter, EditorRequired] public IReadOnlyList<AppSectionSidebarItem> Items { get; set; } = [];
+    [Parameter] public string? SelectedKey { get; set; }
+    [Parameter] public EventCallback<string> OnSelected { get; set; }
+
+    private string GetItemClass(AppSectionSidebarItem item)
+    {
+        var active = item.Key == SelectedKey ? "is-active" : "";
+        var disabled = item.Disabled ? "is-disabled" : "";
+
+        return $"app-section-sidebar__item {active} {disabled}".Trim();
+    }
+}

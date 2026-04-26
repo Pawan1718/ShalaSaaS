@@ -1,0 +1,36 @@
+﻿@typeparam TValue
+@typeparam TItem
+
+<MudSelect T="TValue"
+           Label="@Label"
+           Value="@Value"
+           ValueChanged="@ValueChanged"
+           Dense="true"
+           Variant="Variant.Outlined"
+           Margin="Margin.Dense"
+           Clearable="@Clearable"
+           Class="@Class">
+    @if (Items is not null)
+    {
+        @foreach (var item in Items)
+        {
+            <MudSelectItem T="TValue" Value="@ValueSelector(item)">
+                @TextSelector(item)
+            </MudSelectItem>
+        }
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+
+    [Parameter] public IEnumerable<TItem>? Items { get; set; }
+
+    [Parameter, EditorRequired] public Func<TItem, TValue> ValueSelector { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<TItem, string> TextSelector { get; set; } = default!;
+
+    [Parameter] public bool Clearable { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+}

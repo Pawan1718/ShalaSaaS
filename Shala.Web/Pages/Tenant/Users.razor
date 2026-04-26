@@ -14,38 +14,58 @@
 
 <PageTitle>Users</PageTitle>
 
-<AppPageHeader Title="Users"
-               Subtitle="Manage your staff users">
-    <Actions>
-        <AppButton StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenCreateDialog">
-            Add User
-        </AppButton>
-    </Actions>
-</AppPageHeader>
+<AppPageShell>
+    <AppPageHeader Title="Users"
+                   Subtitle="Manage your staff users">
+        <Actions>
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenCreateDialog">
+                Add User
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-<AppCard>
-    <MudTable Items="_users" Dense="true" Hover="true">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Email</MudTh>
-            <MudTh>Role</MudTh>
-            <MudTh>Default Branch</MudTh>
-            <MudTh>Allowed Branches</MudTh>
-        </HeaderContent>
+    <AppCard>
+        <MudTable Items="@_users" Dense="true" Hover="true" Loading="@_isLoading">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Role</MudTh>
+                <MudTh>Default Branch</MudTh>
+                <MudTh>Allowed Branches</MudTh>
+            </HeaderContent>
 
-        <RowTemplate>
-            <MudTd>@context.FullName</MudTd>
-            <MudTd>@context.Email</MudTd>
-            <MudTd>@string.Join(", ", context.Roles)</MudTd>
-            <MudTd>@context.DefaultBranchName</MudTd>
-            <MudTd>@string.Join(", ", context.AllowedBranchNames)</MudTd>
-        </RowTemplate>
-    </MudTable>
-</AppCard>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Role">@string.Join(", ", context.Roles)</MudTd>
+                <MudTd DataLabel="Default Branch">@context.DefaultBranchName</MudTd>
+                <MudTd DataLabel="Allowed Branches">@string.Join(", ", context.AllowedBranchNames)</MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <AppEmptyState Title="No users found"
+                               Message="Add your first staff user to get started." />
+            </NoRecordsContent>
+
+            <LoadingContent>
+                <AppLoader Message="Loading users..." />
+            </LoadingContent>
+        </MudTable>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">
+                @_errorMessage
+            </MudAlert>
+        }
+    </AppCard>
+</AppPageShell>
 
 @code {
     private List<UserListItemResponse> _users = new();
+    private bool _isLoading;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -54,12 +74,31 @@
 
     private async Task LoadUsers()
     {
-        var res = await UserRepo.GetUsersAsync();
+        _isLoading = true;
+        _errorMessage = null;
 
-        if (res.IsSuccess && res.ServerResponse != null)
-            _users = res.ServerResponse;
-        else
+        try
+        {
+            var res = await UserRepo.GetUsersAsync();
+
+            if (res.IsSuccess && res.ServerResponse is not null)
+            {
+                _users = res.ServerResponse;
+                return;
+            }
+
+            _errorMessage = "Failed to load users.";
+            Snackbar.Add(_errorMessage, Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
             Snackbar.Add("Failed to load users", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     private async Task OpenCreateDialog()
@@ -75,6 +114,8 @@
         var result = await dialog.Result;
 
         if (!result.Canceled)
+        {
             await LoadUsers();
+        }
     }
 }

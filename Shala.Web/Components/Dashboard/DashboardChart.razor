@@ -1,0 +1,32 @@
+﻿@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+<AppCard>
+    <MudText Typo="Typo.h6">Fee Trend</MudText>
+
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+
+        @if (Data?.FeeTrend != null)
+        {
+            foreach (var p in Data.FeeTrend)
+            {
+                <MudStack AlignItems="AlignItems.Center">
+                    <MudProgressLinear Value="@GetBarHeight(p.Amount)"
+                                       Style="width:20px;height:120px" />
+                    <MudText Typo="Typo.caption">@p.Label</MudText>
+                </MudStack>
+            }
+        }
+
+    </MudStack>
+</AppCard>
+
+@code {
+    [Parameter] public TenantDashboardResponse? Data { get; set; }
+
+    private int GetBarHeight(decimal amount)
+    {
+        if (Data?.FeeTrend == null || !Data.FeeTrend.Any()) return 10;
+        var max = Data.FeeTrend.Max(x => x.Amount);
+        return max == 0 ? 10 : (int)((amount / max) * 100);
+    }
+}

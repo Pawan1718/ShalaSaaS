@@ -1,0 +1,11 @@
+﻿/* GiveSupplies.razor.css */
+.give-search {
+    min-width: 320px;
+}
+
+@media (max-width: 768px) {
+    .give-search {
+        width: 100%;
+        min-width: 100%;
+    }
+}

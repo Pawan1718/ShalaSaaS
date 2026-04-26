@@ -3,279 +3,180 @@
 
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
+@using Shala.Web.Components.Common
 @inject NavigationManager Nav
 
 <PageTitle>Settings & Configuration</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="settings-page">
-    <MudStack Spacing="4">
+<AppPageShell>
 
-        <!-- Page Header -->
-        <MudPaper Class="settings-header" Elevation="0">
-            <MudStack Spacing="1">
-                <MudText Typo="Typo.h4" Class="fw-700">Settings & Configuration</MudText>
-                <MudText Typo="Typo.body1" Class="text-muted">
-                    Manage school setup, academic structure, admissions, users, fees, documents and future operational controls from one place.
-                </MudText>
-            </MudStack>
-        </MudPaper>
+    <AppPageHeader Title="Settings & Configuration"
+                   Subtitle="Manage school setup, academics, users, finance, documents and operations" />
 
-        @SectionBlock(
-            "School & Branding",
-            "Manage school identity, document branding and reusable document configurations.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="4">
-                    @PlaceholderCard(
-                        "School Profile",
-                        "Manage school name, logo, contact details and institutional profile.",
-                        Icons.Material.Filled.Business,
-                        "Coming Soon")
-                </MudItem>
+    <div class="settings-layout">
 
-                <MudItem xs="12" md="4">
-                    @ActionCard(
-                        "Branch Document Profile",
-                        "Configure receipt branding, print settings and footer visibility.",
-                        Icons.Material.Filled.ReceiptLong,
-                        "Open",
-                        "/settings/branch-document-profile")
-                </MudItem>
+        <!-- 🔹 SIDEBAR -->
+        <aside class="settings-sidebar">
+            <AppSectionSidebar Title="Settings"
+                               Subtitle="Manage modules"
+                               Items="_sections"
+                               SelectedKey="_selectedSection"
+                               OnSelected="SelectSection" />
+        </aside>
 
-                <MudItem xs="12" md="4">
-                    @ActionCard(
-                        "Document Models",
-                        "Manage reusable document models and tenant-level templates.",
-                        Icons.Material.Filled.Article,
-                        "Open",
-                        "/tenant/settings/document-models")
-                </MudItem>
-            </MudGrid>
-        )
+        <!-- 🔹 CONTENT -->
+        <main class="settings-content">
 
-        @SectionBlock(
-            "Academic Setup",
-            "Configure academic years, classes, sections, roll settings and section assignment.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6" lg="3">
-                    @ActionCard("Academic Years", "Manage academic sessions and active year.", Icons.Material.Filled.CalendarMonth, "Open", "/students/setup/academic-years")
-                </MudItem>
+            @switch (_selectedSection)
+            {
+                case "branding":
+                    @RenderBranding()
+                    break;
 
-                <MudItem xs="12" md="6" lg="3">
-                    @ActionCard("Classes", "Define class structure and order.", Icons.Material.Filled.Class, "Open", "/students/setup/classes")
-                </MudItem>
+                case "academic":
+                    @RenderAcademic()
+                    break;
 
-                <MudItem xs="12" md="6" lg="3">
-                    @ActionCard("Sections", "Manage class-wise sections.", Icons.Material.Filled.ViewWeek, "Open", "/students/setup/sections")
-                </MudItem>
+                case "admissions":
+                    @RenderAdmissions()
+                    break;
 
-                <MudItem xs="12" md="6" lg="3">
-                    @ActionCard("Roll Number Settings", "Configure roll number rules.", Icons.Material.Filled.FormatListNumbered, "Open", "/students/setup/roll-number-settings")
-                </MudItem>
+                case "users":
+                    @RenderUsers()
+                    break;
 
-                <MudItem xs="12">
-                    @ActionCard("Section / Roll Assignment", "Assign students to sections and manage roll workflows.", Icons.Material.Filled.SwapVert, "Open", "/tenant/academics/section-roll-assignment")
-                </MudItem>
-            </MudGrid>
-        )
+                case "finance":
+                    @RenderFinance()
+                    break;
 
-        @SectionBlock(
-            "Admissions & Registration",
-            "Configure registration settings and future admission workflow controls.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6">
-                    @ActionCard("Registration Configuration", "Manage registration fees, receipt setup and prospectus rules.", Icons.Material.Filled.HowToReg, "Open", "/settings/registration-configuration")
-                </MudItem>
+                case "documents":
+                    @RenderDocuments()
+                    break;
 
-                <MudItem xs="12" md="6">
-                    @PlaceholderCard("Admission Workflow", "Reserved for approval rules, stage setup and admission checklist.", Icons.Material.Filled.FactCheck, "Coming Soon")
-                </MudItem>
-            </MudGrid>
-        )
+                case "supplies":
+                    @RenderSupplies()
+                    break;
 
-        @SectionBlock(
-            "Users & Access",
-            "Manage tenant users and future permission controls.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6">
-                    @ActionCard("Users", "Manage staff users and operational access.", Icons.Material.Filled.Group, "Manage", "/tenant/users")
-                </MudItem>
+                default:
+                    @RenderBranding()
+                    break;
+            }
 
-                <MudItem xs="12" md="6">
-                    @PlaceholderCard("Permissions", "Reserved for role permissions and controlled access.", Icons.Material.Filled.AdminPanelSettings, "Coming Soon")
-                </MudItem>
-            </MudGrid>
-        )
+        </main>
+    </div>
 
-        @SectionBlock(
-            "Finance",
-            "Manage fee setup and future finance controls.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6">
-                    @ActionCard("Fee Heads", "Create and manage fee heads.", Icons.Material.Filled.ReceiptLong, "Open", "/tenant/settings/fees/heads")
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    @ActionCard("Fee Structures", "Manage fee structures and setup.", Icons.Material.Filled.AccountBalanceWallet, "Open", "/tenant/settings/fees/structures")
-                </MudItem>
-            </MudGrid>
-        )
-
-        @SectionBlock(
-            "Documents & Supplies",
-            "Manage document setup and student supply workflows.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6">
-                    @ActionCard("Document Models", "Open and manage document models.", Icons.Material.Filled.Description, "Open", "/tenant/settings/document-models")
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    @ActionCard("Student Supplies", "Manage issue flow and supply operations.", Icons.Material.Filled.Inventory2, "Open", "/tenant/supplies/issues")
-                </MudItem>
-            </MudGrid>
-        )
-
-        @SectionBlock(
-            "Reports & Analytics",
-            "Reserved for future reporting and insights.",
-            @<MudGrid Spacing="3">
-                <MudItem xs="12" md="6">
-                    @PlaceholderCard("Reports", "Reserved for operational and finance reports.", Icons.Material.Filled.Assessment, "Coming Soon")
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    @PlaceholderCard("Analytics", "Reserved for trends, KPIs and dashboards.", Icons.Material.Filled.Insights, "Coming Soon")
-                </MudItem>
-            </MudGrid>
-        )
-
-    </MudStack>
-</MudContainer>
-
-<style>
-    .settings-page {
-        padding: 24px;
-    }
-
-    .settings-header {
-        padding: 24px;
-        border-radius: 16px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-    }
-
-    .settings-section {
-        padding: 22px;
-        border-radius: 16px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-    }
-
-    .settings-card {
-        height: 100%;
-        padding: 20px;
-        border-radius: 14px;
-        background: #ffffff;
-        border: 1px solid #edf0f3;
-    }
-
-    .settings-card-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-    }
-
-    .fw-700 {
-        font-weight: 700;
-    }
-
-    .text-muted {
-        color: #64748b;
-    }
-
-    @@media (max-width: 960px) {
-        .settings-page {
-            padding: 16px;
-        }
-
-        .settings-header,
-        .settings-section {
-            padding: 16px;
-        }
-    }
-</style>
+</AppPageShell>
 
 @code {
-    private void GoTo(string url)
+
+    private string _selectedSection = "branding";
+
+    private readonly List<AppSectionSidebarItem> _sections =
+    [
+        new() { Key = "branding", Text = "School & Branding", Icon = Icons.Material.Filled.Business },
+        new() { Key = "academic", Text = "Academic Setup", Icon = Icons.Material.Filled.School },
+        new() { Key = "admissions", Text = "Admissions", Icon = Icons.Material.Filled.HowToReg },
+        new() { Key = "users", Text = "Users & Access", Icon = Icons.Material.Filled.Group },
+        new() { Key = "finance", Text = "Finance", Icon = Icons.Material.Filled.AccountBalanceWallet },
+        new() { Key = "documents", Text = "Documents", Icon = Icons.Material.Filled.Description },
+        new() { Key = "supplies", Text = "Supplies", Icon = Icons.Material.Filled.Inventory2 }
+    ];
+
+    private Task SelectSection(string key)
     {
-        Nav.NavigateTo(url);
+        _selectedSection = key;
+        return Task.CompletedTask;
     }
 
-    private RenderFragment SectionBlock(string title, string description, RenderFragment content) => @<MudPaper Class="settings-section" Elevation="0">
-        <MudStack Spacing="3">
-            <div>
-                <MudText Typo="Typo.h6" Class="fw-700">@title</MudText>
-                <MudText Typo="Typo.body2" Class="text-muted">@description</MudText>
-            </div>
+    // 🔹 SECTION RENDERERS
 
-            @content
-        </MudStack>
-    </MudPaper>;
+    private RenderFragment RenderBranding() => @<MudGrid Spacing="3">
 
-    private RenderFragment ActionCard(
-        string title,
-        string description,
-        string icon,
-        string buttonText,
-        string url) => @<MudPaper Class="settings-card" Elevation="0">
-        <MudStack Spacing="2" Class="h-100">
-            <div class="settings-card-icon">
+        <MudItem xs="12" md="6">
+            <AppCard>
+                <MudText Typo="Typo.h6">Branch Document Profile</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Configure receipt branding, logo, colors and behavior
+                </MudText>
+
+                <AppButton Class="mt-3"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo("/tenant/settings/branch-document-profile"))">
+                    Open
+                </AppButton>
+            </AppCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <AppCard>
+                <MudText Typo="Typo.h6">Document Models</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Manage checklist and reusable document templates
+                </MudText>
+
+                <AppButton Class="mt-3"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo("/tenant/settings/document-models"))">
+                    Open
+                </AppButton>
+            </AppCard>
+        </MudItem>
+
+    </MudGrid>;
+
+    private RenderFragment RenderAcademic() => @<MudGrid Spacing="3">
+
+        @Card("Academic Years", "/students/setup/academic-years", Icons.Material.Filled.CalendarMonth)
+        @Card("Classes", "/students/setup/classes", Icons.Material.Filled.Class)
+        @Card("Sections", "/students/setup/sections", Icons.Material.Filled.ViewWeek)
+        @Card("Roll Number Settings", "/students/setup/roll-number-settings", Icons.Material.Filled.FormatListNumbered)
+
+    </MudGrid>;
+
+    private RenderFragment RenderAdmissions() => @<MudGrid Spacing="3">
+
+        @Card("Registration Configuration", "/settings/registration-configuration", Icons.Material.Filled.HowToReg)
+
+    </MudGrid>;
+
+    private RenderFragment RenderUsers() => @<MudGrid Spacing="3">
+
+        @Card("Users", "/tenant/users", Icons.Material.Filled.Group)
+
+    </MudGrid>;
+
+    private RenderFragment RenderFinance() => @<MudGrid Spacing="3">
+
+        @Card("Fee Heads", "/tenant/settings/fees/heads", Icons.Material.Filled.ReceiptLong)
+        @Card("Fee Structures", "/tenant/settings/fees/structures", Icons.Material.Filled.AccountBalanceWallet)
+
+    </MudGrid>;
+
+    private RenderFragment RenderDocuments() => @<MudGrid Spacing="3">
+
+        @Card("Document Models", "/tenant/settings/document-models", Icons.Material.Filled.Description)
+
+    </MudGrid>;
+
+    private RenderFragment RenderSupplies() => @<MudGrid Spacing="3">
+
+        @Card("Supplies Dashboard", "/tenant/supplies", Icons.Material.Filled.Inventory2)
+
+    </MudGrid>;
+
+    // 🔹 reusable card helper
+    private RenderFragment Card(string title, string url, string icon) => @<MudItem xs="12" md="4">
+        <AppCard>
+            <MudStack Spacing="2">
                 <MudIcon Icon="@icon" />
-            </div>
 
-            <MudText Typo="Typo.subtitle1" Class="fw-700">@title</MudText>
+                <MudText Typo="Typo.subtitle1">@title</MudText>
 
-            <MudText Typo="Typo.body2" Class="text-muted">
-                @description
-            </MudText>
-
-            <MudSpacer />
-
-            <MudButton Variant="Variant.Text"
-                       EndIcon="@Icons.Material.Filled.ArrowForward"
-                       OnClick="@(() => GoTo(url))">
-                @buttonText
-            </MudButton>
-        </MudStack>
-    </MudPaper>;
-
-    private RenderFragment PlaceholderCard(
-        string title,
-        string description,
-        string icon,
-        string buttonText) => @<MudPaper Class="settings-card" Elevation="0">
-        <MudStack Spacing="2" Class="h-100">
-            <div class="settings-card-icon">
-                <MudIcon Icon="@icon" />
-            </div>
-
-            <MudText Typo="Typo.subtitle1" Class="fw-700">@title</MudText>
-
-            <MudText Typo="Typo.body2" Class="text-muted">
-                @description
-            </MudText>
-
-            <MudSpacer />
-
-            <MudButton Variant="Variant.Text"
-                       Disabled="true"
-                       StartIcon="@Icons.Material.Filled.Lock">
-                @buttonText
-            </MudButton>
-        </MudStack>
-    </MudPaper>;
+                <AppButton EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo(url))">
+                    Open
+                </AppButton>
+            </MudStack>
+        </AppCard>
+    </MudItem>;
 }

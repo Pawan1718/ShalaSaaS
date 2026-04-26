@@ -1,10 +1,14 @@
-﻿@page "/tenant/supplies/collect-due"
+﻿
+
+@page "/tenant/supplies/collect-due"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
+@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Domain.Enums
 @using Shala.Shared.Requests.Supplies
 @using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Supplies
 
 @inject ISuppliesWebRepository SuppliesRepo
@@ -12,46 +16,132 @@
 
 <PageTitle>Collect Due</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-4" Style="border-radius:18px;">
-        <MudText Typo="Typo.h5">Collect Due</MudText>
-        <MudText Color="Color.Secondary">Collect remaining amount from pending supply bills.</MudText>
-    </MudPaper>
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
 
-    <MudTable Items="_dues" Loading="_loading" Dense="true" Hover="true">
-        <HeaderContent>
-            <MudTh>Bill No</MudTh>
-            <MudTh>Date</MudTh>
-            <MudTh>Student</MudTh>
-            <MudTh>Total</MudTh>
-            <MudTh>Paid</MudTh>
-            <MudTh>Due</MudTh>
-            <MudTh>Pay Now</MudTh>
-            <MudTh></MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd>@context.IssueNo</MudTd>
-            <MudTd>@context.IssueDate.ToString("dd-MMM-yyyy")</MudTd>
-            <MudTd>@context.StudentName</MudTd>
-            <MudTd>₹@context.TotalAmount.ToString("N2")</MudTd>
-            <MudTd>₹@context.PaidAmount.ToString("N2")</MudTd>
-            <MudTd>₹@context.DueAmount.ToString("N2")</MudTd>
-            <MudTd>
-                <MudNumericField T="decimal" @bind-Value="_payAmounts[context.IssueId]" Dense="true" Variant="Variant.Outlined" />
-            </MudTd>
-            <MudTd>
-                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => CollectAsync(context))">
-                    Collect
-                </MudButton>
-            </MudTd>
-        </RowTemplate>
-    </MudTable>
-</MudStack>
+    <AppPageHeader Title="Collect Due"
+                   Subtitle="Collect remaining amount from pending supply bills">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="@_loading"
+                       OnClick="@((MouseEventArgs _) => LoadAsync())">
+                Reload
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
+
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Pending Bills"
+                         Value="@_dues.Count.ToString()"
+                         Icon="@Icons.Material.Filled.ReceiptLong" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Total Amount"
+                         Value="@_dues.Sum(x => x.TotalAmount).ToString("N2")"
+                         Icon="@Icons.Material.Filled.Inventory" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Paid Amount"
+                         Value="@_dues.Sum(x => x.PaidAmount).ToString("N2")"
+                         Icon="@Icons.Material.Filled.Payments"
+                         Color="Color.Success" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Due Amount"
+                         Value="@_dues.Sum(x => x.DueAmount).ToString("N2")"
+                         Icon="@Icons.Material.Filled.PendingActions"
+                         Color="Color.Warning" />
+        </MudItem>
+    </MudGrid>
+
+    <AppTableCard TItem="PendingSupplyDueResponse"
+                  Title="Pending Supply Dues"
+                  Subtitle="@($"{_dues.Count} pending bill(s)")"
+                  IsLoading="@_loading"
+                  ErrorMessage="@_error"
+                  IsEmpty="@(!_loading && !_dues.Any())"
+                  EmptyTitle="No pending dues"
+                  EmptyMessage="All supply bills are fully paid.">
+        <ChildContent>
+            <MudTable T="PendingSupplyDueResponse"
+                      Items="@_dues"
+                      Dense="true"
+                      Hover="true"
+                      Striped="true"
+                      Breakpoint="Breakpoint.Sm">
+
+                <HeaderContent>
+                    <MudTh>Bill No</MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Student</MudTh>
+                    <MudTh Align="Align.Right">Total</MudTh>
+                    <MudTh Align="Align.Right">Paid</MudTh>
+                    <MudTh Align="Align.Right">Due</MudTh>
+                    <MudTh>Pay Now</MudTh>
+                    <MudTh Align="Align.Right">Action</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Bill No">@context.IssueNo</MudTd>
+                    <MudTd DataLabel="Date">@context.IssueDate.ToString("dd-MMM-yyyy")</MudTd>
+                    <MudTd DataLabel="Student">@context.StudentName</MudTd>
+
+                    <MudTd DataLabel="Total" Align="Align.Right">
+                        ₹@context.TotalAmount.ToString("N2")
+                    </MudTd>
+
+                    <MudTd DataLabel="Paid" Align="Align.Right">
+                        ₹@context.PaidAmount.ToString("N2")
+                    </MudTd>
+
+                    <MudTd DataLabel="Due" Align="Align.Right">
+                        <MudText Color="Color.Warning">
+                            ₹@context.DueAmount.ToString("N2")
+                        </MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Pay Now">
+                        <MudNumericField T="decimal"
+                                         Value="@GetPayAmount(context.IssueId)"
+                                         ValueChanged="@((decimal value) => SetPayAmount(context.IssueId, value))"
+                                         Dense="true"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Min="0" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Action" Align="Align.Right">
+                        <AppButton Size="Size.Small"
+                                   Color="Color.Success"
+                                   StartIcon="@Icons.Material.Filled.Payments"
+                                   OnClick="@((MouseEventArgs _) => CollectAsync(context))">
+                            Collect
+                        </AppButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </ChildContent>
+    </AppTableCard>
+</AppPageShell>
 
 @code {
     private bool _loading = true;
+    private string? _error;
+
     private List<PendingSupplyDueResponse> _dues = [];
     private Dictionary<int, decimal> _payAmounts = [];
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Supplies", "/tenant/supplies"),
+        new("Collect Due", null, true)
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,18 +151,39 @@
     private async Task LoadAsync()
     {
         _loading = true;
+        _error = null;
+
         try
         {
             _dues = await SuppliesRepo.GetDuesAsync();
             _payAmounts = _dues.ToDictionary(x => x.IssueId, x => x.DueAmount);
         }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-        finally { _loading = false; }
+        catch (Exception ex)
+        {
+            _dues = [];
+            _payAmounts = [];
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private decimal GetPayAmount(int issueId)
+    {
+        return _payAmounts.TryGetValue(issueId, out var value) ? value : 0;
+    }
+
+    private void SetPayAmount(int issueId, decimal value)
+    {
+        _payAmounts[issueId] = value;
     }
 
     private async Task CollectAsync(PendingSupplyDueResponse due)
     {
-        var amount = _payAmounts.TryGetValue(due.IssueId, out var value) ? value : 0;
+        var amount = GetPayAmount(due.IssueId);
 
         if (amount <= 0 || amount > due.DueAmount)
         {
@@ -91,6 +202,9 @@
             Snackbar.Add("Payment collected.", Severity.Success);
             await LoadAsync();
         }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 }

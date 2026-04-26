@@ -1,4 +1,7 @@
-﻿@page "/tenant/settings/fees/heads"
+﻿
+
+
+@page "/tenant/settings/fees/heads"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
 @using Microsoft.AspNetCore.Components.Web
@@ -14,72 +17,60 @@
 
 <PageTitle>Fee Heads</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-            <div>
-                <MudText Typo="Typo.h5">Fee Heads</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Manage fee heads like Admission Fee, Tuition Fee, Annual Fee.
-                </MudText>
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppPageHeader Title="Fee Heads"
+                   Subtitle="Manage fee heads like Admission Fee, Tuition Fee, Annual Fee">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="@_loading"
+                       OnClick="@((MouseEventArgs _) => LoadAsync())">
+                Refresh
+            </AppButton>
+
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       Disabled="@_loading"
+                       OnClick="@((MouseEventArgs _) => OpenCreateDialogAsync())">
+                Add Fee Head
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
+
+    <AppToolbar>
+        <Filters>
+            <div class="fee-heads-search">
+                <AppSearchBox Label="Search"
+                              Placeholder="Search by name or code"
+                              Value="@_searchText"
+                              ValueChanged="OnSearchChanged" />
             </div>
-
-            <MudStack Row="true" Spacing="2">
-                <MudButton Variant="Variant.Outlined"
-                           StartIcon="@Icons.Material.Filled.Refresh"
-                           OnClick="LoadAsync"
-                           Disabled="_loading">
-                    Refresh
-                </MudButton>
-
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="OpenCreateDialogAsync"
-                           Disabled="_loading">
-                    Add Fee Head
-                </MudButton>
-            </MudStack>
-        </MudStack>
-    </MudPaper>
-
-    <MudPaper Class="pa-4">
-        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-4">
-            <MudTextField T="string"
-                          Label="Search"
-                          Placeholder="Search by name or code"
-                          Variant="Variant.Outlined"
-                          Margin="Margin.Dense"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search"
-                          Immediate="true"
-                          Value="_searchText"
-                          ValueChanged="OnSearchChanged"
-                          Class="flex-grow-1" />
 
             <MudSwitch T="bool"
                        Label="Show inactive"
                        Color="Color.Primary"
-                       @bind-Value="_showInactive" />
-        </MudStack>
+                       Value="@_showInactive"
+                       ValueChanged="OnShowInactiveChanged" />
+        </Filters>
+    </AppToolbar>
 
-        @if (_loading)
-        {
-            <div class="d-flex justify-center pa-6">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-            </div>
-        }
-        else if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
-        }
-        else
-        {
-            <MudTable Items="_filteredFeeHeads"
+    <AppTableCard TItem="FeeHeadResponse"
+                  Title="Fee Head List"
+                  Subtitle="@($"{_filteredFeeHeads.Count} record(s)")"
+                  IsLoading="@_loading"
+                  ErrorMessage="@_error"
+                  IsEmpty="@(!_loading && !_filteredFeeHeads.Any())"
+                  EmptyTitle="No fee heads found"
+                  EmptyMessage="Create a fee head or change search/filter.">
+        <ChildContent>
+            <MudTable T="FeeHeadResponse"
+                      Items="@_filteredFeeHeads"
                       Dense="true"
                       Hover="true"
                       Bordered="true"
-                      Striped="true">
+                      Striped="true"
+                      Breakpoint="Breakpoint.Sm">
 
                 <HeaderContent>
                     <MudTh>Name</MudTh>
@@ -87,61 +78,56 @@
                     <MudTh>Description</MudTh>
                     <MudTh>Registration Fee</MudTh>
                     <MudTh>Status</MudTh>
-                    <MudTh class="text-end">Actions</MudTh>
+                    <MudTh Align="Align.Right">Actions</MudTh>
                 </HeaderContent>
 
                 <RowTemplate>
-                    <MudTd>@context.Name</MudTd>
-                    <MudTd>@context.Code</MudTd>
-                    <MudTd>@(string.IsNullOrWhiteSpace(context.Description) ? "-" : context.Description)</MudTd>
-                    <MudTd>
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Filled"
-                                 Color="@(context.IsRegistrationFee ? Color.Info : Color.Default)">
-                            @(context.IsRegistrationFee ? "Yes" : "No")
-                        </MudChip>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Code">@context.Code</MudTd>
+                    <MudTd DataLabel="Description">
+                        @(string.IsNullOrWhiteSpace(context.Description) ? "-" : context.Description)
                     </MudTd>
-                    <MudTd>
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Filled"
-                                 Color="@(context.IsActive ? Color.Success : Color.Error)">
-                            @(context.IsActive ? "Active" : "Inactive")
-                        </MudChip>
-                    </MudTd>
-                    <MudTd Class="text-end">
-                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1">
-                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                           Color="Color.Primary"
-                                           Size="Size.Small"
-                                           OnClick="@(() => OpenEditDialogAsync(context.Id))" />
 
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                           Color="Color.Error"
-                                           Size="Size.Small"
-                                           OnClick="@(() => ConfirmDeleteAsync(context.Id, context.Name))" />
-                        </MudStack>
+                    <MudTd DataLabel="Registration Fee">
+                        <StatusChip IsActive="@context.IsRegistrationFee"
+                                    ActiveText="Yes"
+                                    InactiveText="No"
+                                    ActiveColor="Color.Info"
+                                    InactiveColor="Color.Default" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Status">
+                        <StatusChip IsActive="@context.IsActive"
+                                    ActiveText="Active"
+                                    InactiveText="Inactive"
+                                    ActiveColor="Color.Success"
+                                    InactiveColor="Color.Error" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Actions" Align="Align.Right">
+                        <AppActionMenu OnEdit="@(() => OpenEditDialogAsync(context.Id))"
+                                       OnDelete="@(() => ConfirmDeleteAsync(context.Id, context.Name))" />
                     </MudTd>
                 </RowTemplate>
-
-                <NoRecordsContent>
-                    <MudAlert Severity="Severity.Info" Dense="true">
-                        No fee heads found.
-                    </MudAlert>
-                </NoRecordsContent>
             </MudTable>
-        }
-    </MudPaper>
-</MudStack>
+        </ChildContent>
+    </AppTableCard>
+</AppPageShell>
 
 @code {
     private bool _loading = true;
     private string? _error;
     private string _searchText = string.Empty;
     private bool _showInactive;
+
     private List<FeeHeadResponse> _feeHeads = new();
     private List<FeeHeadResponse> _filteredFeeHeads = new();
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Fee Heads", null, true)
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -169,9 +155,16 @@
         }
     }
 
-    private Task OnSearchChanged(string value)
+    private Task OnSearchChanged(string? value)
     {
         _searchText = value ?? string.Empty;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private Task OnShowInactiveChanged(bool value)
+    {
+        _showInactive = value;
         ApplyFilters();
         return Task.CompletedTask;
     }
@@ -210,6 +203,7 @@
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
 
         var result = await dialog.Result;
+
         if (!result.Canceled)
             await LoadAsync();
     }
@@ -219,6 +213,7 @@
         try
         {
             var feeHead = await FeeWebRepository.GetFeeHeadByIdAsync(id);
+
             if (feeHead is null)
             {
                 Snackbar.Add("Fee head not found.", Severity.Warning);
@@ -235,6 +230,7 @@
                 new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
 
             var result = await dialog.Result;
+
             if (!result.Canceled)
                 await LoadAsync();
         }
@@ -258,6 +254,7 @@
             new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
 
         var result = await dialog.Result;
+
         if (result.Canceled)
             return;
 

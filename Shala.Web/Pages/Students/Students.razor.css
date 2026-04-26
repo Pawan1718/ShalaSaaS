@@ -1,0 +1,26 @@
+﻿.students-search {
+    min-width: 280px;
+}
+
+.fw-semibold {
+    font-weight: 600;
+}
+
+.brand-text {
+    color: var(--shala-primary);
+}
+
+.students-table .mud-table-head {
+    background: #f8fafc;
+}
+
+.students-table .mud-table-cell {
+    border-bottom: 1px solid var(--shala-border);
+}
+
+@media (max-width: 768px) {
+    .students-search {
+        width: 100%;
+        min-width: 100%;
+    }
+}

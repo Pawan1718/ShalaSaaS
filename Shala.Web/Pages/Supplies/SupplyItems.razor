@@ -1,9 +1,14 @@
-﻿@page "/tenant/supplies/items"
+﻿
+
+
+@page "/tenant/supplies/items"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
+@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Shared.Requests.Supplies
 @using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Supplies
 
 @inject ISuppliesWebRepository SuppliesRepo
@@ -11,88 +16,167 @@
 
 <PageTitle>Supply Items</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-4" Style="border-radius:18px;">
-        <MudText Typo="Typo.h5">Items Setup</MudText>
-        <MudText Color="Color.Secondary">Add items once, then use them while giving supplies.</MudText>
-    </MudPaper>
+<AppPageShell>
 
-    <MudPaper Class="pa-4" Style="border-radius:18px;">
-        <MudGrid>
+    <AppPageHeader Title="Items Setup"
+                   Subtitle="Add items once, then use them while giving supplies">
+    </AppPageHeader>
+
+    <!-- 🧾 FORM -->
+    <AppCard>
+        <MudGrid Spacing="2">
             <MudItem xs="12" md="3">
-                <MudTextField Label="Item Name" @bind-Value="_form.Name" Variant="Variant.Outlined" />
+                <AppTextField Label="Item Name" @bind-Value="_form.Name" />
             </MudItem>
+
             <MudItem xs="12" md="2">
-                <MudTextField Label="Code" @bind-Value="_form.Code" Variant="Variant.Outlined" />
+                <AppTextField Label="Code" @bind-Value="_form.Code" />
             </MudItem>
+
             <MudItem xs="12" md="2">
-                <MudNumericField T="decimal" Label="Sale Price" @bind-Value="_form.SalePrice" Variant="Variant.Outlined" />
+                <MudNumericField T="decimal"
+                                 Label="Sale Price"
+                                 @bind-Value="_form.SalePrice"
+                                 Variant="Variant.Outlined" />
             </MudItem>
+
             <MudItem xs="12" md="2">
-                <MudNumericField T="decimal" Label="Opening Stock" @bind-Value="_form.OpeningStock" Variant="Variant.Outlined" Disabled="_editId.HasValue" />
+                <MudNumericField T="decimal"
+                                 Label="Opening Stock"
+                                 @bind-Value="_form.OpeningStock"
+                                 Disabled="_editId.HasValue"
+                                 Variant="Variant.Outlined" />
             </MudItem>
+
             <MudItem xs="12" md="2">
-                <MudNumericField T="decimal" Label="Minimum Stock" @bind-Value="_form.MinimumStock" Variant="Variant.Outlined" />
+                <MudNumericField T="decimal"
+                                 Label="Minimum Stock"
+                                 @bind-Value="_form.MinimumStock"
+                                 Variant="Variant.Outlined" />
             </MudItem>
+
             <MudItem xs="12" md="1" Class="d-flex align-center">
-                <MudSwitch T="bool" Label="Active" @bind-Checked="_form.IsActive" />
+                <MudSwitch T="bool"
+                           Label="Active"
+                           @bind-Checked="_form.IsActive" />
             </MudItem>
         </MudGrid>
 
-        <MudStack Row="true" Spacing="1" Class="mt-3">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+        <MudStack Row="true" Spacing="2" Class="mt-3">
+            <AppButton Disabled="_saving"
+                       OnClick="@((MouseEventArgs _) => SaveAsync())">
                 @(_editId.HasValue ? "Update Item" : "Add Item")
-            </MudButton>
+            </AppButton>
+
             @if (_editId.HasValue)
             {
-                <MudButton Variant="Variant.Outlined" OnClick="ResetForm">Cancel</MudButton>
+                <AppButton Variant="Variant.Outlined"
+                           OnClick="@((MouseEventArgs _) => ResetForm())">
+                    Cancel
+                </AppButton>
             }
         </MudStack>
-    </MudPaper>
+    </AppCard>
 
-    <MudTable Items="_items" Loading="_loading" Hover="true" Dense="true">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Code</MudTh>
-            <MudTh>Price</MudTh>
-            <MudTh>Stock</MudTh>
-            <MudTh>Minimum</MudTh>
-            <MudTh>Status</MudTh>
-            <MudTh>Action</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd>@context.Name</MudTd>
-            <MudTd>@context.Code</MudTd>
-            <MudTd>₹@context.SalePrice.ToString("N2")</MudTd>
-            <MudTd>
-                <MudChip T="string" Color="@(context.IsLowStock ? Color.Error : Color.Success)" Size="Size.Small">
-                    @context.CurrentStock
-                </MudChip>
-            </MudTd>
-            <MudTd>@context.MinimumStock</MudTd>
-            <MudTd>@(context.IsActive ? "Active" : "Inactive")</MudTd>
-            <MudTd>
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => Edit(context))">Edit</MudButton>
-            </MudTd>
-        </RowTemplate>
-    </MudTable>
-</MudStack>
+    <!-- 📊 TABLE -->
+    <AppTableCard TItem="SupplyItemResponse"
+                  Class="mt-4"
+                  Title="Items List"
+                  Subtitle="@($"{_items.Count} item(s)")"
+                  IsLoading="@_loading"
+                  IsEmpty="@(!_loading && !_items.Any())"
+                  EmptyTitle="No items found"
+                  EmptyMessage="Add your first supply item">
+
+        <ChildContent>
+            <MudTable T="SupplyItemResponse"
+                      Items="@_items"
+                      Dense="true"
+                      Hover="true"
+                      Striped="true">
+
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Code</MudTh>
+                    <MudTh Align="right">Price</MudTh>
+                    <MudTh Align="right">Stock</MudTh>
+                    <MudTh Align="right">Minimum</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh Align="right">Action</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.Code</MudTd>
+
+                    <MudTd Align="right">
+                        ₹@context.SalePrice.ToString("N2")
+                    </MudTd>
+
+                    <MudTd Align="right">
+                        <MudChip T="string"
+                                 Color="@(context.IsLowStock ? Color.Error : Color.Success)"
+                                 Size="Size.Small">
+                            @context.CurrentStock
+                        </MudChip>
+                    </MudTd>
+
+                    <MudTd Align="right">
+                        @context.MinimumStock
+                    </MudTd>
+
+                    <MudTd>
+                        <StatusChip IsActive="@context.IsActive"
+                                    ActiveText="Active"
+                                    InactiveText="Inactive"
+                                    ActiveColor="Color.Success"
+                                    InactiveColor="Color.Error" />
+                    </MudTd>
+
+                    <MudTd Align="right">
+                        <AppButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   OnClick="@(() => Edit(context))">
+                            Edit
+                        </AppButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </ChildContent>
+
+    </AppTableCard>
+
+</AppPageShell>
 
 @code {
     private bool _loading = true;
     private bool _saving;
     private int? _editId;
-    private List<SupplyItemResponse> _items = [];
-    private CreateSupplyItemRequest _form = new();
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private List<SupplyItemResponse> _items = [];
+    private CreateSupplyItemRequest _form = new() { IsActive = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         _loading = true;
-        try { _items = await SuppliesRepo.GetItemsAsync(); }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-        finally { _loading = false; }
+
+        try
+        {
+            _items = await SuppliesRepo.GetItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task SaveAsync()
@@ -104,6 +188,7 @@
         }
 
         _saving = true;
+
         try
         {
             if (_editId.HasValue)
@@ -117,6 +202,7 @@
                     MinimumStock = _form.MinimumStock,
                     IsActive = _form.IsActive
                 });
+
                 Snackbar.Add("Item updated.", Severity.Success);
             }
             else
@@ -128,20 +214,26 @@
             ResetForm();
             await LoadAsync();
         }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-        finally { _saving = false; }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private void Edit(SupplyItemResponse item)
     {
         _editId = item.Id;
+
         _form = new CreateSupplyItemRequest
         {
             Name = item.Name,
             Code = item.Code,
             Description = item.Description,
             SalePrice = item.SalePrice,
-            OpeningStock = 0,
             MinimumStock = item.MinimumStock,
             IsActive = item.IsActive
         };

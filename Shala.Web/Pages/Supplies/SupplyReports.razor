@@ -1,9 +1,14 @@
-﻿@page "/tenant/supplies/reports"
+﻿
+
+
+    @page "/tenant/supplies/reports"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
+@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Shared.Requests.Supplies
 @using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Supplies
 
 @inject ISuppliesWebRepository SuppliesRepo
@@ -11,95 +16,206 @@
 
 <PageTitle>Supply Reports</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-4" Style="border-radius:18px;">
-        <MudText Typo="Typo.h5">Reports</MudText>
-        <MudText Color="Color.Secondary">Simple reports for stock and due.</MudText>
-    </MudPaper>
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
 
-    <MudTabs Rounded="true" Border="true">
-        <MudTabPanel Text="Item Stock">
-            <MudTable Items="_items" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Item</MudTh>
-                    <MudTh>Price</MudTh>
-                    <MudTh>Stock</MudTh>
-                    <MudTh>Minimum</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.Name</MudTd>
-                    <MudTd>₹@context.SalePrice.ToString("N2")</MudTd>
-                    <MudTd>@context.CurrentStock</MudTd>
-                    <MudTd>@context.MinimumStock</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudTabPanel>
+    <AppPageHeader Title="Supply Reports"
+                   Subtitle="Simple reports for stock, low stock, dues and stock movement">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="@_loading"
+                       OnClick="@(async _ => await LoadAsync())">
+                Reload
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-        <MudTabPanel Text="Low Stock">
-            <MudTable Items="_lowStock" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Item</MudTh>
-                    <MudTh>Stock</MudTh>
-                    <MudTh>Minimum</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.Name</MudTd>
-                    <MudTd>@context.CurrentStock</MudTd>
-                    <MudTd>@context.MinimumStock</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudTabPanel>
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="false">
+        <ChildContent>
+            <MudTabs Rounded="true" Border="true">
+                <MudTabPanel Text="Item Stock" Icon="@Icons.Material.Filled.Inventory2">
+                    <AppTableCard TItem="SupplyItemResponse"
+                                  Class="mt-4"
+                                  Title="Item Stock"
+                                  Subtitle="@($"{_items.Count} item(s)")"
+                                  IsLoading="false"
+                                  IsEmpty="@(!_items.Any())"
+                                  EmptyTitle="No items found"
+                                  EmptyMessage="Create supply items to see stock report.">
+                        <ChildContent>
+                            <MudTable T="SupplyItemResponse"
+                                      Items="@_items"
+                                      Dense="true"
+                                      Hover="true"
+                                      Striped="true"
+                                      Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Item</MudTh>
+                                    <MudTh Align="right">Price</MudTh>
+                                    <MudTh Align="right">Stock</MudTh>
+                                    <MudTh Align="right">Minimum</MudTh>
+                                </HeaderContent>
 
-        <MudTabPanel Text="Pending Due">
-            <MudTable Items="_dues" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Bill</MudTh>
-                    <MudTh>Student</MudTh>
-                    <MudTh>Total</MudTh>
-                    <MudTh>Paid</MudTh>
-                    <MudTh>Due</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.IssueNo</MudTd>
-                    <MudTd>@context.StudentName</MudTd>
-                    <MudTd>₹@context.TotalAmount.ToString("N2")</MudTd>
-                    <MudTd>₹@context.PaidAmount.ToString("N2")</MudTd>
-                    <MudTd>₹@context.DueAmount.ToString("N2")</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudTabPanel>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Item">@context.Name</MudTd>
+                                    <MudTd DataLabel="Price" Align="right">₹@context.SalePrice.ToString("N2")</MudTd>
+                                    <MudTd DataLabel="Stock" Align="right">
+                                        <MudChip T="string"
+                                                 Color="@(context.IsLowStock ? Color.Error : Color.Success)"
+                                                 Size="Size.Small">
+                                            @context.CurrentStock
+                                        </MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Minimum" Align="right">@context.MinimumStock</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
 
-        <MudTabPanel Text="Stock History">
-            <MudTable Items="_stockHistory" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Date</MudTh>
-                    <MudTh>Item</MudTh>
-                    <MudTh>Type</MudTh>
-                    <MudTh>Qty</MudTh>
-                    <MudTh>Balance</MudTh>
-                    <MudTh>Note</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.MovementDate.ToString("dd-MMM-yyyy")</MudTd>
-                    <MudTd>@context.ItemName</MudTd>
-                    <MudTd>@context.MovementType</MudTd>
-                    <MudTd>@context.Quantity</MudTd>
-                    <MudTd>@context.BalanceAfter</MudTd>
-                    <MudTd>@context.Remarks</MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudTabPanel>
-    </MudTabs>
-</MudStack>
+                <MudTabPanel Text="Low Stock" Icon="@Icons.Material.Filled.Warning">
+                    <AppTableCard TItem="SupplyItemResponse"
+                                  Class="mt-4"
+                                  Title="Low Stock"
+                                  Subtitle="@($"{_lowStock.Count} item(s)")"
+                                  IsLoading="false"
+                                  IsEmpty="@(!_lowStock.Any())"
+                                  EmptyTitle="No low stock items"
+                                  EmptyMessage="All items are above minimum stock level.">
+                        <ChildContent>
+                            <MudTable T="SupplyItemResponse"
+                                      Items="@_lowStock"
+                                      Dense="true"
+                                      Hover="true"
+                                      Striped="true"
+                                      Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Item</MudTh>
+                                    <MudTh Align="right">Stock</MudTh>
+                                    <MudTh Align="right">Minimum</MudTh>
+                                </HeaderContent>
+
+                                <RowTemplate>
+                                    <MudTd DataLabel="Item">@context.Name</MudTd>
+                                    <MudTd DataLabel="Stock" Align="right">
+                                        <MudText Color="Color.Error">@context.CurrentStock</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Minimum" Align="right">@context.MinimumStock</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Pending Due" Icon="@Icons.Material.Filled.PendingActions">
+                    <AppTableCard TItem="PendingSupplyDueResponse"
+                                  Class="mt-4"
+                                  Title="Pending Due"
+                                  Subtitle="@($"{_dues.Count} bill(s)")"
+                                  IsLoading="false"
+                                  IsEmpty="@(!_dues.Any())"
+                                  EmptyTitle="No pending dues"
+                                  EmptyMessage="All supply bills are fully paid.">
+                        <ChildContent>
+                            <MudTable T="PendingSupplyDueResponse"
+                                      Items="@_dues"
+                                      Dense="true"
+                                      Hover="true"
+                                      Striped="true"
+                                      Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Bill</MudTh>
+                                    <MudTh>Student</MudTh>
+                                    <MudTh Align="right">Total</MudTh>
+                                    <MudTh Align="right">Paid</MudTh>
+                                    <MudTh Align="right">Due</MudTh>
+                                </HeaderContent>
+
+                                <RowTemplate>
+                                    <MudTd DataLabel="Bill">@context.IssueNo</MudTd>
+                                    <MudTd DataLabel="Student">@context.StudentName</MudTd>
+                                    <MudTd DataLabel="Total" Align="right">₹@context.TotalAmount.ToString("N2")</MudTd>
+                                    <MudTd DataLabel="Paid" Align="right">₹@context.PaidAmount.ToString("N2")</MudTd>
+                                    <MudTd DataLabel="Due" Align="right">
+                                        <MudText Color="Color.Warning">₹@context.DueAmount.ToString("N2")</MudText>
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Stock History" Icon="@Icons.Material.Filled.History">
+                    <AppTableCard TItem="SupplyStockLedgerResponse"
+                                  Class="mt-4"
+                                  Title="Stock History"
+                                  Subtitle="@($"{_stockHistory.Count} movement(s)")"
+                                  IsLoading="false"
+                                  IsEmpty="@(!_stockHistory.Any())"
+                                  EmptyTitle="No stock history found"
+                                  EmptyMessage="Stock movements will appear here.">
+                        <ChildContent>
+                            <MudTable T="SupplyStockLedgerResponse"
+                                      Items="@_stockHistory"
+                                      Dense="true"
+                                      Hover="true"
+                                      Striped="true"
+                                      Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Date</MudTh>
+                                    <MudTh>Item</MudTh>
+                                    <MudTh>Type</MudTh>
+                                    <MudTh Align="right">Qty</MudTh>
+                                    <MudTh Align="right">Balance</MudTh>
+                                    <MudTh>Note</MudTh>
+                                </HeaderContent>
+
+                                <RowTemplate>
+                                    <MudTd DataLabel="Date">@context.MovementDate.ToString("dd-MMM-yyyy")</MudTd>
+                                    <MudTd DataLabel="Item">@context.ItemName</MudTd>
+                                    <MudTd DataLabel="Type">@context.MovementType</MudTd>
+                                    <MudTd DataLabel="Qty" Align="right">@context.Quantity</MudTd>
+                                    <MudTd DataLabel="Balance" Align="right">@context.BalanceAfter</MudTd>
+                                    <MudTd DataLabel="Note">@(string.IsNullOrWhiteSpace(context.Remarks) ? "-" : context.Remarks)</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
+            </MudTabs>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
 
 @code {
+    private bool _loading = true;
+    private string? _error;
+
     private List<SupplyItemResponse> _items = [];
     private List<SupplyItemResponse> _lowStock = [];
     private List<PendingSupplyDueResponse> _dues = [];
     private List<SupplyStockLedgerResponse> _stockHistory = [];
 
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Supplies", "/tenant/supplies"),
+        new("Reports", null, true)
+    ];
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
         try
         {
             _items = await SuppliesRepo.GetItemsAsync();
@@ -109,7 +225,12 @@
         }
         catch (Exception ex)
         {
+            _error = ex.Message;
             Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 }

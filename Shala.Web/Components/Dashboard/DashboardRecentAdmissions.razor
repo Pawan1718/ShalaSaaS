@@ -1,0 +1,33 @@
+﻿@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+<AppTableCard TItem="dynamic"
+              Class="@Class"
+              Title="Recent Admissions"
+              IsEmpty="@(!Data?.RecentAdmissions?.Any() ?? true)">
+    <ChildContent>
+        <MudTable Items="@(Data?.RecentAdmissions ?? [])" Dense="true">
+
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Class</MudTh>
+                <MudTh>Admission</MudTh>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd>@context.StudentName</MudTd>
+                <MudTd>@context.ClassName</MudTd>
+                <MudTd>@context.AdmissionNo</MudTd>
+                <MudTd>@context.AdmissionDateText</MudTd>
+            </RowTemplate>
+
+        </MudTable>
+    </ChildContent>
+
+</AppTableCard>
+
+@code {
+    [Parameter] public TenantDashboardResponse? Data { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+}

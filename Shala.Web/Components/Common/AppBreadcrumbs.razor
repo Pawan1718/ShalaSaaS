@@ -1,0 +1,16 @@
+﻿<MudBreadcrumbs Items="@Items" Separator="/">
+    <ItemTemplate Context="item">
+        @if (!string.IsNullOrWhiteSpace(item.Href))
+        {
+            <MudLink Href="@item.Href">@item.Text</MudLink>
+        }
+        else
+        {
+            <MudText Color="Color.Secondary">@item.Text</MudText>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+@code {
+    [Parameter] public List<BreadcrumbItem> Items { get; set; } = new();
+}

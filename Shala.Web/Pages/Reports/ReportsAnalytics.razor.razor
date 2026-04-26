@@ -8,6 +8,7 @@
 @using Shala.Shared.Requests.Reports
 @using Shala.Shared.Responses.Reports
 @using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Interfaces
 @using Shala.Web.Services.State
 @using Shala.Web.Components.Reports
@@ -68,8 +69,12 @@
 
     <MudGrid Spacing="3">
         <MudItem xs="12" lg="3" Class="reports-print-hide">
-            <ReportSidebar ActiveReportKey="@_activeReportKey" OnReportChanged="ChangeReportAsync" />
-        </MudItem>
+<AppSectionSidebar Title="Reports"
+                   Subtitle="Choose report type"
+                   Items="@ReportSidebarItems"
+                   SelectedKey="@_activeReportKey"
+                   OnSelected="ChangeReportAsync" />
+               </MudItem>
 
         <MudItem xs="12" lg="9">
             <MudStack Spacing="3">
@@ -703,5 +708,71 @@
     private static string Money(decimal amount) => amount.ToString("N2");
     private sealed record SummaryCard(string Title, string Value, string Icon, Color Color);
 
+
+
+
+    private IReadOnlyList<AppSectionSidebarItem> ReportSidebarItems => new List<AppSectionSidebarItem>
+{
+    new()
+    {
+        Key = ReportKeys.Dashboard,
+        Text = "Dashboard",
+        Icon = Icons.Material.Filled.Dashboard
+    },
+    new()
+    {
+        Key = ReportKeys.StudentMaster,
+        Text = "Student Master",
+        Icon = Icons.Material.Filled.Groups
+    },
+    new()
+    {
+        Key = ReportKeys.AdmissionRegister,
+        Text = "Admission Register",
+        Icon = Icons.Material.Filled.AppRegistration
+    },
+    new()
+    {
+        Key = ReportKeys.FeeCollection,
+        Text = "Fee Collection",
+        Icon = Icons.Material.Filled.Payments
+    },
+    new()
+    {
+        Key = ReportKeys.OutstandingFees,
+        Text = "Outstanding Fees",
+        Icon = Icons.Material.Filled.WarningAmber
+    },
+    new()
+    {
+        Key = ReportKeys.StudentLedger,
+        Text = "Student Ledger",
+        Icon = Icons.Material.Filled.AccountBalanceWallet
+    },
+    new()
+    {
+        Key = ReportKeys.ReceiptRegister,
+        Text = "Receipt Register",
+        Icon = Icons.Material.Filled.ReceiptLong
+    },
+    new()
+    {
+        Key = ReportKeys.AcademicStrength,
+        Text = "Academic Strength",
+        Icon = Icons.Material.Filled.Class
+    },
+    new()
+    {
+        Key = ReportKeys.PendingDocuments,
+        Text = "Pending Documents",
+        Icon = Icons.Material.Filled.FolderCopy
+    },
+    new()
+    {
+        Key = ReportKeys.StudentDobAge,
+        Text = "Student DOB / Age",
+        Icon = Icons.Material.Filled.Cake
+    }
+};
 
 }

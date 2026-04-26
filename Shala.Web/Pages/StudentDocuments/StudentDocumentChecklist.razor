@@ -1,12 +1,14 @@
-﻿@page "/tenant/students/{StudentId:int}/admissions/{StudentAdmissionId:int}/documents"
+﻿
+
+@page "/tenant/students/{StudentId:int}/admissions/{StudentAdmissionId:int}/documents"
+
 @layout Shala.Web.Components.Layouts.TenantMainLayout
-
-
 
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Shared.Requests.StudentDocument
 @using Shala.Shared.Responses.StudentDocument
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.StudentDocuments
 
 @inject IStudentDocumentChecklistWebRepository ChecklistRepo
@@ -15,227 +17,201 @@
 
 <PageTitle>Admission Documents</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
-    <MudStack Spacing="3">
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
 
-        <MudPaper Class="pa-5" Style="border-radius:18px;">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
-                <div>
-                    <MudText Typo="Typo.h4" Class="fw-bold">
-                        Admission Document Checklist
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Mark received documents and add remarks for this admission.
-                    </MudText>
-                </div>
+    <AppPageHeader Title="Admission Document Checklist"
+                   Subtitle="Mark received documents and add remarks for this admission">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@((MouseEventArgs _) => GoBack())">
+                Back
+            </AppButton>
 
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Outlined"
-                               StartIcon="@Icons.Material.Filled.ArrowBack"
-                               OnClick="GoBack">
-                        Back
-                    </MudButton>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="@(_loading || _saving)"
+                       OnClick="@((MouseEventArgs _) => LoadAsync())">
+                Reload
+            </AppButton>
 
-                    <MudButton Variant="Variant.Outlined"
-                               StartIcon="@Icons.Material.Filled.Refresh"
-                               Disabled="_loading || _saving"
-                               OnClick="LoadAsync">
-                        Reload
-                    </MudButton>
+            <AppButton StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="@(_loading || _saving || !_items.Any())"
+                       OnClick="@((MouseEventArgs _) => SaveAsync())">
+                @(_saving ? "Saving..." : "Save")
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Save"
-                               Disabled="_loading || _saving || !_items.Any()"
-                               OnClick="SaveAsync">
-                        @(_saving ? "Saving..." : "Save")
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Total"
+                         Value="@_model.TotalDocuments.ToString()"
+                         Icon="@Icons.Material.Filled.FactCheck" />
+        </MudItem>
 
-        <MudGrid Spacing="3">
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
-                    <MudText Typo="Typo.h5">@_model.TotalDocuments</MudText>
-                </MudPaper>
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Required"
+                         Value="@_model.RequiredDocuments.ToString()"
+                         Icon="@Icons.Material.Filled.AssignmentLate"
+                         Color="Color.Warning" />
+        </MudItem>
 
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Required</MudText>
-                    <MudText Typo="Typo.h5">@_model.RequiredDocuments</MudText>
-                </MudPaper>
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Received"
+                         Value="@_model.ReceivedDocuments.ToString()"
+                         Icon="@Icons.Material.Filled.CheckCircle"
+                         Color="Color.Success" />
+        </MudItem>
 
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Received</MudText>
-                    <MudText Typo="Typo.h5" Color="Color.Success">@_model.ReceivedDocuments</MudText>
-                </MudPaper>
-            </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <AppStatCard Label="Pending Required"
+                         Value="@_model.PendingRequiredDocuments.ToString()"
+                         Icon="@Icons.Material.Filled.PendingActions"
+                         Color="@(_model.PendingRequiredDocuments > 0 ? Color.Error : Color.Success)" />
+        </MudItem>
+    </MudGrid>
 
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pending Required</MudText>
-                    <MudText Typo="Typo.h5" Color="@(_model.PendingRequiredDocuments > 0 ? Color.Error : Color.Success)">
-                        @_model.PendingRequiredDocuments
-                    </MudText>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
+    @if (!_model.IsValid && _items.Any())
+    {
+        <AppError Message="Required documents are pending. Admission validation will fail until required documents are received."
+                  Severity="Severity.Warning"
+                  Variant="Variant.Outlined"
+                  Dense="true"
+                  Class="mb-4" />
+    }
+    else if (_model.IsValid && _items.Any())
+    {
+        <AppError Message="All required documents are received."
+                  Severity="Severity.Success"
+                  Variant="Variant.Outlined"
+                  Dense="true"
+                  Class="mb-4" />
+    }
 
-        @if (!_model.IsValid && _items.Any())
-        {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                Required documents are pending. Admission validation will fail until required documents are received.
-            </MudAlert>
-        }
-        else if (_model.IsValid && _items.Any())
-        {
-            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
-                All required documents are received.
-            </MudAlert>
-        }
-
-        <MudPaper Class="pa-4" Style="border-radius:16px;">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
-                <MudTextField T="string"
-                              @bind-Value="_search"
-                              Immediate="true"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
+    <AppToolbar>
+        <Filters>
+            <div class="document-search">
+                <AppSearchBox Label="Search"
                               Placeholder="Search document..."
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              Style="max-width:340px;" />
+                              @bind-Value="_search" />
+            </div>
 
-                <MudStack Row="true" Spacing="2">
-                    <MudSwitch T="bool"
-                               @bind-Value="_pendingOnly"
-                               Color="Color.Warning"
-                               Label="Pending required only" />
+            <MudSwitch T="bool"
+                       Label="Pending required only"
+                       Color="Color.Warning"
+                       @bind-Value="_pendingOnly" />
+        </Filters>
 
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.Settings"
-                               OnClick="OpenConfig">
-                        Config
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Settings"
+                       OnClick="@((MouseEventArgs _) => OpenConfig())">
+                Config
+            </AppButton>
+        </Actions>
+    </AppToolbar>
 
-        <MudPaper Style="border-radius:16px; overflow:hidden;">
-            @if (_loading)
-            {
-                <MudStack Class="pa-6" AlignItems="AlignItems.Center">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                    <MudText Typo="Typo.body2">Loading checklist...</MudText>
-                </MudStack>
-            }
-            else if (!FilteredItems.Any())
-            {
-                <MudStack Class="pa-8" AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No checklist documents found</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Add documents from checklist config first.
-                    </MudText>
+    <AppTableCard TItem="StudentDocumentChecklistItemResponse"
+                  Title="Checklist Documents"
+                  Subtitle="@($"{FilteredItems.Count()} document(s)")"
+                  IsLoading="@_loading"
+                  ErrorMessage="@null"
+                  IsEmpty="@(!_loading && !FilteredItems.Any())"
+                  EmptyTitle="No checklist documents found"
+                  EmptyMessage="Add documents from checklist config first.">
+        <EmptyActions>
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@((MouseEventArgs _) => OpenConfig())">
+                Open Config
+            </AppButton>
+        </EmptyActions>
 
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="OpenConfig">
-                        Open Config
-                    </MudButton>
-                </MudStack>
-            }
-            else
-            {
-                <MudTable Items="FilteredItems" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
-                    <HeaderContent>
-                        <MudTh>Document</MudTh>
-                        <MudTh>Required</MudTh>
-                        <MudTh>Received</MudTh>
-                        <MudTh>Remark</MudTh>
-                        <MudTh>Status</MudTh>
-                    </HeaderContent>
+        <ChildContent>
+            <MudTable T="StudentDocumentChecklistItemResponse"
+                      Items="@FilteredItems"
+                      Dense="true"
+                      Hover="true"
+                      Breakpoint="Breakpoint.Sm">
 
-                    <RowTemplate>
-                        <MudTd DataLabel="Document">
-                            <MudStack Spacing="0">
-                                <MudText Typo="Typo.subtitle2">@context.DocumentName</MudText>
+                <HeaderContent>
+                    <MudTh>Document</MudTh>
+                    <MudTh>Required</MudTh>
+                    <MudTh>Received</MudTh>
+                    <MudTh>Remark</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
 
-                                @if (!string.IsNullOrWhiteSpace(context.DocumentCode))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        Code: @context.DocumentCode
-                                    </MudText>
-                                }
+                <RowTemplate>
+                    <MudTd DataLabel="Document">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.subtitle2">@context.DocumentName</MudText>
 
-                                @if (!string.IsNullOrWhiteSpace(context.Description))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        @context.Description
-                                    </MudText>
-                                }
-                            </MudStack>
-                        </MudTd>
-
-                        <MudTd DataLabel="Required">
-                            <MudChip T="string"
-                                     Size="Size.Small"
-                                     Color="@(context.IsRequired ? Color.Warning : Color.Default)"
-                                     Variant="@(context.IsRequired ? Variant.Filled : Variant.Outlined)">
-                                @(context.IsRequired ? "Required" : "Optional")
-                            </MudChip>
-                        </MudTd>
-
-                        <MudTd DataLabel="Received">
-                            <MudCheckBox T="bool"
-                                         @bind-Value="context.IsReceived"
-                                         Color="Color.Success"
-                                         Label="Received" />
-                        </MudTd>
-
-                        <MudTd DataLabel="Remark">
-                            <MudTextField T="string"
-                                          @bind-Value="context.Remark"
-                                          Variant="Variant.Outlined"
-                                          Margin="Margin.Dense"
-                                          Placeholder="Enter remark..."
-                                          Immediate="true" />
-                        </MudTd>
-
-                        <MudTd DataLabel="Status">
-                            @if (context.IsReceived)
+                            @if (!string.IsNullOrWhiteSpace(context.DocumentCode))
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">
-                                    Received
-                                </MudChip>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Code: @context.DocumentCode
+                                </MudText>
                             }
-                            else if (context.IsRequired)
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">
-                                    Pending
-                                </MudChip>
-                            }
-                            else
-                            {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
-                                    Optional
-                                </MudChip>
-                            }
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            }
-        </MudPaper>
 
-    </MudStack>
-</MudContainer>
+                            @if (!string.IsNullOrWhiteSpace(context.Description))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @context.Description
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Required">
+                        <StatusChip IsActive="@context.IsRequired"
+                                    ActiveText="Required"
+                                    InactiveText="Optional"
+                                    ActiveColor="Color.Warning"
+                                    InactiveColor="Color.Default" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Received">
+                        <MudCheckBox T="bool"
+                                     @bind-Value="context.IsReceived"
+                                     Color="Color.Success"
+                                     Label="Received" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Remark">
+                        <AppTextField Label=""
+                                      Placeholder="Enter remark..."
+                                      @bind-Value="context.Remark"
+                                      Immediate="true" />
+                    </MudTd>
+
+                    <MudTd DataLabel="Status">
+                        @if (context.IsReceived)
+                        {
+                            <StatusChip IsActive="true"
+                                        ActiveText="Received"
+                                        ActiveColor="Color.Success" />
+                        }
+                        else if (context.IsRequired)
+                        {
+                            <StatusChip IsActive="false"
+                                        InactiveText="Pending"
+                                        InactiveColor="Color.Error" />
+                        }
+                        else
+                        {
+                            <StatusChip IsActive="false"
+                                        InactiveText="Optional"
+                                        InactiveColor="Color.Default" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </ChildContent>
+    </AppTableCard>
+</AppPageShell>
 
 @code {
     [Parameter] public int StudentAdmissionId { get; set; }
@@ -247,7 +223,14 @@
     private bool _loading;
     private bool _saving;
     private bool _pendingOnly;
-    private string _search = string.Empty;
+    private string? _search;
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Students", "/tenant/students"),
+        new("Student Details", null, true),
+        new("Admission Documents", null, true)
+    ];
 
     private IEnumerable<StudentDocumentChecklistItemResponse> FilteredItems =>
         _items
@@ -286,8 +269,8 @@
                 {
                     StudentAdmissionId = StudentAdmissionId
                 };
-                _items = new();
 
+                _items = new();
                 Snackbar.Add(response?.Message ?? "Failed to load admission document checklist.", Severity.Error);
             }
         }
@@ -297,8 +280,8 @@
             {
                 StudentAdmissionId = StudentAdmissionId
             };
-            _items = new();
 
+            _items = new();
             Snackbar.Add(ex.Message, Severity.Error);
         }
         finally
@@ -352,7 +335,7 @@
     {
         Nav.NavigateTo("/tenant/settings/document-models");
     }
-   
+
     private void GoBack()
     {
         Nav.NavigateTo($"/tenant/students/{StudentId}");

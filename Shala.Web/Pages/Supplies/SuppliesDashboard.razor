@@ -1,10 +1,14 @@
-﻿@page "/tenant/supplies"
+﻿
+
+
+@page "/tenant/supplies"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
-@using Shala.Web.Repositories.Supplies
 @using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Supplies
 
 @inject ISuppliesWebRepository SuppliesRepo
 @inject NavigationManager Nav
@@ -12,72 +16,142 @@
 
 <PageTitle>Student Supplies</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-5" Elevation="2" Style="border-radius:20px;">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-            <div>
-                <MudText Typo="Typo.h4">Student Supplies</MudText>
-                <MudText Color="Color.Secondary">Simple counter screen: Add Stock, Give Items, Collect Due.</MudText>
-            </div>
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
 
-            <MudStack Row="true" Spacing="1">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/give"))">Give Items</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/add-stock"))">Add Stock</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/collect-due"))">Collect Due</MudButton>
-            </MudStack>
-        </MudStack>
-    </MudPaper>
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="false">
+        <ChildContent>
 
-    @if (_loading)
-    {
-        <MudProgressLinear Indeterminate="true" />
-    }
-    else
-    {
-        <MudGrid>
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Style="border-radius:16px;">
-                    <MudText Color="Color.Secondary">Today Given Items</MudText>
-                    <MudText Typo="Typo.h4">@_dashboard.TodayIssueCount</MudText>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Style="border-radius:16px;">
-                    <MudText Color="Color.Secondary">Today Collection</MudText>
-                    <MudText Typo="Typo.h4">₹@_dashboard.TodayCollection.ToString("N2")</MudText>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Style="border-radius:16px;">
-                    <MudText Color="Color.Secondary">Pending Due</MudText>
-                    <MudText Typo="Typo.h4" Color="Color.Warning">₹@_dashboard.PendingDue.ToString("N2")</MudText>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4" Style="border-radius:16px;">
-                    <MudText Color="Color.Secondary">Low Stock Items</MudText>
-                    <MudText Typo="Typo.h4" Color="Color.Error">@_dashboard.LowStockItemCount</MudText>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
+            <AppPageHeader Title="Student Supplies"
+                           Subtitle="Quick actions for stock, issue and due collection">
+                <Actions>
+                    <AppButton StartIcon="@Icons.Material.Filled.ShoppingCart"
+                               OnClick="@((MouseEventArgs _) => GoToGive())">
+                        Give Items
+                    </AppButton>
 
-        <MudGrid>
-            <MudItem xs="12" md="4">
-                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/give"))">Give Items</MudButton>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/add-stock"))">Add Stock</MudButton>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <MudButton FullWidth="true" Size="Size.Large" Variant="Variant.Filled" Color="Color.Warning" OnClick="@(() => Nav.NavigateTo("/tenant/supplies/collect-due"))">Collect Due</MudButton>
-            </MudItem>
-        </MudGrid>
-    }
-</MudStack>
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Inventory2"
+                               OnClick="@((MouseEventArgs _) => GoToAddStock())">
+                        Add Stock
+                    </AppButton>
+
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Payments"
+                               OnClick="@((MouseEventArgs _) => GoToCollectDue())">
+                        Collect Due
+                    </AppButton>
+                </Actions>
+            </AppPageHeader>
+
+            <!-- Stats -->
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="6" md="3">
+                    <AppStatCard Label="Today Given Items"
+                                 Value="@_dashboard.TodayIssueCount.ToString()"
+                                 Icon="@Icons.Material.Filled.ShoppingBag" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <AppStatCard Label="Today Collection"
+                                 Value="@_dashboard.TodayCollection.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.Payments"
+                                 Color="Color.Success" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <AppStatCard Label="Pending Due"
+                                 Value="@_dashboard.PendingDue.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.PendingActions"
+                                 Color="Color.Warning" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <AppStatCard Label="Low Stock Items"
+                                 Value="@_dashboard.LowStockItemCount.ToString()"
+                                 Icon="@Icons.Material.Filled.Inventory"
+                                 Color="Color.Error" />
+                </MudItem>
+            </MudGrid>
+
+            <!-- Quick Action Cards -->
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <AppCard Class="supply-action-card">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Size="Size.Large" />
+                            <MudText Typo="Typo.h6">Give Items</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Issue items to students and generate bill
+                            </MudText>
+
+                            <AppButton FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.ArrowForward"
+                                       OnClick="@((MouseEventArgs _) => GoToGive())">
+                                Open
+                            </AppButton>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <AppCard Class="supply-action-card">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Size="Size.Large" />
+                            <MudText Typo="Typo.h6">Add Stock</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Add incoming stock items
+                            </MudText>
+
+                            <AppButton FullWidth="true"
+                                       Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.ArrowForward"
+                                       OnClick="@((MouseEventArgs _) => GoToAddStock())">
+                                Open
+                            </AppButton>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <AppCard Class="supply-action-card">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Large" />
+                            <MudText Typo="Typo.h6">Collect Due</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Collect pending payments from supply bills
+                            </MudText>
+
+                            <AppButton FullWidth="true"
+                                       Color="Color.Warning"
+                                       StartIcon="@Icons.Material.Filled.ArrowForward"
+                                       OnClick="@((MouseEventArgs _) => GoToCollectDue())">
+                                Open
+                            </AppButton>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+            </MudGrid>
+
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
 
 @code {
     private bool _loading = true;
+    private string? _error;
+
     private SupplyDashboardResponse _dashboard = new();
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Supplies", null, true)
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -87,6 +161,7 @@
         }
         catch (Exception ex)
         {
+            _error = ex.Message;
             Snackbar.Add(ex.Message, Severity.Error);
         }
         finally
@@ -94,4 +169,8 @@
             _loading = false;
         }
     }
+
+    private void GoToGive() => Nav.NavigateTo("/tenant/supplies/give");
+    private void GoToAddStock() => Nav.NavigateTo("/tenant/supplies/add-stock");
+    private void GoToCollectDue() => Nav.NavigateTo("/tenant/supplies/collect-due");
 }

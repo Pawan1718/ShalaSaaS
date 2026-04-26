@@ -1,10 +1,14 @@
-﻿@page "/tenant/supplies/add-stock"
+﻿
+
+@page "/tenant/supplies/add-stock"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
+@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Domain.Enums
 @using Shala.Shared.Requests.Supplies
 @using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.Supplies
 
 @inject ISuppliesWebRepository SuppliesRepo
@@ -12,45 +16,155 @@
 
 <PageTitle>Add Stock</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-4" Style="border-radius:18px;">
-        <MudText Typo="Typo.h5">Add Stock</MudText>
-        <MudText Color="Color.Secondary">Use this when new items arrive in store.</MudText>
-    </MudPaper>
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
 
-    <MudPaper Class="pa-4" Style="border-radius:18px; max-width:720px;">
-        <MudStack Spacing="3">
-            <MudSelect T="int" Label="Item" @bind-Value="_request.SupplyItemId" Variant="Variant.Outlined">
-                @foreach (var item in _items)
-                {
-                    <MudSelectItem T="int" Value="@item.Id">@item.Name (@item.CurrentStock)</MudSelectItem>
-                }
-            </MudSelect>
+    <AppPageHeader Title="Add Stock"
+                   Subtitle="Use this when new items arrive in store">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="@(_loading || _saving)"
+                       OnClick="@((MouseEventArgs _) => LoadItemsAsync())">
+                Reload
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-            <MudNumericField T="decimal" Label="Quantity Added" @bind-Value="_request.Quantity" Variant="Variant.Outlined" />
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="@(!_loading && !_items.Any())"
+                  EmptyTitle="No supply items found"
+                  EmptyMessage="Create supply items before adding stock."
+                  EmptyIcon="@Icons.Material.Filled.Inventory2">
+        <ChildContent>
+            <AppCard Class="add-stock-card">
+                <MudStack Spacing="3">
+                    <AppFilterSelect TValue="int"
+                                     TItem="SupplyItemResponse"
+                                     Label="Item"
+                                     Value="@_request.SupplyItemId"
+                                     ValueChanged="OnSupplyItemChanged"
+                                     Items="@_items"
+                                     ValueSelector="@(x => x.Id)"
+                                     TextSelector="@(x => $"{x.Name} ({x.CurrentStock})")"
+                                     Clearable="false" />
 
-            <MudSelect T="SupplyMovementType" Label="Type" @bind-Value="_request.MovementType" Variant="Variant.Outlined">
-                <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.In">Purchase</MudSelectItem>
-                <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.Correction">Correction</MudSelectItem>
-            </MudSelect>
+                    <MudNumericField T="decimal"
+                                     Label="Quantity Added"
+                                     Value="@_request.Quantity"
+                                     ValueChanged="OnQuantityChanged"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Min="0" />
 
-            <MudTextField Label="Note" @bind-Value="_request.Remarks" Variant="Variant.Outlined" Lines="3" />
+                    <MudSelect T="SupplyMovementType"
+                               Label="Type"
+                               Value="@_request.MovementType"
+                               ValueChanged="OnMovementTypeChanged"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense">
+                        <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.In">Purchase</MudSelectItem>
+                        <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.Correction">Correction</MudSelectItem>
+                    </MudSelect>
 
-            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_saving" OnClick="SaveAsync">
-                Save Stock
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-</MudStack>
+                    <AppTextField Label="Note"
+                                  Lines="3"
+                                  Placeholder="Optional remarks..."
+                                  @bind-Value="_request.Remarks" />
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                        <AppButton Variant="Variant.Outlined"
+                                   Disabled="@_saving"
+                                   OnClick="@((MouseEventArgs _) => ResetForm())">
+                            Reset
+                        </AppButton>
+
+                        <AppButton Color="Color.Success"
+                                   StartIcon="@Icons.Material.Filled.Save"
+                                   Disabled="@_saving"
+                                   OnClick="@((MouseEventArgs _) => SaveAsync())">
+                            @(_saving ? "Saving..." : "Save Stock")
+                        </AppButton>
+                    </MudStack>
+                </MudStack>
+            </AppCard>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
 
 @code {
+    private bool _loading = true;
     private bool _saving;
+    private string? _error;
+
     private List<SupplyItemResponse> _items = [];
-    private AddSupplyStockRequest _request = new();
+    private AddSupplyStockRequest _request = new()
+    {
+        MovementType = SupplyMovementType.In
+    };
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Supplies", "/tenant/supplies"),
+        new("Add Stock", null, true)
+    ];
 
     protected override async Task OnInitializedAsync()
     {
-        _items = await SuppliesRepo.GetItemsAsync(true);
+        await LoadItemsAsync();
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            _items = await SuppliesRepo.GetItemsAsync(true);
+
+            if (_items.Any() && _request.SupplyItemId <= 0)
+                _request.SupplyItemId = _items.First().Id;
+        }
+        catch (Exception ex)
+        {
+            _items = [];
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSupplyItemChanged(int value)
+    {
+        _request.SupplyItemId = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnQuantityChanged(decimal value)
+    {
+        _request.Quantity = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnMovementTypeChanged(SupplyMovementType value)
+    {
+        _request.MovementType = value;
+        return Task.CompletedTask;
+    }
+
+    private void ResetForm()
+    {
+        _request = new AddSupplyStockRequest
+        {
+            SupplyItemId = _items.FirstOrDefault()?.Id ?? 0,
+            MovementType = SupplyMovementType.In
+        };
     }
 
     private async Task SaveAsync()
@@ -68,14 +182,23 @@
         }
 
         _saving = true;
+
         try
         {
             await SuppliesRepo.AddStockAsync(_request);
+
             Snackbar.Add("Stock added.", Severity.Success);
-            _request = new AddSupplyStockRequest();
-            _items = await SuppliesRepo.GetItemsAsync(true);
+
+            ResetForm();
+            await LoadItemsAsync();
         }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
-        finally { _saving = false; }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 }
