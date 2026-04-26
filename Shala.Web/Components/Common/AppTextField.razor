@@ -1,0 +1,111 @@
+﻿@using System.Linq.Expressions
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+
+@if (IsPassword && EnablePasswordToggle)
+{
+    <MudTextField T="string"
+                  Value="@Value"
+                  ValueChanged="@ValueChanged"
+                  ValueExpression="@ValueExpression"
+                  Label="@Label"
+                  Placeholder="@Placeholder"
+                  Variant="@Variant"
+                  Margin="@Margin"
+                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                  FullWidth="@FullWidth"
+                  Disabled="@Disabled"
+                  ReadOnly="@ReadOnly"
+                  Immediate="@Immediate"
+                  DebounceInterval="@DebounceInterval"
+                  Lines="@Lines"
+                  Clearable="@Clearable"
+                  HelperText="@HelperText"
+                  Required="@Required"
+                  RequiredError="@RequiredError"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@PasswordStartIcon"
+                  AdornmentEnd="Adornment.End"
+                  AdornmentAriaLabel="@(_showPassword ? "Hide password" : "Show password")"
+                  OnAdornmentClick="TogglePassword"
+                  Class="@Class"
+                  @attributes="AdditionalAttributes" />
+}
+else
+{
+    <MudTextField T="string"
+                  Value="@Value"
+                  ValueChanged="@ValueChanged"
+                  ValueExpression="@ValueExpression"
+                  Label="@Label"
+                  Placeholder="@Placeholder"
+                  Variant="@Variant"
+                  Margin="@Margin"
+                  InputType="@InputType"
+                  FullWidth="@FullWidth"
+                  Disabled="@Disabled"
+                  ReadOnly="@ReadOnly"
+                  Immediate="@Immediate"
+                  DebounceInterval="@DebounceInterval"
+                  Lines="@Lines"
+                  Clearable="@Clearable"
+                  HelperText="@HelperText"
+                  Required="@Required"
+                  RequiredError="@RequiredError"
+                  Adornment="@Adornment"
+                  AdornmentIcon="@AdornmentIcon"
+                  AdornmentEnd="@AdornmentEnd"
+                  AdornmentAriaLabel="@AdornmentAriaLabel"
+                  OnAdornmentClick="@OnAdornmentClick"
+                  AdornmentColor="@AdornmentColor"
+                  Class="@Class"
+                  @attributes="AdditionalAttributes" />
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Placeholder { get; set; }
+
+    [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
+    [Parameter] public Margin Margin { get; set; } = Margin.None;
+    [Parameter] public InputType InputType { get; set; } = InputType.Text;
+
+    [Parameter] public bool IsPassword { get; set; }
+    [Parameter] public bool EnablePasswordToggle { get; set; } = true;
+    [Parameter] public string PasswordStartIcon { get; set; } = Icons.Material.Filled.Lock;
+
+    [Parameter] public bool FullWidth { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool Immediate { get; set; }
+    [Parameter] public double DebounceInterval { get; set; } = 300;
+    [Parameter] public int Lines { get; set; } = 1;
+    [Parameter] public bool Clearable { get; set; }
+
+    [Parameter] public string? HelperText { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? RequiredError { get; set; }
+
+    [Parameter] public Adornment Adornment { get; set; } = Adornment.None;
+    [Parameter] public string? AdornmentIcon { get; set; }
+    [Parameter] public Adornment AdornmentEnd { get; set; } = Adornment.None;
+    [Parameter] public string? AdornmentAriaLabel { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnAdornmentClick { get; set; }
+    [Parameter] public Color AdornmentColor { get; set; } = Color.Default;
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _showPassword;
+
+    private void TogglePassword(MouseEventArgs _)
+    {
+        _showPassword = !_showPassword;
+    }
+}

@@ -1,0 +1,115 @@
+﻿@page "/tenant/supplies/reports"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using MudBlazor
+@using Shala.Shared.Requests.Supplies
+@using Shala.Shared.Responses.Supplies
+@using Shala.Web.Repositories.Supplies
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject ISnackbar Snackbar
+
+<PageTitle>Supply Reports</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudText Typo="Typo.h5">Reports</MudText>
+        <MudText Color="Color.Secondary">Simple reports for stock and due.</MudText>
+    </MudPaper>
+
+    <MudTabs Rounded="true" Border="true">
+        <MudTabPanel Text="Item Stock">
+            <MudTable Items="_items" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Item</MudTh>
+                    <MudTh>Price</MudTh>
+                    <MudTh>Stock</MudTh>
+                    <MudTh>Minimum</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>₹@context.SalePrice.ToString("N2")</MudTd>
+                    <MudTd>@context.CurrentStock</MudTd>
+                    <MudTd>@context.MinimumStock</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Low Stock">
+            <MudTable Items="_lowStock" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Item</MudTh>
+                    <MudTh>Stock</MudTh>
+                    <MudTh>Minimum</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.CurrentStock</MudTd>
+                    <MudTd>@context.MinimumStock</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Pending Due">
+            <MudTable Items="_dues" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Bill</MudTh>
+                    <MudTh>Student</MudTh>
+                    <MudTh>Total</MudTh>
+                    <MudTh>Paid</MudTh>
+                    <MudTh>Due</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.IssueNo</MudTd>
+                    <MudTd>@context.StudentName</MudTd>
+                    <MudTd>₹@context.TotalAmount.ToString("N2")</MudTd>
+                    <MudTd>₹@context.PaidAmount.ToString("N2")</MudTd>
+                    <MudTd>₹@context.DueAmount.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Stock History">
+            <MudTable Items="_stockHistory" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Item</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>Qty</MudTh>
+                    <MudTh>Balance</MudTh>
+                    <MudTh>Note</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.MovementDate.ToString("dd-MMM-yyyy")</MudTd>
+                    <MudTd>@context.ItemName</MudTd>
+                    <MudTd>@context.MovementType</MudTd>
+                    <MudTd>@context.Quantity</MudTd>
+                    <MudTd>@context.BalanceAfter</MudTd>
+                    <MudTd>@context.Remarks</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+</MudStack>
+
+@code {
+    private List<SupplyItemResponse> _items = [];
+    private List<SupplyItemResponse> _lowStock = [];
+    private List<PendingSupplyDueResponse> _dues = [];
+    private List<SupplyStockLedgerResponse> _stockHistory = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _items = await SuppliesRepo.GetItemsAsync();
+            _lowStock = await SuppliesRepo.GetLowStockAsync();
+            _dues = await SuppliesRepo.GetDuesAsync();
+            _stockHistory = await SuppliesRepo.GetStockHistoryAsync(new SupplyReportRequest());
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

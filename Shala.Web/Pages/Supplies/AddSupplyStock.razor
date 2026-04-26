@@ -1,0 +1,81 @@
+﻿@page "/tenant/supplies/add-stock"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using MudBlazor
+@using Shala.Domain.Enums
+@using Shala.Shared.Requests.Supplies
+@using Shala.Shared.Responses.Supplies
+@using Shala.Web.Repositories.Supplies
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject ISnackbar Snackbar
+
+<PageTitle>Add Stock</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudText Typo="Typo.h5">Add Stock</MudText>
+        <MudText Color="Color.Secondary">Use this when new items arrive in store.</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Style="border-radius:18px; max-width:720px;">
+        <MudStack Spacing="3">
+            <MudSelect T="int" Label="Item" @bind-Value="_request.SupplyItemId" Variant="Variant.Outlined">
+                @foreach (var item in _items)
+                {
+                    <MudSelectItem T="int" Value="@item.Id">@item.Name (@item.CurrentStock)</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal" Label="Quantity Added" @bind-Value="_request.Quantity" Variant="Variant.Outlined" />
+
+            <MudSelect T="SupplyMovementType" Label="Type" @bind-Value="_request.MovementType" Variant="Variant.Outlined">
+                <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.In">Purchase</MudSelectItem>
+                <MudSelectItem T="SupplyMovementType" Value="SupplyMovementType.Correction">Correction</MudSelectItem>
+            </MudSelect>
+
+            <MudTextField Label="Note" @bind-Value="_request.Remarks" Variant="Variant.Outlined" Lines="3" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_saving" OnClick="SaveAsync">
+                Save Stock
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private bool _saving;
+    private List<SupplyItemResponse> _items = [];
+    private AddSupplyStockRequest _request = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await SuppliesRepo.GetItemsAsync(true);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_request.SupplyItemId <= 0)
+        {
+            Snackbar.Add("Please select item.", Severity.Warning);
+            return;
+        }
+
+        if (_request.Quantity <= 0)
+        {
+            Snackbar.Add("Quantity must be greater than zero.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            await SuppliesRepo.AddStockAsync(_request);
+            Snackbar.Add("Stock added.", Severity.Success);
+            _request = new AddSupplyStockRequest();
+            _items = await SuppliesRepo.GetItemsAsync(true);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _saving = false; }
+    }
+}

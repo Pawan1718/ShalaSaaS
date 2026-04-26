@@ -1,0 +1,249 @@
+﻿@using MudBlazor
+@using Shala.Shared.Responses.Fees
+
+<MudStack Spacing="2">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                Active: @ActiveCharges.Count()
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
+                Paid: @ActiveCharges.Count(x => x.BalanceAmount <= 0)
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">
+                Partial: @ActiveCharges.Count(x => x.PaidAmount > 0 && x.BalanceAmount > 0)
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error">
+                Pending: @ActiveCharges.Count(x => x.PaidAmount <= 0 && x.BalanceAmount > 0)
+            </MudChip>
+            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default">
+                Cancelled: @Charges.Count(x => x.IsCancelled)
+            </MudChip>
+        </MudStack>
+    </MudStack>
+
+    @if (!Charges.Any())
+    {
+        <MudPaper Class="pa-6" Outlined="true" Style="border-radius:16px;">
+            <MudStack Spacing="2" AlignItems="AlignItems.Center">
+                <MudAvatar Size="Size.Large" Variant="Variant.Filled" Color="Color.Info">
+                    <MudIcon Icon="@Icons.Material.Filled.TableRows" />
+                </MudAvatar>
+                <MudText Typo="Typo.subtitle1">No installments available</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                    Charges will appear here after you generate installments from the assigned fee plan.
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="Charges.OrderBy(x => x.DueDate).ThenBy(x => x.Id)"
+                  Dense="false"
+                  Hover="true"
+                  Elevation="0"
+                  Breakpoint="Breakpoint.Sm"
+                  Class="charges-modern-table">
+
+            <HeaderContent>
+                <MudTh>Installment</MudTh>
+                <MudTh>Due</MudTh>
+                <MudTh class="text-end">Scheduled</MudTh>
+                <MudTh class="text-end">Discount</MudTh>
+                <MudTh class="text-end">Net</MudTh>
+                <MudTh class="text-end">Paid</MudTh>
+                <MudTh class="text-end">Balance</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh Align="right">Actions</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Installment">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.subtitle2">@context.ChargeLabel</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @GetSubLabel(context)
+                        </MudText>
+                    </MudStack>
+                </MudTd>
+
+                <MudTd DataLabel="Due">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2">@context.DueDate.ToString("dd MMM yyyy")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @GetDueHint(context)
+                        </MudText>
+                    </MudStack>
+                </MudTd>
+
+                <MudTd DataLabel="Scheduled" class="text-end">
+                    <MudText Typo="Typo.body2">@context.Amount.ToString("N2")</MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Discount" class="text-end">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.DiscountAmount.ToString("N2")
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Net" class="text-end">
+                    <MudText Typo="Typo.subtitle2">@context.NetAmount.ToString("N2")</MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Paid" class="text-end">
+                    <MudText Typo="Typo.body2" Color="Color.Success">
+                        @context.PaidAmount.ToString("N2")
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Balance" class="text-end">
+                    <MudText Typo="Typo.subtitle2" Color="@GetBalanceColor(context)">
+                        @context.BalanceAmount.ToString("N2")
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Status">
+                    <MudStack Spacing="1">
+                        <MudChip T="string"
+                                 Color="@GetStatusColor(context)"
+                                 Variant="Variant.Filled"
+                                 Size="Size.Small">
+                            @GetStatusText(context)
+                        </MudChip>
+
+                        @if (!context.IsCancelled)
+                        {
+                            <MudProgressLinear Value="@GetChargeProgress(context)"
+                                               Color="@GetProgressColor(context)"
+                                               Rounded="true" />
+                        }
+                    </MudStack>
+                </MudTd>
+
+                <MudTd DataLabel="Actions" Align="right">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               Disabled="@(!CanCancel(context) || BusyChargeId == context.Id)"
+                               OnClick="@(() => CancelChargeAsync(context))">
+                        @(BusyChargeId == context.Id ? "Cancelling..." : "Cancel")
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+<style>
+    .charges-modern-table {
+        border-radius: 18px;
+        overflow: hidden;
+        background: var(--mud-palette-surface);
+    }
+
+        .charges-modern-table .mud-table-head {
+            background: rgba(25, 118, 210, 0.08);
+        }
+
+            .charges-modern-table .mud-table-head th {
+                font-weight: 600;
+                white-space: nowrap;
+            }
+
+        .charges-modern-table .mud-table-body tr:hover {
+            background: rgba(25, 118, 210, 0.04);
+        }
+
+        .charges-modern-table .mud-table-body td {
+            vertical-align: top;
+            padding-top: 14px;
+            padding-bottom: 14px;
+        }
+</style>
+
+@code {
+    [Parameter] public IEnumerable<StudentChargeResponse> Charges { get; set; } = Enumerable.Empty<StudentChargeResponse>();
+    [Parameter] public EventCallback<StudentChargeResponse> OnCancelCharge { get; set; }
+    [Parameter] public int? BusyChargeId { get; set; }
+
+    private List<StudentChargeResponse> ActiveCharges => Charges.Where(x => !x.IsCancelled).ToList();
+
+    private async Task CancelChargeAsync(StudentChargeResponse charge)
+    {
+        if (OnCancelCharge.HasDelegate)
+            await OnCancelCharge.InvokeAsync(charge);
+    }
+
+    private static bool CanCancel(StudentChargeResponse charge)
+    {
+        return !charge.IsCancelled && charge.PaidAmount <= 0;
+    }
+
+    private static string GetSubLabel(StudentChargeResponse charge)
+    {
+        return string.IsNullOrWhiteSpace(charge.PeriodLabel)
+            ? "General fee component"
+            : charge.PeriodLabel!;
+    }
+
+    private static string GetDueHint(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled)
+            return "Cancelled";
+
+        if (charge.BalanceAmount <= 0)
+            return "Fully paid";
+
+        if (charge.PaidAmount > 0)
+            return "Partially paid";
+
+        if (charge.DueDate.Date < DateTime.Today)
+            return "Overdue";
+
+        return "Awaiting payment";
+    }
+
+    private static string GetStatusText(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled) return "Cancelled";
+        if (charge.BalanceAmount <= 0) return "Paid";
+        if (charge.PaidAmount > 0) return "Partial";
+        if (charge.DueDate.Date < DateTime.Today) return "Overdue";
+        return "Pending";
+    }
+
+    private static Color GetStatusColor(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled) return Color.Default;
+        if (charge.BalanceAmount <= 0) return Color.Success;
+        if (charge.PaidAmount > 0) return Color.Warning;
+        if (charge.DueDate.Date < DateTime.Today) return Color.Error;
+        return Color.Info;
+    }
+
+    private static Color GetBalanceColor(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled) return Color.Default;
+        if (charge.BalanceAmount <= 0) return Color.Success;
+        if (charge.PaidAmount > 0) return Color.Warning;
+        return Color.Error;
+    }
+
+    private static double GetChargeProgress(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled || charge.NetAmount <= 0)
+            return 0;
+
+        var value = (charge.PaidAmount / charge.NetAmount) * 100m;
+        value = Math.Min(100m, Math.Max(0m, value));
+        return (double)value;
+    }
+
+    private static Color GetProgressColor(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled) return Color.Default;
+        if (charge.BalanceAmount <= 0) return Color.Success;
+        if (charge.PaidAmount > 0) return Color.Warning;
+        return Color.Error;
+    }
+}

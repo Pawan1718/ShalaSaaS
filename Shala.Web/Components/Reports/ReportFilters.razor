@@ -1,0 +1,185 @@
+@using MudBlazor
+@using Shala.Shared.Requests.Reports
+@using Shala.Shared.Responses.Students
+
+<MudPaper Class="pa-4 report-filter-card reports-print-hide" Elevation="1">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="4">
+            <MudTextField T="string"
+                          Label="Search"
+                          Placeholder="Name / admission no / receipt no"
+                          @bind-Value="Request.SearchText"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true" />
+        </MudItem>
+
+        @if (ShowAcademicFilters)
+        {
+            <MudItem xs="12" md="3">
+                <MudSelect T="int?"
+                           Label="Academic Year"
+                           Value="Request.AcademicYearId"
+                           ValueChanged="OnAcademicYearChanged"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true">
+                    @foreach (var year in AcademicYears)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)year.Id)">
+                            @year.Name
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudSelect T="int?"
+                           Label="Class"
+                           Value="Request.ClassId"
+                           ValueChanged="OnClassChanged"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true">
+                    @foreach (var cls in Classes)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)cls.Id)">
+                            @cls.Name
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudSelect T="int?"
+                           Label="Section"
+                           Value="Request.SectionId"
+                           ValueChanged="OnSectionChanged"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true"
+                           Disabled="@(!Request.ClassId.HasValue)">
+                    @foreach (var grp in Sections)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)grp.Id)">
+                            @grp.Name
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+
+        @if (ShowDateFilters)
+        {
+            <MudItem xs="12" md="3">
+                <MudDatePicker Label="From Date"
+                               @bind-Date="Request.FromDate"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Clearable="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudDatePicker Label="To Date"
+                               @bind-Date="Request.ToDate"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Clearable="true" />
+            </MudItem>
+        }
+
+        @if (ShowStatusFilter)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string"
+                           Label="Status"
+                           @bind-Value="Request.Status"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true">
+                    @foreach (var status in StatusOptions)
+                    {
+                        <MudSelectItem T="string" Value="@(status)">
+                            @(status)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+
+        @if (ShowPaymentModeFilter)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string"
+                           Label="Payment"
+                           @bind-Value="Request.PaymentMode"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Clearable="true">
+                    @foreach (var mode in PaymentModes)
+                    {
+                        <MudSelectItem T="string" Value="@(mode)">
+                            @(mode)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+
+        @if (ShowStudentFilter)
+        {
+            <MudItem xs="12" md="2">
+                <MudNumericField T="int?"
+                                 Label="Student Id"
+                                 @bind-Value="Request.StudentId"
+                                 Variant="Variant.Outlined"
+                                 Margin="Margin.Dense"
+                                 HideSpinButtons="true" />
+            </MudItem>
+        }
+
+        <MudItem xs="12" md="2">
+            <MudSelect T="int"
+                       Label="Rows"
+                       Value="Request.PageSize"
+                       ValueChanged="OnPageSizeChanged"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense">
+                <MudSelectItem T="int" Value="10">10</MudSelectItem>
+                <MudSelectItem T="int" Value="25">25</MudSelectItem>
+                <MudSelectItem T="int" Value="50">50</MudSelectItem>
+                <MudSelectItem T="int" Value="100">100</MudSelectItem>
+                <MudSelectItem T="int" Value="-1">All</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public ReportFilterRequest Request { get; set; } = new();
+
+    [Parameter] public bool ShowAcademicFilters { get; set; }
+    [Parameter] public bool ShowDateFilters { get; set; }
+    [Parameter] public bool ShowStatusFilter { get; set; }
+    [Parameter] public bool ShowPaymentModeFilter { get; set; }
+    [Parameter] public bool ShowStudentFilter { get; set; }
+
+    [Parameter] public IEnumerable<LookupItemResponse> AcademicYears { get; set; } = Array.Empty<LookupItemResponse>();
+    [Parameter] public IEnumerable<LookupItemResponse> Classes { get; set; } = Array.Empty<LookupItemResponse>();
+    [Parameter] public IEnumerable<LookupItemResponse> Sections { get; set; } = Array.Empty<LookupItemResponse>();
+    [Parameter] public IEnumerable<string> StatusOptions { get; set; } = Array.Empty<string>();
+
+    [Parameter] public EventCallback<int?> OnAcademicYearChanged { get; set; }
+    [Parameter] public EventCallback<int?> OnClassChanged { get; set; }
+    [Parameter] public EventCallback<int?> OnSectionChanged { get; set; }
+    [Parameter] public EventCallback<int> OnPageSizeChanged { get; set; }
+
+    private static readonly string[] PaymentModes =
+    {
+        "Cash",
+        "UPI",
+        "Bank Transfer",
+        "Cheque",
+        "Card"
+    };
+}

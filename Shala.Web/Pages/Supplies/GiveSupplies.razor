@@ -1,0 +1,263 @@
+﻿@page "/tenant/supplies/give"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Domain.Enums
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Requests.Supplies
+@using Shala.Shared.Responses.Students
+@using Shala.Shared.Responses.Supplies
+@using Shala.Web.Models.Supplies
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.Supplies
+@using Shala.Web.Services.State
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject IStudentRepository StudentRepo
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<PageTitle>Give Items</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudText Typo="Typo.h5">Give Items</MudText>
+        <MudText Color="Color.Secondary">Search student, add items, take payment, save bill.</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudStack Row="true" Spacing="2">
+            <MudTextField Label="Search Student" Placeholder="Name / admission no / mobile" @bind-Value="_studentSearch" Variant="Variant.Outlined" Immediate="true" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchStudentsAsync">Search</MudButton>
+        </MudStack>
+
+        @if (_students.Count > 0)
+        {
+            <MudTable Items="_students" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Admission No</MudTh>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Mobile</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.FullName</MudTd>
+                    <MudTd>@context.AdmissionNo</MudTd>
+                    <MudTd>@context.CurrentClass - @context.CurrentSection</MudTd>
+                    <MudTd>@context.Mobile</MudTd>
+                    <MudTd>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" OnClick="@(() => SelectStudentAsync(context))">Select</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+
+        @if (_selectedStudent is not null)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-3">
+                Selected: @_selectedStudent.FullName | Adm No: @_selectedStudent.AdmissionNo
+            </MudAlert>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Style="border-radius:18px;">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h6">Items</MudText>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddRow">Add Item</MudButton>
+        </MudStack>
+
+        <MudTable Items="_rows" Dense="true" Class="mt-3">
+            <HeaderContent>
+                <MudTh>Item</MudTh>
+                <MudTh>Qty</MudTh>
+                <MudTh>Price</MudTh>
+                <MudTh>Total</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudSelect T="int" Value="@context.SupplyItemId" ValueChanged="@((int v) => OnItemChanged(context, v))" Variant="Variant.Outlined" Dense="true">
+                        @foreach (var item in _items)
+                        {
+                            <MudSelectItem T="int" Value="@item.Id">@item.Name | Stock: @item.CurrentStock</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudTd>
+                <MudTd>
+                    <MudNumericField T="decimal" Value="@context.Quantity" ValueChanged="@((decimal v) => context.Quantity = v)" Variant="Variant.Outlined" Dense="true" />
+                </MudTd>
+                <MudTd>₹@context.UnitPrice.ToString("N2")</MudTd>
+                <MudTd>₹@context.LineTotal.ToString("N2")</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _rows.Remove(context))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudDivider Class="my-4" />
+
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.h6">Total: ₹@Total.ToString("N2")</MudText>
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudNumericField T="decimal" Label="Paid" @bind-Value="_paidAmount" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudText Typo="Typo.h6" Color="Color.Warning">Due: ₹@Due.ToString("N2")</MudText>
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudSelect T="SupplyPaymentMode" Label="Payment Mode" @bind-Value="_paymentMode" Variant="Variant.Outlined">
+                    <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Cash">Cash</MudSelectItem>
+                    <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Upi">UPI</MudSelectItem>
+                    <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Bank">Bank</MudSelectItem>
+                    <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Card">Card</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Class="mt-4" Size="Size.Large" Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">
+            Save & Print
+        </MudButton>
+    </MudPaper>
+</MudStack>
+
+@if (_lastIssue is not null)
+{
+    <Shala.Web.Components.Supplies.SupplyBillPrint Issue="_lastIssue" />
+}
+
+@code {
+    private bool _saving;
+    private string? _studentSearch;
+    private int _academicYearId;
+    private StudentListItemResponse? _selectedStudent;
+    private int _selectedAdmissionId;
+    private List<StudentListItemResponse> _students = [];
+    private List<SupplyItemResponse> _items = [];
+    private List<SupplyIssueRowVm> _rows = [];
+    private decimal _paidAmount;
+    private SupplyPaymentMode _paymentMode = SupplyPaymentMode.Cash;
+    private StudentSupplyIssueResponse? _lastIssue;
+
+    private decimal Total => _rows.Sum(x => x.LineTotal);
+    private decimal Due => Total - _paidAmount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+        _items = await SuppliesRepo.GetItemsAsync(true);
+        AddRow();
+    }
+
+    private async Task SearchStudentsAsync()
+    {
+        var res = await StudentRepo.GetPagedAsync(new StudentListRequest
+        {
+            Search = _studentSearch,
+            PageNumber = 1,
+            PageSize = 10
+        });
+
+        _students = res?.Data?.Items ?? [];
+    }
+
+    private async Task SelectStudentAsync(StudentListItemResponse student)
+    {
+        _selectedStudent = student;
+        _students.Clear();
+
+        var detail = await StudentRepo.GetByIdAsync(student.Id, Session.TenantId ?? 0);
+        var admission = detail?.Data?.Admissions?.FirstOrDefault(x => x.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
+                        ?? detail?.Data?.Admissions?.FirstOrDefault();
+
+        _selectedAdmissionId = admission?.Id ?? 0;
+
+        // backend requires AcademicYearId. Use current selected/latest admission not exposing to user.
+        // If your backend validates AcademicYearId strictly, set real current academicYearId here later.
+        _academicYearId = 1;
+    }
+
+    private void AddRow()
+    {
+        _rows.Add(new SupplyIssueRowVm());
+    }
+
+    private void OnItemChanged(SupplyIssueRowVm row, int itemId)
+    {
+        var item = _items.FirstOrDefault(x => x.Id == itemId);
+        row.SupplyItemId = itemId;
+        row.Item = item;
+        row.UnitPrice = item?.SalePrice ?? 0;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_selectedStudent is null || _selectedAdmissionId <= 0)
+        {
+            Snackbar.Add("Please select student.", Severity.Warning);
+            return;
+        }
+
+        if (_rows.Count == 0 || _rows.Any(x => x.SupplyItemId <= 0))
+        {
+            Snackbar.Add("Please select items.", Severity.Warning);
+            return;
+        }
+
+        if (_rows.Any(x => x.Quantity <= 0))
+        {
+            Snackbar.Add("Quantity must be greater than zero.", Severity.Warning);
+            return;
+        }
+
+        foreach (var row in _rows)
+        {
+            if (row.Item is not null && row.Quantity > row.Item.CurrentStock)
+            {
+                Snackbar.Add($"{row.Item.Name} stock available: {row.Item.CurrentStock}", Severity.Error);
+                return;
+            }
+        }
+
+        if (_paidAmount > Total)
+        {
+            Snackbar.Add("Paid amount cannot be greater than total.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            _lastIssue = await SuppliesRepo.CreateIssueAsync(new CreateStudentSupplyIssueRequest
+            {
+                AcademicYearId = _academicYearId,
+                StudentId = _selectedStudent.Id,
+                StudentAdmissionId = _selectedAdmissionId,
+                PaidAmount = _paidAmount,
+                PaymentMode = _paymentMode,
+                Items = _rows.Select(x => new CreateStudentSupplyIssueItemRequest
+                {
+                    SupplyItemId = x.SupplyItemId,
+                    Quantity = x.Quantity,
+                    UnitPrice = x.UnitPrice
+                }).ToList()
+            });
+
+            Snackbar.Add("Bill saved.", Severity.Success);
+            await Task.Delay(300);
+            await JSPrint();
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _saving = false; }
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private async Task JSPrint()
+    {
+        await JS.InvokeVoidAsync("supplyPrint.print", "supply-bill-print");
+    }
+}

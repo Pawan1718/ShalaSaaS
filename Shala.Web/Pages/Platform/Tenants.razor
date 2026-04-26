@@ -1,0 +1,660 @@
+﻿@page "/platform/tenants"
+@layout Shala.Web.Components.Layouts.PlatformMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Platform
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.PlatformRepo
+@using Shala.Web.Services.State
+
+@inject ITenantRepository TenantRepository
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ApiSession Session
+@inject NavigationManager Navigation
+
+<PageTitle>Tenant Management</PageTitle>
+
+<AppPageHeader Title="Tenant Management"
+               Subtitle="Create and manage school tenants">
+    <Actions>
+        <AppButton StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(async (MouseEventArgs _) => await OpenCreateTenantDialog())"
+                   Disabled="_isLoading || !_sessionReady">
+            Add Tenant
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+<AppCard Class="mb-4">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Wrap="Wrap.Wrap">
+
+        <MudTextField T="string"
+                      Value="_searchText"
+                      ValueChanged="@(async (string value) => await OnSearchChanged(value))"
+                      Label="Search tenant"
+                      Placeholder="Search by name, email, category or plan..."
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      DebounceInterval="300"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="flex-grow-1"
+                      Disabled="_isLoading || !_sessionReady" />
+
+        <MudSelect T="string"
+                   Value="_statusFilter"
+                   ValueChanged="@(async (string value) => await OnStatusChanged(value))"
+                   Label="Filter"
+                   Variant="Variant.Outlined"
+                   Style="min-width:140px;"
+                   Disabled="_isLoading || !_sessionReady">
+            <MudSelectItem Value="@("All")">All</MudSelectItem>
+            <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+            <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+        </MudSelect>
+
+        <MudSelect T="int"
+                   Value="_pageSize"
+                   ValueChanged="@(async (int value) => await OnPageSizeChanged(value))"
+                   Label="Rows"
+                   Variant="Variant.Outlined"
+                   Style="min-width:120px;"
+                   Disabled="_isLoading || !_sessionReady">
+            <MudSelectItem Value="10">10</MudSelectItem>
+            <MudSelectItem Value="25">25</MudSelectItem>
+            <MudSelectItem Value="50">50</MudSelectItem>
+            <MudSelectItem Value="100">100</MudSelectItem>
+            <MudSelectItem Value="-1">All</MudSelectItem>
+        </MudSelect>
+
+    </MudStack>
+</AppCard>
+
+@if (_isLoading)
+{
+    <AppLoader Rows="6" />
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <AppError Message="@_errorMessage" />
+}
+else if (ShowInitialEmptyState)
+{
+    <AppEmptyState Title="No tenants yet"
+                   Message="Abhi tak koi tenant create nahi hua. Pehla tenant add karte hi yahan tenant list, filters aur actions dikhne lagenge."
+                   Icon="@Icons.Material.Filled.Business"
+                   IconColor="Color.Primary">
+        <Actions>
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(async (MouseEventArgs _) => await OpenCreateTenantDialog())"
+                       Disabled="!_sessionReady">
+                Add First Tenant
+            </AppButton>
+
+            <AppButton StartIcon="@Icons.Material.Filled.Refresh"
+                       Color="Color.Secondary"
+                       Variant="Variant.Outlined"
+                       OnClick="@(async (MouseEventArgs _) => await LoadTenants())"
+                       Disabled="_isLoading || !_sessionReady">
+                Refresh
+            </AppButton>
+        </Actions>
+    </AppEmptyState>
+}
+else if (ShowFilteredEmptyState)
+{
+    <AppEmptyState Title="No tenants found"
+                   Message="Current search ya filter ke hisaab se koi tenant match nahi hua. Search text ya filter change karke dobara try karo."
+                   Icon="@Icons.Material.Filled.SearchOff"
+                   IconColor="Color.Primary">
+        <Actions>
+            <AppButton StartIcon="@Icons.Material.Filled.FilterAltOff"
+                       Color="Color.Primary"
+                       OnClick="@(async (MouseEventArgs _) => await ClearFilters())"
+                       Disabled="_isLoading || !_sessionReady">
+                Clear Filters
+            </AppButton>
+        </Actions>
+    </AppEmptyState>
+}
+else
+{
+    <AppCard>
+
+        <MudTable Items="_tenants"
+                  Hover="true"
+                  Dense="true"
+                  Striped="true"
+                  Breakpoint="Breakpoint.Md">
+
+            <HeaderContent>
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("name"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Name</MudText>
+                        <MudIcon Icon="@GetSortIcon("name")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("category"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Category</MudText>
+                        <MudIcon Icon="@GetSortIcon("category")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("email"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Email</MudText>
+                        <MudIcon Icon="@GetSortIcon("email")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("plan"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Plan</MudText>
+                        <MudIcon Icon="@GetSortIcon("plan")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("status"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Status</MudText>
+                        <MudIcon Icon="@GetSortIcon("status")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh style="cursor:pointer" @onclick="@(async () => await Sort("created"))">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText>Created</MudText>
+                        <MudIcon Icon="@GetSortIcon("created")" Size="Size.Small" />
+                    </MudStack>
+                </MudTh>
+
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Category">@context.BusinessCategory</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Plan">
+                    <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+                        @context.SubscriptionPlan
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <StatusChip IsActive="@context.IsActive" />
+                </MudTd>
+                <MudTd DataLabel="Created">
+                    @context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                        <MudMenuItem OnClick="@(() => NavigateToWorkspace(context.Id))">
+                            Open Workspace
+                        </MudMenuItem>
+
+                        <MudDivider />
+
+                        <MudMenuItem OnClick="@(() => NavigateToBranches(context.Id))">
+                            Manage Branches
+                        </MudMenuItem>
+
+                        <MudMenuItem OnClick="@(async () => await OpenUsersDialog(context.Id, context.Name))">
+                            View Users
+                        </MudMenuItem>
+
+                        <MudMenuItem OnClick="@(() => NavigateToEdit(context.Id))">
+                            Edit Basic Info
+                        </MudMenuItem>
+
+                        <MudMenuItem OnClick="@(async () => await OpenUpdateEmailDialog(context.Id, context.Email))">
+                            Update Email
+                        </MudMenuItem>
+
+                        <MudMenuItem OnClick="@(async () => await OpenResetPasswordDialog(context.Id))">
+                            Reset Password
+                        </MudMenuItem>
+
+                        <MudMenuItem OnClick="@(async () => await ToggleStatusAsync(context))">
+                            @(context.IsActive ? "Deactivate" : "Activate")
+                        </MudMenuItem>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        <MudDivider Class="my-4" />
+
+        <MudStack Row="true"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Wrap="Wrap.Wrap"
+                  Spacing="2">
+
+            <MudText Typo="Typo.body2">
+                Showing @StartRecord - @EndRecord of @_totalCount
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudButton Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.NavigateBefore"
+                           Disabled="@(_pageNumber <= 1 || IsAllMode || _isLoading || !_sessionReady)"
+                           OnClick="@(async () => await PreviousPage())">
+                    Prev
+                </MudButton>
+
+                <MudText Typo="Typo.body2">
+                    Page @_pageNumber / @TotalPages
+                </MudText>
+
+                <MudButton Variant="Variant.Outlined"
+                           EndIcon="@Icons.Material.Filled.NavigateNext"
+                           Disabled="@(_pageNumber >= TotalPages || IsAllMode || _isLoading || !_sessionReady)"
+                           OnClick="@(async () => await NextPage())">
+                    Next
+                </MudButton>
+            </MudStack>
+        </MudStack>
+
+    </AppCard>
+}
+
+@code {
+    private List<TenantListItemResponse> _tenants = new();
+    private bool _isLoading = true;
+    private bool _sessionReady;
+    private string? _errorMessage;
+
+    private string _searchText = string.Empty;
+    private string _statusFilter = "All";
+
+    private int _pageNumber = 1;
+    private int _pageSize = 10;
+    private int _totalCount = 0;
+
+    private string _sortBy = "created";
+    private bool _sortDesc = true;
+
+    private bool IsAllMode => _pageSize == -1;
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(_searchText) || _statusFilter != "All";
+
+    private bool ShowInitialEmptyState =>
+        !_isLoading &&
+        string.IsNullOrWhiteSpace(_errorMessage) &&
+        _totalCount == 0 &&
+        !HasFilters;
+
+    private bool ShowFilteredEmptyState =>
+        !_isLoading &&
+        string.IsNullOrWhiteSpace(_errorMessage) &&
+        _totalCount == 0 &&
+        HasFilters;
+
+    private int TotalPages =>
+        IsAllMode ? 1 : Math.Max(1, (int)Math.Ceiling((double)_totalCount / _pageSize));
+
+    private int StartRecord =>
+        _totalCount == 0
+            ? 0
+            : IsAllMode
+                ? 1
+                : ((_pageNumber - 1) * _pageSize) + 1;
+
+    private int EndRecord =>
+        _totalCount == 0
+            ? 0
+            : IsAllMode
+                ? _totalCount
+                : Math.Min(_pageNumber * _pageSize, _totalCount);
+
+    protected override Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            var initialized = await Session.InitializeAsync();
+
+            if (!initialized)
+                return;
+
+            _sessionReady = true;
+
+            if (!Session.IsAuthenticated)
+            {
+                Navigation.NavigateTo("/platform/login", forceLoad: true);
+                return;
+            }
+
+            await LoadTenants();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Unable to initialize tenant page."
+                : ex.Message;
+
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadTenants()
+    {
+        if (!_sessionReady)
+            return;
+
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            bool? isActive = _statusFilter switch
+            {
+                "Active" => true,
+                "Inactive" => false,
+                _ => null
+            };
+
+            var request = new TenantListRequest
+            {
+                PageNumber = _pageNumber,
+                PageSize = _pageSize,
+                SearchText = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim(),
+                IsActive = isActive,
+                SortBy = _sortBy,
+                SortDescending = _sortDesc
+            };
+
+            var response = await TenantRepository.GetTenantsPagedAsync(request);
+
+            if (response.IsSuccess && response.ServerResponse is not null)
+            {
+                _tenants = response.ServerResponse.Items ?? new List<TenantListItemResponse>();
+                _totalCount = response.ServerResponse.TotalCount;
+
+                if (!IsAllMode && _pageNumber > TotalPages)
+                {
+                    _pageNumber = 1;
+                    await LoadTenants();
+                    return;
+                }
+            }
+            else
+            {
+                _tenants = new List<TenantListItemResponse>();
+                _totalCount = 0;
+                _errorMessage = !string.IsNullOrWhiteSpace(response.Message)
+                    ? response.Message
+                    : "Unable to load tenants.";
+
+                Snackbar.Add(_errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _tenants = new List<TenantListItemResponse>();
+            _totalCount = 0;
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Failed to load tenants."
+                : ex.Message;
+
+            Snackbar.Add(_errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearFilters()
+    {
+        if (!_sessionReady)
+            return;
+
+        _searchText = string.Empty;
+        _statusFilter = "All";
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        if (!_sessionReady)
+            return;
+
+        _searchText = value ?? string.Empty;
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private async Task OnStatusChanged(string value)
+    {
+        if (!_sessionReady)
+            return;
+
+        _statusFilter = value ?? "All";
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private async Task OnPageSizeChanged(int value)
+    {
+        if (!_sessionReady)
+            return;
+
+        _pageSize = value;
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private async Task Sort(string col)
+    {
+        if (!_sessionReady)
+            return;
+
+        if (_sortBy == col)
+            _sortDesc = !_sortDesc;
+        else
+        {
+            _sortBy = col;
+            _sortDesc = false;
+        }
+
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private string GetSortIcon(string col)
+    {
+        if (_sortBy != col)
+            return Icons.Material.Filled.UnfoldMore;
+
+        return _sortDesc
+            ? Icons.Material.Filled.ArrowDownward
+            : Icons.Material.Filled.ArrowUpward;
+    }
+
+    private async Task PreviousPage()
+    {
+        if (_pageNumber <= 1 || IsAllMode || !_sessionReady)
+            return;
+
+        _pageNumber--;
+        await LoadTenants();
+    }
+
+    private async Task NextPage()
+    {
+        if (_pageNumber >= TotalPages || IsAllMode || !_sessionReady)
+            return;
+
+        _pageNumber++;
+        await LoadTenants();
+    }
+
+    private async Task OpenCreateTenantDialog()
+    {
+        if (!_sessionReady)
+            return;
+
+        var dialog = await DialogService.ShowAsync<CreateTenantDialog>(
+            "Create Tenant",
+            new DialogParameters(),
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled)
+            return;
+
+        _pageNumber = 1;
+        await LoadTenants();
+    }
+
+    private async Task OpenUpdateEmailDialog(int tenantId, string? email)
+    {
+        if (!_sessionReady)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["TenantId"] = tenantId,
+            ["CurrentEmail"] = email ?? string.Empty
+        };
+
+        var dialog = await DialogService.ShowAsync<UpdateTenantEmailDialog>(
+            "Update Email",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadTenants();
+    }
+
+    private async Task OpenResetPasswordDialog(int tenantId)
+    {
+        if (!_sessionReady)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["TenantId"] = tenantId
+        };
+
+        var dialog = await DialogService.ShowAsync<ResetTenantPasswordDialog>(
+            "Reset Password",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            Snackbar.Add("Password updated successfully", Severity.Success);
+    }
+
+    private async Task OpenUsersDialog(int tenantId, string name)
+    {
+        if (!_sessionReady)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["TenantId"] = tenantId,
+            ["TenantName"] = name
+        };
+
+        await DialogService.ShowAsync<TenantUsersDialog>(
+            "Users",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+    }
+
+    private async Task ToggleStatusAsync(TenantListItemResponse tenant)
+    {
+        if (!_sessionReady)
+            return;
+
+        try
+        {
+            var response = await TenantRepository.UpdateTenantStatusAsync(
+                tenant.Id,
+                new UpdateTenantStatusRequest
+                {
+                    IsActive = !tenant.IsActive
+                });
+
+            if (response.IsSuccess)
+            {
+                Snackbar.Add("Status updated", Severity.Success);
+                await LoadTenants();
+            }
+            else
+            {
+                var message = !string.IsNullOrWhiteSpace(response.Message)
+                    ? response.Message
+                    : "Failed to update tenant status.";
+
+                Snackbar.Add(message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(
+                string.IsNullOrWhiteSpace(ex.Message) ? "Failed to update tenant status." : ex.Message,
+                Severity.Error);
+        }
+    }
+
+    private void NavigateToEdit(int tenantId)
+    {
+        Navigation.NavigateTo($"/platform/tenants/{tenantId}/edit");
+    }
+
+    private void NavigateToWorkspace(int tenantId)
+    {
+        Navigation.NavigateTo($"/platform/tenants/{tenantId}");
+    }
+
+    private void NavigateToBranches(int tenantId)
+    {
+        Navigation.NavigateTo($"/platform/tenants/{tenantId}/branches");
+    }
+}

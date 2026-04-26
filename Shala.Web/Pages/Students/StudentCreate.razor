@@ -1,0 +1,366 @@
+﻿@page "/tenant/students/create"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+
+@inject IStudentRepository StudentRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Add Student</PageTitle>
+
+<MudStack Spacing="3">
+
+    <MudPaper Class="page-header pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">Add Student</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Create a new student profile with guardian details.
+                </MudText>
+            </div>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="GoBack">
+                Back
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Basic Information</MudText>
+
+            <MudGrid Spacing="2">
+               
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="First Name"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.FirstName"
+                                  For="@(() => _model.FirstName)"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Middle Name"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.MiddleName" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Last Name"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.LastName"
+                                  For="@(() => _model.LastName)"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudSelect T="int"
+                               Label="Gender"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               @bind-Value="_model.Gender"
+                               Required="true">
+                        <MudSelectItem T="int" Value="1">Male</MudSelectItem>
+                        <MudSelectItem T="int" Value="2">Female</MudSelectItem>
+                        <MudSelectItem T="int" Value="3">Other</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="Date of Birth"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   Date="_dateOfBirth"
+                                   DateChanged="OnDateChanged"
+                                   Editable="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Aadhaar No"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.AadhaarNo" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Blood Group"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.BloodGroup" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Mobile"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.Mobile" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTextField T="string"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.Email" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Photo URL"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_model.PhotoUrl" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Address"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Lines="3"
+                                  @bind-Value="_model.Address" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6">Guardian Details</MudText>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddGuardian"
+                           ButtonType="ButtonType.Button">
+                    Add Guardian
+                </MudButton>
+            </MudStack>
+
+            @if (_guardianValidationError)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                    At least one guardian is required, and one guardian must be marked as primary.
+                </MudAlert>
+            }
+
+            @for (int i = 0; i < _model.Guardians.Count; i++)
+            {
+                var rowIndex = i;
+                var guardian = _model.Guardians[rowIndex];
+                var displayIndex = rowIndex + 1;
+
+                <MudPaper Class="pa-3 mb-3" Outlined="true">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1" Class="fw-semibold">Guardian @displayIndex</MudText>
+
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   OnClick="@(() => RemoveGuardian(rowIndex))"
+                                   ButtonType="ButtonType.Button"
+                                   Disabled="@(_model.Guardians.Count == 1)">
+                            Remove
+                        </MudButton>
+                    </MudStack>
+
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string"
+                                          Label="Name"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          @bind-Value="guardian.Name"
+                                          Required="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int"
+                                       Label="Relation Type"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       @bind-Value="guardian.RelationType">
+                                <MudSelectItem T="int" Value="1">Father</MudSelectItem>
+                                <MudSelectItem T="int" Value="2">Mother</MudSelectItem>
+                                <MudSelectItem T="int" Value="3">Guardian</MudSelectItem>
+                                <MudSelectItem T="int" Value="4">Other</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string"
+                                          Label="Mobile"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          @bind-Value="guardian.Mobile"
+                                          Required="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="3" Class="d-flex align-center">
+                            <MudCheckBox T="bool"
+                                         Label="Primary Guardian"
+                                         @bind-Value="guardian.IsPrimary" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Email"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          @bind-Value="guardian.Email" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Occupation"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          @bind-Value="guardian.Occupation" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Address"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          @bind-Value="guardian.Address" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           OnClick="GoBack"
+                           ButtonType="ButtonType.Button">
+                    Cancel
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           ButtonType="ButtonType.Submit"
+                           Disabled="_saving"
+                           StartIcon="@Icons.Material.Filled.Save">
+                    @(_saving ? "Saving..." : "Save Student")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </EditForm>
+</MudStack>
+
+@code {
+    private CreateStudentRequest _model = new();
+    private DateTime? _dateOfBirth = DateTime.Today;
+    private bool _saving;
+    private bool _guardianValidationError;
+
+    protected override void OnInitialized()
+    {
+        if (Session.TenantId is null || Session.BranchId is null)
+        {
+            Snackbar.Add("Tenant or Branch context is missing.", Severity.Error);
+            return;
+        }
+
+     
+        _model.Gender = 1;
+        _model.DateOfBirth = DateTime.Today;
+
+        if (_model.Guardians.Count == 0)
+        {
+            _model.Guardians.Add(CreateDefaultGuardian());
+        }
+    }
+
+    private void OnDateChanged(DateTime? value)
+    {
+        _dateOfBirth = value;
+        _model.DateOfBirth = value ?? DateTime.Today;
+    }
+
+    private void AddGuardian()
+    {
+        _model.Guardians.Add(CreateDefaultGuardian());
+    }
+
+    private void RemoveGuardian(int index)
+    {
+        if (_model.Guardians.Count <= 1)
+            return;
+
+        if (index < 0 || index >= _model.Guardians.Count)
+            return;
+
+        _model.Guardians.RemoveAt(index);
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _guardianValidationError = false;
+
+        if (_model.Guardians.Count == 0 || !_model.Guardians.Any(x => x.IsPrimary))
+        {
+            _guardianValidationError = true;
+            Snackbar.Add("Please add at least one primary guardian.", Severity.Error);
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var response = await StudentRepository.CreateAsync(_model);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                Snackbar.Add(response.Message ?? "Student created successfully.", Severity.Success);
+                Navigation.NavigateTo($"/tenant/students/{response.Data.Id}");
+            }
+            else
+            {
+                Snackbar.Add(response?.Message ?? "Failed to create student.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/tenant/students");
+    }
+
+    private static CreateGuardianRequest CreateDefaultGuardian()
+    {
+        return new CreateGuardianRequest
+        {
+            RelationType = 1,
+            IsPrimary = false
+        };
+    }
+}

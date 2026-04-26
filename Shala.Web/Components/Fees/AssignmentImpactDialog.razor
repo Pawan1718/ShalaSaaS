@@ -1,0 +1,104 @@
+﻿@using MudBlazor
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Models.Fees
+
+<MudDialog MaxWidth="MaxWidth.Medium" FullWidth="true">
+    <TitleContent>
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Rule" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Review Assignment Change</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="@GetSeverity()" Variant="Variant.Outlined" Dense="true">
+                @GetMessage()
+            </MudAlert>
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-3 h-100" Outlined="true">
+                        <MudText Typo="Typo.subtitle2">Current</MudText>
+                        <MudDivider Class="my-2" />
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2"><b>Structure:</b> @Display(CurrentStructureName)</MudText>
+                            <MudText Typo="Typo.body2"><b>Discount:</b> @CurrentDiscount.ToString("N2")</MudText>
+                            <MudText Typo="Typo.body2"><b>Additional:</b> @CurrentAdditional.ToString("N2")</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-3 h-100" Outlined="true">
+                        <MudText Typo="Typo.subtitle2">Proposed</MudText>
+                        <MudDivider Class="my-2" />
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2"><b>Structure:</b> @Display(ProposedStructureName)</MudText>
+                            <MudText Typo="Typo.body2"><b>Discount:</b> @Model.DiscountAmount.ToString("N2")</MudText>
+                            <MudText Typo="Typo.body2"><b>Additional:</b> @Model.AdditionalChargeAmount.ToString("N2")</MudText>
+                            <MudText Typo="Typo.body2"><b>Regenerate:</b> @(Model.AutoGenerateCharges ? "Yes" : "No")</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Class="pa-3" Outlined="true">
+                <MudText Typo="Typo.subtitle2">Impact</MudText>
+                <MudDivider Class="my-2" />
+                <MudList T="string" Dense="true">
+                    <MudListItem T="string">Paid charges block destructive fee-impact changes in backend.</MudListItem>
+                    <MudListItem T="string">Unpaid active charges may be cancelled and replaced on regeneration.</MudListItem>
+                    <MudListItem T="string">Ledger history is preserved using cancel-and-repost flow.</MudListItem>
+                </MudList>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Close">Back</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="Confirm">
+            Continue
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public AssignFeeStructureVm Model { get; set; } = new();
+    [Parameter] public string? CurrentStructureName { get; set; }
+    [Parameter] public string? ProposedStructureName { get; set; }
+    [Parameter] public decimal CurrentDiscount { get; set; }
+    [Parameter] public decimal CurrentAdditional { get; set; }
+    [Parameter] public bool HasPaidCharges { get; set; }
+    [Parameter] public bool HasActiveCharges { get; set; }
+
+    private void Close() => MudDialog.Cancel();
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+
+    private Severity GetSeverity()
+    {
+        if (HasPaidCharges)
+            return Severity.Warning;
+
+        if (HasActiveCharges)
+            return Severity.Info;
+
+        return Severity.Normal;
+    }
+
+    private string GetMessage()
+    {
+        if (HasPaidCharges)
+            return "Paid active charges exist. Backend may reject fee-impact changes or regeneration.";
+
+        if (HasActiveCharges)
+            return "Unpaid active charges exist. Regeneration can cancel old unpaid charges and create a fresh set.";
+
+        return "No active charges exist. Assignment update is low risk.";
+    }
+
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value;
+}

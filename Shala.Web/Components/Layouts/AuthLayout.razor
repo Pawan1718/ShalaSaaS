@@ -1,0 +1,33 @@
+﻿@inherits LayoutComponentBase
+@using Shala.Web.Helpers
+@inject NavigationManager Nav
+
+<MudThemeProvider Theme="@ShalaTheme.Default" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true" Color="Color.Primary">
+        <MudText Typo="Typo.h6" OnClick="@(() => Nav.NavigateTo("/"))" Style="cursor:pointer;">
+            Shala SaaS
+        </MudText>
+
+        <MudSpacer />
+
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   OnClick="@(()=>Nav.NavigateTo("/platform/login"))">
+            Platform Login
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Inherit"
+                   OnClick="@(()=>Nav.NavigateTo("/tenant/login"))">
+            Tenant Login
+        </MudButton>
+    </MudAppBar>
+
+    <MudMainContent Style="min-height:100vh; background:#f8f9fb;">
+        @Body
+    </MudMainContent>
+</MudLayout>

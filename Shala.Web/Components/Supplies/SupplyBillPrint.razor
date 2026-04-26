@@ -1,0 +1,55 @@
+﻿@using Shala.Shared.Responses.Supplies
+
+@if (Issue is not null)
+{
+    <div id="supply-bill-print" class="supply-print">
+        <div class="supply-bill">
+            <h2>SCHOOL NAME</h2>
+            <h3>Supply Bill</h3>
+
+            <div class="bill-row">
+                <span>Bill No: <b>@Issue.IssueNo</b></span>
+                <span>Date: <b>@Issue.IssueDate.ToString("dd-MMM-yyyy")</b></span>
+            </div>
+
+            <div class="bill-row">
+                <span>Student: <b>@Issue.StudentName</b></span>
+                <span>Class: <b>@Issue.ClassName @Issue.SectionName</b></span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="right">Qty</th>
+                        <th class="right">Price</th>
+                        <th class="right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Issue.Items)
+                    {
+                        <tr>
+                            <td>@item.ItemName</td>
+                            <td class="right">@item.Quantity</td>
+                            <td class="right">₹@item.UnitPrice.ToString("N2")</td>
+                            <td class="right">₹@item.LineTotal.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <div class="totals">
+                <div>Total: ₹@Issue.TotalAmount.ToString("N2")</div>
+                <div>Paid: ₹@Issue.PaidAmount.ToString("N2")</div>
+                <div>Due: ₹@Issue.DueAmount.ToString("N2")</div>
+            </div>
+
+            <p class="thanks">Thank you</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public StudentSupplyIssueResponse? Issue { get; set; }
+}

@@ -1,0 +1,493 @@
+﻿@page "/tenant/students/{Id:int}/admission"
+@page "/tenant/students/{Id:int}/admission/{AdmissionId:int}/edit"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Academics
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Shared.Responses.TenantConfigSetting
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.StudentRepo
+@using Shala.Web.Services.State
+
+@inject IStudentAdmissionRepository StudentAdmissionRepository
+@inject IStudentRepository StudentRepository
+@inject IStudentLookupRepository StudentLookupRepository
+@inject IRollNumberSettingRepository RollNumberSettingRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>@(IsEditMode ? "Edit Admission" : "Add Admission")</PageTitle>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Typo="Typo.body1">Loading admission form...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (_student is null)
+{
+    <MudPaper Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Default" />
+            <MudText Typo="Typo.h6">Student not found</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBackToStudents">
+                Back to Students
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudStack Spacing="3">
+
+        <MudPaper Class="page-header pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-bold">
+                        @(IsEditMode ? "Edit Admission" : "Add Admission")
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @(IsEditMode
+                            ? $"Update academic admission for {_student.FullName}"
+                            : $"Create academic admission for {_student.FullName}")
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="GoBackToDetails">
+                        Back
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 detail-card h-100">
+                    <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Student Summary</MudText>
+
+                    <MudStack Spacing="2">
+                        <DetailRow Label="Student" Value="@_student.FullName" />
+                        <DetailRow Label="Admission No" Value="@(_student.AdmissionNo ?? "-")" />
+                        <DetailRow Label="Gender" Value="@(_student.Gender ?? "-")" />
+                        <DetailRow Label="Date of Birth" Value="@_student.DateOfBirth.ToString("dd MMM yyyy")" />
+                        <DetailRow Label="Mobile" Value="@(_student.Mobile ?? "-")" />
+                        <DetailRow Label="Status" Value="@(_student.Status ?? "-")" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <EditForm Model="@(IsEditMode? _updateModel : _createModel)" OnSubmit="HandleSubmitAsync">
+                    <DataAnnotationsValidator />
+
+                    <MudPaper Class="pa-4 detail-card">
+                        <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Admission Details</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_formError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                                @_formError
+                            </MudAlert>
+                        }
+
+                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mb-3">
+                            Roll number will be generated automatically.
+                        </MudAlert>
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudSelect T="int?"
+                                           Label="Academic Year"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           @bind-Value="_selectedAcademicYearId"
+                                           Required="true">
+                                    @foreach (var item in _academicYears)
+                                    {
+                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudDatePicker Label="Admission Date"
+                                               Variant="Variant.Outlined"
+                                               Margin="Margin.Dense"
+                                               Date="_admissionDate"
+                                               DateChanged="OnAdmissionDateChanged"
+                                               Editable="true" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudSelect T="int?"
+                                           Label="Class"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           Value="_selectedClassId"
+                                           ValueChanged="OnClassChanged"
+                                           Required="true">
+                                    @foreach (var item in _classes)
+                                    {
+                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudSelect T="int?"
+                                           Label="Section"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           @bind-Value="_selectedSectionId"
+                                           Disabled="@(!_selectedClassId.HasValue)">
+                                    <MudSelectItem T="int?" Value="@((int?)null)">No Section</MudSelectItem>
+                                    @foreach (var item in _sections)
+                                    {
+                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudTextField T="string"
+                                              Label="Roll No"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_rollNo"
+                                              Disabled="false"
+                                              HelperText="This field is auto-generated." />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Default"
+                                       ButtonType="ButtonType.Button"
+                                       OnClick="GoBackToDetails">
+                                Cancel
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       ButtonType="ButtonType.Submit"
+                                       Disabled="_saving"
+                                       StartIcon="@Icons.Material.Filled.Save">
+                                @(_saving
+                                    ? (IsEditMode ? "Updating..." : "Saving...")
+                                    : (IsEditMode ? "Update Admission" : "Save Admission"))
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </EditForm>
+            </MudItem>
+        </MudGrid>
+
+    </MudStack>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public int? AdmissionId { get; set; }
+
+    private bool IsEditMode => AdmissionId.HasValue;
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _formError;
+
+    private StudentDetailsResponse? _student;
+
+    private CreateStudentAdmissionRequest _createModel = new();
+    private UpdateStudentAdmissionRequest _updateModel = new();
+
+    private List<LookupItemResponse> _academicYears = [];
+    private List<LookupItemResponse> _classes = [];
+    private List<LookupItemResponse> _sections = [];
+
+    private int? _selectedAcademicYearId;
+    private int? _selectedClassId;
+    private int? _selectedSectionId;
+    private DateTime? _admissionDate = DateTime.Today;
+    private string? _rollNo;
+
+    private RollNumberSettingResponse? _rollNumberSetting;
+    private bool _rollNoDisabled = true;
+    private string _rollNoHelperText = string.Empty;
+    private string _rollNoFieldHelperText = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _formError = null;
+        _sections = [];
+
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null || Session.BranchId is null)
+            {
+                Snackbar.Add("Tenant or Branch context is missing.", Severity.Error);
+                _student = null;
+                return;
+            }
+
+            await LoadRollNumberSettingsAsync();
+
+            var studentResponse = await StudentRepository.GetByIdAsync(Id, Session.TenantId.Value);
+
+            if (studentResponse?.Success != true || studentResponse.Data is null)
+            {
+                _student = null;
+                Snackbar.Add(studentResponse?.Message ?? "Failed to load student.", Severity.Error);
+                return;
+            }
+
+            _student = studentResponse.Data;
+
+            _createModel = new CreateStudentAdmissionRequest
+            {
+                StudentId = Id,
+                AdmissionDate = DateTime.Today
+            };
+
+            _updateModel = new UpdateStudentAdmissionRequest
+            {
+                Id = 0,
+                StudentId = Id,
+                AdmissionDate = DateTime.Today
+            };
+
+            _admissionDate = DateTime.Today;
+            _rollNo = null;
+            _selectedAcademicYearId = null;
+            _selectedClassId = null;
+            _selectedSectionId = null;
+
+            var academicYearsResponse = await StudentLookupRepository.GetAcademicYearsAsync(Session.TenantId.Value);
+            _academicYears = academicYearsResponse?.Success == true && academicYearsResponse.Data is not null
+                ? academicYearsResponse.Data
+                : [];
+
+            var classesResponse = await StudentLookupRepository.GetClassesAsync(Session.TenantId.Value);
+            _classes = classesResponse?.Success == true && classesResponse.Data is not null
+                ? classesResponse.Data
+                : [];
+
+            if (IsEditMode)
+                await LoadEditDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            _student = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadRollNumberSettingsAsync()
+    {
+        if (Session.TenantId is null)
+            return;
+
+        var response = await RollNumberSettingRepository.GetAsync(Session.TenantId.Value);
+        _rollNumberSetting = response?.Data;
+
+        _rollNoDisabled = true;
+        _rollNoHelperText = "Roll number will be generated automatically.";
+        _rollNoFieldHelperText = "This field is auto-generated.";
+    }
+
+    private async Task LoadEditDataAsync()
+    {
+        if (_student is null || !AdmissionId.HasValue)
+        {
+            _formError = "Admission not found.";
+            return;
+        }
+
+        var admission = _student.Admissions?.FirstOrDefault(x => x.Id == AdmissionId.Value);
+
+        if (admission is null)
+        {
+            _formError = "Admission not found.";
+            return;
+        }
+
+        _updateModel.Id = admission.Id;
+        _updateModel.StudentId = _student.Id;
+
+        _rollNo = admission.RollNo;
+        _admissionDate = admission.AdmissionDate;
+
+        _selectedAcademicYearId = _academicYears
+            .FirstOrDefault(x => string.Equals(x.Name, admission.AcademicYear, StringComparison.OrdinalIgnoreCase))?.Id;
+
+        _selectedClassId = _classes
+            .FirstOrDefault(x => string.Equals(x.Name, admission.ClassName, StringComparison.OrdinalIgnoreCase))?.Id;
+
+        if (_selectedClassId.HasValue)
+        {
+            await LoadSectionsAsync(_selectedClassId.Value);
+
+            _selectedSectionId = _sections
+                .FirstOrDefault(x => string.Equals(x.Name, admission.SectionName, StringComparison.OrdinalIgnoreCase))?.Id;
+        }
+    }
+
+    private void OnAdmissionDateChanged(DateTime? value)
+    {
+        _admissionDate = value;
+    }
+
+    private async Task OnClassChanged(int? value)
+    {
+        _selectedClassId = value;
+        _selectedSectionId = null;
+        _sections = [];
+
+        if (value.HasValue)
+            await LoadSectionsAsync(value.Value);
+    }
+
+    private async Task LoadSectionsAsync(int classId)
+    {
+        if (Session.TenantId is null || Session.BranchId is null)
+            return;
+
+        var response = await StudentLookupRepository.GetSectionsByClassAsync(
+            Session.TenantId.Value,
+            Session.BranchId.Value,
+            classId);
+
+        if (response?.Success == true && response.Data is not null)
+        {
+            _sections = response.Data;
+        }
+        else
+        {
+            _sections = [];
+            Snackbar.Add(response?.Message ?? "Failed to load sections.", Severity.Error);
+        }
+    }
+
+    private async Task HandleSubmitAsync(EditContext _)
+    {
+        _formError = null;
+
+        if (Session.TenantId is null || Session.BranchId is null)
+        {
+            _formError = "Tenant or branch context is missing.";
+            return;
+        }
+
+        if (!_selectedAcademicYearId.HasValue)
+        {
+            _formError = "Please select academic year.";
+            return;
+        }
+
+        if (!_selectedClassId.HasValue)
+        {
+            _formError = "Please select class.";
+            return;
+        }
+
+        if (!_admissionDate.HasValue)
+        {
+            _formError = "Please select admission date.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            string? rollNoToSend = null;
+            if (IsEditMode)
+            {
+                _updateModel.StudentId = Id;
+                _updateModel.AcademicYearId = _selectedAcademicYearId.Value;
+                _updateModel.ClassId = _selectedClassId.Value;
+                _updateModel.SectionId = _selectedSectionId;
+                _updateModel.AdmissionDate = _admissionDate.Value;
+                _updateModel.RollNo = rollNoToSend;
+
+                var updateResponse = await StudentAdmissionRepository.UpdateAsync(_updateModel.Id, _updateModel);
+                if (updateResponse?.Success == true)
+                {
+                    Snackbar.Add(updateResponse.Message ?? "Admission updated successfully.", Severity.Success);
+                    Navigation.NavigateTo($"/tenant/students/{Id}");
+                    return;
+                }
+
+                _formError = updateResponse?.Message ?? "Failed to update admission.";
+                Snackbar.Add(_formError, Severity.Error);
+            }
+            else
+            {
+                _createModel.StudentId = Id;
+                _createModel.AcademicYearId = _selectedAcademicYearId.Value;
+                _createModel.ClassId = _selectedClassId.Value;
+                _createModel.SectionId = _selectedSectionId;
+                _createModel.AdmissionDate = _admissionDate.Value;
+                _createModel.RollNo = rollNoToSend;
+
+                var createResponse = await StudentAdmissionRepository.CreateAsync(_createModel);
+                if (createResponse?.Success == true)
+                {
+                    Snackbar.Add(createResponse.Message ?? "Admission created successfully.", Severity.Success);
+                    Navigation.NavigateTo($"/tenant/students/{Id}");
+                    return;
+                }
+
+                _formError = createResponse?.Message ?? "Failed to create admission.";
+                Snackbar.Add(_formError, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void GoBackToDetails()
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}");
+    }
+
+    private void GoBackToStudents()
+    {
+        Navigation.NavigateTo("/tenant/students");
+    }
+}

@@ -1,0 +1,494 @@
+﻿@page "/students/setup/roll-number-settings"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Services.State
+
+@inject IRollNumberSettingRepository RollNumberSettingRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<PageTitle>Roll Number Settings</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="roll-settings-shell">
+    <MudStack Spacing="3">
+
+        <MudPaper Elevation="0" Class="roll-settings-hero">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Wrap="Wrap.Wrap"
+                      Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h4" Class="page-title">Roll Number Settings</MudText>
+                    <MudText Typo="Typo.body2" Class="page-subtitle">
+                        Configure how roll numbers are generated for student admissions across academic year, class, and section.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.Restore"
+                               OnClick="ResetDefaults"
+                               Disabled="_loading || _saving">
+                        Reset Default
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               OnClick="SaveAsync"
+                               Disabled="_loading || _saving">
+                        @(_saving ? "Saving..." : "Save Settings")
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        @if (_loading)
+        {
+            <MudPaper Elevation="0" Class="state-card">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Typo="Typo.body1">Loading roll number settings...</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+
+                <MudItem xs="12" lg="7">
+                    <MudStack Spacing="3">
+
+                        <MudPaper Elevation="0" Class="settings-card">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="section-title">Generation Mode</MudText>
+                            </MudStack>
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12">
+                                    <MudSwitch T="bool"
+                                               Color="Color.Primary"
+                                               @bind-Value="_model.AutoGenerate"
+                                               Label="Auto generate roll number" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <MudSwitch T="bool"
+                                               Color="Color.Primary"
+                                               @bind-Value="_model.AllowManualOverride"
+                                               Disabled="@(!_model.AutoGenerate)"
+                                               Label="Allow manual override" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudAlert Severity="@ModeSeverity"
+                                      Dense="true"
+                                      Variant="Variant.Outlined"
+                                      Class="mt-3">
+                                @ModeDescription
+                            </MudAlert>
+                        </MudPaper>
+
+                        <MudPaper Elevation="0" Class="settings-card">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.RestartAlt" Color="Color.Info" />
+                                <MudText Typo="Typo.h6" Class="section-title">Reset Scope</MudText>
+                            </MudStack>
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12">
+                                    <MudSwitch T="bool"
+                                               Color="Color.Info"
+                                               @bind-Value="_model.ResetPerAcademicYear"
+                                               Label="Reset per academic year" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <MudSwitch T="bool"
+                                               Color="Color.Info"
+                                               @bind-Value="_model.ResetPerClass"
+                                               Label="Reset per class" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <MudSwitch T="bool"
+                                               Color="Color.Info"
+                                               @bind-Value="_model.ResetPerSection"
+                                               Label="Reset per section" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudAlert Severity="Severity.Info"
+                                      Dense="true"
+                                      Variant="Variant.Outlined"
+                                      Class="mt-3">
+                                @ResetSummary
+                            </MudAlert>
+                        </MudPaper>
+
+                        <MudPaper Elevation="0" Class="settings-card">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.Tag" Color="Color.Success" />
+                                <MudText Typo="Typo.h6" Class="section-title">Numbering Rules</MudText>
+                            </MudStack>
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" sm="6">
+                                    <MudNumericField T="int"
+                                                     Label="Start From"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     Min="1"
+                                                     Immediate="true"
+                                                     @bind-Value="_model.StartFrom" />
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudNumericField T="int"
+                                                     Label="Number Padding"
+                                                     Variant="Variant.Outlined"
+                                                     Margin="Margin.Dense"
+                                                     Min="1"
+                                                     Max="10"
+                                                     Immediate="true"
+                                                     @bind-Value="_model.NumberPadding" />
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField T="string"
+                                                  Label="Prefix"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Immediate="true"
+                                                  @bind-Value="_model.Prefix" />
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField T="string"
+                                                  Label="Format"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Immediate="true"
+                                                  @bind-Value="_model.Format"
+                                                  HelperText="Allowed placeholders: {prefix}, {number}, {class}, {section}, {year}" />
+                                </MudItem>
+                            </MudGrid>
+
+                            @if (!string.IsNullOrWhiteSpace(FormatValidationMessage))
+                            {
+                                <MudAlert Severity="Severity.Warning"
+                                          Dense="true"
+                                          Variant="Variant.Outlined"
+                                          Class="mt-3">
+                                    @FormatValidationMessage
+                                </MudAlert>
+                            }
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" lg="5">
+                    <MudStack Spacing="3">
+
+                        <MudPaper Elevation="0" Class="preview-card">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Warning" />
+                                <MudText Typo="Typo.h6" Class="section-title">Live Preview</MudText>
+                            </MudStack>
+
+                            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                                This preview reflects the current configuration and sample values.
+                            </MudAlert>
+
+                            <MudPaper Elevation="0" Class="preview-box mt-3">
+                                <MudText Typo="Typo.caption" Class="preview-label">Generated Roll Number</MudText>
+                                <MudText Typo="Typo.h4" Class="preview-value">@PreviewRollNo</MudText>
+                            </MudPaper>
+
+                            <MudGrid Spacing="2" Class="mt-1">
+                                <MudItem xs="6">
+                                    <MudPaper Elevation="0" Class="mini-stat">
+                                        <MudText Typo="Typo.caption">Mode</MudText>
+                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@ModeShort</MudText>
+                                    </MudPaper>
+                                </MudItem>
+
+                                <MudItem xs="6">
+                                    <MudPaper Elevation="0" Class="mini-stat">
+                                        <MudText Typo="Typo.caption">Padding</MudText>
+                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@Math.Max(_model.NumberPadding, 1)</MudText>
+                                    </MudPaper>
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <MudPaper Elevation="0" Class="mini-stat">
+                                        <MudText Typo="Typo.caption">Reset Summary</MudText>
+                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@ResetShort</MudText>
+                                    </MudPaper>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+
+                        <MudPaper Elevation="0" Class="preview-card">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.Code" Color="Color.Secondary" />
+                                <MudText Typo="Typo.h6" Class="section-title">Available Placeholders</MudText>
+                            </MudStack>
+
+                            <MudChipSet T="string" Class="placeholder-set">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{prefix}</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{number}</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{class}</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{section}</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{year}</MudChip>
+                            </MudChipSet>
+
+                            <MudDivider Class="my-3" />
+
+                            <MudText Typo="Typo.body2" Class="helper-line">
+                                Example format:
+                            </MudText>
+                            <MudCodeHighlight Code="{prefix}-{class}-{section}-{number}" Language="text" />
+                        </MudPaper>
+
+                    </MudStack>
+                </MudItem>
+
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private readonly RollNumberSettingFormModel _defaultModel = new();
+
+    private RollNumberSettingFormModel _model = new();
+    private bool _loading = true;
+    private bool _saving;
+
+    private string PreviewRollNo
+    {
+        get
+        {
+            var format = string.IsNullOrWhiteSpace(_model.Format) ? "{number}" : _model.Format.Trim();
+            var padded = Math.Max(_model.StartFrom, 1).ToString().PadLeft(Math.Max(_model.NumberPadding, 1), '0');
+
+            return format
+                .Replace("{prefix}", _model.Prefix ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("{number}", padded, StringComparison.OrdinalIgnoreCase)
+                .Replace("{class}", "10", StringComparison.OrdinalIgnoreCase)
+                .Replace("{section}", "2", StringComparison.OrdinalIgnoreCase)
+                .Replace("{year}", "2026", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private string ModeShort =>
+        !_model.AutoGenerate
+            ? "Manual"
+            : _model.AllowManualOverride
+                ? "Auto + Override"
+                : "Strict Auto";
+
+    private Severity ModeSeverity =>
+        !_model.AutoGenerate
+            ? Severity.Warning
+            : _model.AllowManualOverride
+                ? Severity.Info
+                : Severity.Success;
+
+    private string ModeDescription =>
+        !_model.AutoGenerate
+            ? "Roll numbers will be entered manually during admission."
+            : _model.AllowManualOverride
+                ? "Roll numbers will be auto-generated by default, but users can override them manually."
+                : "Roll numbers will be fully auto-generated and manual entry will be disabled.";
+
+    private string ResetShort
+    {
+        get
+        {
+            var parts = new List<string>();
+
+            if (_model.ResetPerAcademicYear) parts.Add("Year");
+            if (_model.ResetPerClass) parts.Add("Class");
+            if (_model.ResetPerSection) parts.Add("Section");
+
+            return parts.Count == 0 ? "Never resets by scope" : string.Join(" + ", parts);
+        }
+    }
+
+    private string ResetSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+
+            if (_model.ResetPerAcademicYear) parts.Add("academic year");
+            if (_model.ResetPerClass) parts.Add("class");
+            if (_model.ResetPerSection) parts.Add("section");
+
+            return parts.Count == 0
+                ? "Roll numbers will continue in a single running sequence without scope-based reset."
+                : $"Roll number sequence will reset based on: {string.Join(", ", parts)}.";
+        }
+    }
+
+    private string? FormatValidationMessage
+    {
+        get
+        {
+            var format = _model.Format?.Trim();
+
+            if (string.IsNullOrWhiteSpace(format))
+                return "Format is empty. Default {number} will be used while saving.";
+
+            if (!format.Contains("{number}", StringComparison.OrdinalIgnoreCase))
+                return "Recommended: include {number} in the format, otherwise the sequence value will not appear.";
+
+            return null;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            var result = await RollNumberSettingRepository.GetAsync(Session.TenantId.Value);
+            var data = result?.Data;
+
+            _model = new RollNumberSettingFormModel
+            {
+                AutoGenerate = data?.AutoGenerate ?? true,
+                AllowManualOverride = data?.AllowManualOverride ?? false,
+                ResetPerAcademicYear = data?.ResetPerAcademicYear ?? true,
+                ResetPerClass = data?.ResetPerClass ?? true,
+                ResetPerSection = data?.ResetPerSection ?? false,
+                StartFrom = data?.StartFrom ?? 1,
+                NumberPadding = data?.NumberPadding ?? 3,
+                Prefix = data?.Prefix ?? string.Empty,
+                Format = data?.Format ?? "{number}"
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ResetDefaults()
+    {
+        _model = new RollNumberSettingFormModel
+        {
+            AutoGenerate = _defaultModel.AutoGenerate,
+            AllowManualOverride = _defaultModel.AllowManualOverride,
+            ResetPerAcademicYear = _defaultModel.ResetPerAcademicYear,
+            ResetPerClass = _defaultModel.ResetPerClass,
+            ResetPerSection = _defaultModel.ResetPerSection,
+            StartFrom = _defaultModel.StartFrom,
+            NumberPadding = _defaultModel.NumberPadding,
+            Prefix = _defaultModel.Prefix,
+            Format = _defaultModel.Format
+        };
+
+        Snackbar.Add("Default values restored on screen.", Severity.Info);
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            if (_model.StartFrom < 1)
+            {
+                Snackbar.Add("Start From must be at least 1.", Severity.Warning);
+                return;
+            }
+
+            if (_model.NumberPadding is < 1 or > 10)
+            {
+                Snackbar.Add("Number Padding must be between 1 and 10.", Severity.Warning);
+                return;
+            }
+
+            _saving = true;
+
+            var request = new SaveRollNumberSettingRequest
+            {
+                AutoGenerate = _model.AutoGenerate,
+                AllowManualOverride = _model.AutoGenerate && _model.AllowManualOverride,
+                ResetPerAcademicYear = _model.ResetPerAcademicYear,
+                ResetPerClass = _model.ResetPerClass,
+                ResetPerSection = _model.ResetPerSection,
+                StartFrom = _model.StartFrom,
+                NumberPadding = _model.NumberPadding,
+                Prefix = _model.Prefix?.Trim() ?? string.Empty,
+                Format = string.IsNullOrWhiteSpace(_model.Format) ? "{number}" : _model.Format.Trim()
+            };
+
+            var result = await RollNumberSettingRepository.SaveAsync(request);
+
+            if (result?.Success == true)
+            {
+                Snackbar.Add(result.Message ?? "Roll number settings saved successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result?.Message ?? "Failed to save roll number settings.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private sealed class RollNumberSettingFormModel
+    {
+        public bool AutoGenerate { get; set; } = true;
+        public bool AllowManualOverride { get; set; }
+        public bool ResetPerAcademicYear { get; set; } = true;
+        public bool ResetPerClass { get; set; } = true;
+        public bool ResetPerSection { get; set; }
+        public int StartFrom { get; set; } = 1;
+        public int NumberPadding { get; set; } = 3;
+        public string Prefix { get; set; } = string.Empty;
+        public string Format { get; set; } = "{number}";
+    }
+}

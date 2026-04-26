@@ -1,0 +1,188 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using MudBlazor
+@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Helpers
+@using Shala.Web.Services.State
+@inject NavigationManager Nav
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<MudThemeProvider Theme="@ShalaTheme.Default" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout Class="tenant-layout-shell">
+
+    <MudDrawer @bind-Open="_drawerOpen"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md"
+               Width="292px"
+               Class="tenant-drawer">
+
+        <div class="tenant-drawer-inner">
+
+            <button class="tenant-logo-card" @onclick="GoDashboard">
+                <img src="/images/shala-crm-logo.jpg" />
+            </button>
+
+            <MudNavMenu Dense="true">
+                <MudNavLink Href="/tenant/dashboard" Icon="@Icons.Material.Filled.SpaceDashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/tenant/students" Icon="@Icons.Material.Filled.Groups">Students</MudNavLink>
+                <MudNavLink Href="/tenant/students/create" Icon="@Icons.Material.Filled.PersonAddAlt1">Admissions</MudNavLink>
+                <MudNavLink Href="/tenant/fees/dashboard" Icon="@Icons.Material.Filled.AccountBalanceWallet">Fees</MudNavLink>
+                <MudNavLink Href="/tenant/supplies" Icon="@Icons.Material.Filled.Inventory2">Supplies</MudNavLink>
+                <MudNavLink Href="/tenant/ledger" Icon="@Icons.Material.Filled.AccountBalance">Ledger</MudNavLink>
+                <MudNavLink Href="/tenant/reports" Icon="@Icons.Material.Filled.BarChart">Reports</MudNavLink>
+                <MudNavLink Href="/tenant/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
+            </MudNavMenu>
+
+            <div class="tenant-school-switcher">
+                <MudText Typo="Typo.caption" Class="tenant-switcher-label">CURRENT SCHOOL</MudText>
+
+                <div class="tenant-school-card">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
+                    <div>
+                        <MudText Typo="Typo.body2" Class="tenant-school-name">@GetTenantDisplay()</MudText>
+                        <MudText Typo="Typo.caption" Class="tenant-school-location">@GetBranchDisplay()</MudText>
+                    </div>
+                </div>
+
+                @if (Session.AvailableBranches.Count > 1)
+                {
+                    <MudMenu FullWidth="true" Dense="true">
+                        <ActivatorContent>
+                            <MudButton FullWidth="true"
+                                       Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                       EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
+                                       Class="tenant-switch-button">
+                                Switch Branch
+                            </MudButton>
+                        </ActivatorContent>
+
+                        <ChildContent>
+                            <MudMenuItem OnClick="SelectAllBranches">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-2" />
+                                All Branches
+                            </MudMenuItem>
+
+                            <MudDivider />
+
+                            @foreach (var branch in Session.AvailableBranches)
+                            {
+                                <MudMenuItem OnClick="@(() => SelectBranch(branch))">
+                                    <MudIcon Icon="@(branch.IsMainBranch? Icons.Material.Filled.Star : Icons.Material.Filled.Store)" Size="Size.Small" Class="mr-2" />
+                                    @branch.BranchName (@branch.BranchCode)
+                                </MudMenuItem>
+                            }
+                        </ChildContent>
+                    </MudMenu>
+                }
+            </div>
+        </div>
+    </MudDrawer>
+
+    <MudMainContent>
+
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       OnClick="ToggleDrawer"
+                       Class="tenant-mobile-menu" />
+
+        <div class="tenant-page-container">
+            @Body
+        </div>
+
+    </MudMainContent>
+
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized)
+            return;
+
+        _initialized = true;
+
+        var ok = await Session.InitializeAsync();
+
+        if (!ok)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/tenant/login", true);
+            return;
+        }
+
+        Session.OnBranchChanged += HandleBranchChanged;
+
+        StateHasChanged();
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void GoDashboard()
+    {
+        Nav.NavigateTo("/tenant/dashboard");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Session.ClearAsync();
+        Snackbar.Add("Logged out successfully", Severity.Success);
+        Nav.NavigateTo("/tenant/login", true);
+    }
+
+    private async Task SelectBranch(TenantBranchOptionDto branch)
+    {
+        await Session.SelectBranchAsync(branch);
+    }
+
+    private async Task SelectAllBranches()
+    {
+        await Session.SelectAllBranchesAsync();
+    }
+
+    private void HandleBranchChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetTenantDisplay()
+    {
+        return string.IsNullOrWhiteSpace(Session.TenantName)
+            ? "Shala CRM"
+            : Session.TenantName;
+    }
+
+    private string GetBranchDisplay()
+    {
+        if (Session.IsAllBranchesSelected)
+            return "All Branches";
+
+        if (string.IsNullOrWhiteSpace(Session.SelectedBranchName))
+            return "No branch selected";
+
+        if (string.IsNullOrWhiteSpace(Session.SelectedBranchCode))
+            return Session.SelectedBranchName;
+
+        return $"{Session.SelectedBranchName} ({Session.SelectedBranchCode})";
+    }
+
+    public void Dispose()
+    {
+        Session.OnBranchChanged -= HandleBranchChanged;
+    }
+}

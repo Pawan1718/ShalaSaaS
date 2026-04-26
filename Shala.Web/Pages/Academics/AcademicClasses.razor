@@ -1,0 +1,354 @@
+﻿@page "/students/setup/classes"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Academics
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Academics
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Components.Common
+
+@inject IAcademicClassRepository AcademicClassRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject IDialogService DialogSvc
+
+<PageTitle>Academic Classes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <MudStack Spacing="4">
+        <MudPaper Class="pa-4 rounded-xl">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.h4">Academic Classes</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Configure class master used in admissions
+                    </MudText>
+                </div>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenCreateDialog">
+                    Add Class
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 rounded-xl">
+                    <MudText Typo="Typo.subtitle2" Class="mud-text-secondary">Total Classes</MudText>
+                    <MudText Typo="Typo.h4">@_items.Count</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 rounded-xl">
+                    <MudText Typo="Typo.subtitle2" Class="mud-text-secondary">Active Classes</MudText>
+                    <MudText Typo="Typo.h4">@_items.Count(x => x.IsActive)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 rounded-xl">
+                    <MudText Typo="Typo.subtitle2" Class="mud-text-secondary">Highest Sequence</MudText>
+                    <MudText Typo="Typo.h4">@(_items.Any() ? _items.Max(x => x.Sequence) : 0)</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4 rounded-xl">
+            <MudTextField T="string"
+                          @bind-Value="_searchText"
+                          Placeholder="Search class..."
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" />
+        </MudPaper>
+
+        <MudPaper Class="rounded-xl overflow-hidden">
+            <MudTable Items="FilteredItems"
+                      Hover="true"
+                      Loading="_loading"
+                      Breakpoint="Breakpoint.Md">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Code</MudTh>
+                    <MudTh>Sequence</MudTh>
+                    <MudTh>Active</MudTh>
+                    <MudTh Align="Align.Right">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Name">
+                        <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                    </MudTd>
+
+                    <MudTd DataLabel="Code">
+                        @(!string.IsNullOrWhiteSpace(context.Code) ? context.Code : "-")
+                    </MudTd>
+
+                    <MudTd DataLabel="Sequence">
+                        @context.Sequence
+                    </MudTd>
+
+                    <MudTd DataLabel="Active">
+                        @if (context.IsActive)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small">Active</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Small">Inactive</MudChip>
+                        }
+                    </MudTd>
+
+                    <MudTd Align="Align.Right">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => OpenEditDialog(context))" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       OnClick="@(() => OpenDeleteDialog(context))" />
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudText Class="pa-4">No classes found.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    </MudStack>
+</MudContainer>
+
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_isEditMode ? "Edit Class" : "Add Class")</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3" Class="mt-2">
+            <MudTextField T="string"
+                          Label="Class Name"
+                          @bind-Value="_model.Name"
+                          Variant="Variant.Outlined"
+                          Required="true" />
+
+            <MudTextField T="string"
+                          Label="Code"
+                          @bind-Value="_model.Code"
+                          Variant="Variant.Outlined" />
+
+            <MudNumericField T="int"
+                             Label="Sequence"
+                             @bind-Value="_model.Sequence"
+                             Variant="Variant.Outlined"
+                             Min="0" />
+
+            <MudCheckBox T="bool"
+                         @bind-Value="_model.IsActive"
+                         Label="Active" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
+            @(_isEditMode ? "Update" : "Create")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<AcademicClassListItemResponse> _items = new();
+    private bool _loading = true;
+    private string _searchText = string.Empty;
+
+    private bool _dialogOpen;
+    private bool _isEditMode;
+
+    private ClassFormModel _model = new();
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        FullWidth = true,
+        MaxWidth = MaxWidth.Small,
+        CloseOnEscapeKey = true
+    };
+
+    private IEnumerable<AcademicClassListItemResponse> FilteredItems =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _items
+            : _items.Where(x =>
+                x.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(x.Code) &&
+                 x.Code.Contains(_searchText, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            var result = await AcademicClassRepository.GetAllAsync(Session.TenantId.Value);
+            _items = result?.Data ?? new List<AcademicClassListItemResponse>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenCreateDialog()
+    {
+        _isEditMode = false;
+        _model = new ClassFormModel
+        {
+            IsActive = true,
+            Sequence = _items.Any() ? _items.Max(x => x.Sequence) + 1 : 1
+        };
+        _dialogOpen = true;
+    }
+
+    private void OpenEditDialog(AcademicClassListItemResponse item)
+    {
+        _isEditMode = true;
+        _model = new ClassFormModel
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Code = item.Code,
+            Sequence = item.Sequence,
+            IsActive = item.IsActive
+        };
+        _dialogOpen = true;
+    }
+
+    private void CloseDialog()
+    {
+        _dialogOpen = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_model.Name))
+            {
+                Snackbar.Add("Class name is required.", Severity.Warning);
+                return;
+            }
+
+            if (_isEditMode)
+            {
+                var request = new UpdateAcademicClassRequest
+                {
+                    Name = _model.Name.Trim(),
+                    Code = string.IsNullOrWhiteSpace(_model.Code) ? null : _model.Code.Trim(),
+                    Sequence = _model.Sequence,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await AcademicClassRepository.UpdateAsync(request);
+                Snackbar.Add(result?.Message ?? "Class updated.", Severity.Success);
+            }
+            else
+            {
+                var request = new CreateAcademicClassRequest
+                {
+                    Name = _model.Name.Trim(),
+                    Code = string.IsNullOrWhiteSpace(_model.Code) ? null : _model.Code.Trim(),
+                    Sequence = _model.Sequence,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await AcademicClassRepository.CreateAsync(request);
+                Snackbar.Add(result?.Message ?? "Class created.", Severity.Success);
+            }
+
+            _dialogOpen = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OpenDeleteDialog(AcademicClassListItemResponse item)
+    {
+        try
+        {
+            var parameters = new DialogParameters
+            {
+                ["Title"] = "Delete Class",
+                ["Message"] = $"Delete class '{item.Name}'?",
+                ["ConfirmText"] = "Delete",
+                ["CancelText"] = "Cancel",
+                ["ConfirmColor"] = Color.Error
+            };
+
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+                FullWidth = true
+            };
+
+            var dialog = await DialogSvc.ShowAsync<ConfirmDialog>("", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is null || result.Canceled)
+                return;
+
+            var response = await AcademicClassRepository.DeleteAsync(item.Id);
+            Snackbar.Add(response?.Message ?? "Class deleted.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private sealed class ClassFormModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Code { get; set; }
+        public int Sequence { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

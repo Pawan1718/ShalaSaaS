@@ -1,0 +1,16 @@
+﻿@using Shala.Web.Models.Fees
+@using Shala.Shared.Responses.Settings
+
+<div id="@TargetId" class="receipt-print-root @RootCssClass">
+    <div class="receipt-preview-stage">
+        <FeeReceiptTemplate Receipt="Receipt"
+                            Profile="Profile" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public string TargetId { get; set; } = "fee-receipt";
+    [Parameter] public FeeReceiptPrintVm? Receipt { get; set; }
+    [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
+    [Parameter] public string RootCssClass { get; set; } = "";
+}

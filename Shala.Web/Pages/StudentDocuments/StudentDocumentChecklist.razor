@@ -1,0 +1,360 @@
+﻿@page "/tenant/students/{StudentId:int}/admissions/{StudentAdmissionId:int}/documents"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.StudentDocument
+@using Shala.Shared.Responses.StudentDocument
+@using Shala.Web.Repositories.StudentDocuments
+
+@inject IStudentDocumentChecklistWebRepository ChecklistRepo
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Admission Documents</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+    <MudStack Spacing="3">
+
+        <MudPaper Class="pa-5" Style="border-radius:18px;">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-bold">
+                        Admission Document Checklist
+                    </MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Mark received documents and add remarks for this admission.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="GoBack">
+                        Back
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="_loading || _saving"
+                               OnClick="LoadAsync">
+                        Reload
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               Disabled="_loading || _saving || !_items.Any()"
+                               OnClick="SaveAsync">
+                        @(_saving ? "Saving..." : "Save")
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                    <MudText Typo="Typo.h5">@_model.TotalDocuments</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Required</MudText>
+                    <MudText Typo="Typo.h5">@_model.RequiredDocuments</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Received</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success">@_model.ReceivedDocuments</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Outlined="true" Style="border-radius:16px;">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pending Required</MudText>
+                    <MudText Typo="Typo.h5" Color="@(_model.PendingRequiredDocuments > 0 ? Color.Error : Color.Success)">
+                        @_model.PendingRequiredDocuments
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (!_model.IsValid && _items.Any())
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                Required documents are pending. Admission validation will fail until required documents are received.
+            </MudAlert>
+        }
+        else if (_model.IsValid && _items.Any())
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                All required documents are received.
+            </MudAlert>
+        }
+
+        <MudPaper Class="pa-4" Style="border-radius:16px;">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                <MudTextField T="string"
+                              @bind-Value="_search"
+                              Immediate="true"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Placeholder="Search document..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Style="max-width:340px;" />
+
+                <MudStack Row="true" Spacing="2">
+                    <MudSwitch T="bool"
+                               @bind-Value="_pendingOnly"
+                               Color="Color.Warning"
+                               Label="Pending required only" />
+
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Settings"
+                               OnClick="OpenConfig">
+                        Config
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Style="border-radius:16px; overflow:hidden;">
+            @if (_loading)
+            {
+                <MudStack Class="pa-6" AlignItems="AlignItems.Center">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2">Loading checklist...</MudText>
+                </MudStack>
+            }
+            else if (!FilteredItems.Any())
+            {
+                <MudStack Class="pa-8" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No checklist documents found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Add documents from checklist config first.
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenConfig">
+                        Open Config
+                    </MudButton>
+                </MudStack>
+            }
+            else
+            {
+                <MudTable Items="FilteredItems" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Document</MudTh>
+                        <MudTh>Required</MudTh>
+                        <MudTh>Received</MudTh>
+                        <MudTh>Remark</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd DataLabel="Document">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.subtitle2">@context.DocumentName</MudText>
+
+                                @if (!string.IsNullOrWhiteSpace(context.DocumentCode))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Code: @context.DocumentCode
+                                    </MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(context.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.Description
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudTd>
+
+                        <MudTd DataLabel="Required">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@(context.IsRequired ? Color.Warning : Color.Default)"
+                                     Variant="@(context.IsRequired ? Variant.Filled : Variant.Outlined)">
+                                @(context.IsRequired ? "Required" : "Optional")
+                            </MudChip>
+                        </MudTd>
+
+                        <MudTd DataLabel="Received">
+                            <MudCheckBox T="bool"
+                                         @bind-Value="context.IsReceived"
+                                         Color="Color.Success"
+                                         Label="Received" />
+                        </MudTd>
+
+                        <MudTd DataLabel="Remark">
+                            <MudTextField T="string"
+                                          @bind-Value="context.Remark"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Placeholder="Enter remark..."
+                                          Immediate="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="Status">
+                            @if (context.IsReceived)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">
+                                    Received
+                                </MudChip>
+                            }
+                            else if (context.IsRequired)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">
+                                    Pending
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                    Optional
+                                </MudChip>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+
+    </MudStack>
+</MudContainer>
+
+@code {
+    [Parameter] public int StudentAdmissionId { get; set; }
+    [Parameter] public int StudentId { get; set; }
+
+    private StudentDocumentChecklistResponse _model = new();
+    private List<StudentDocumentChecklistItemResponse> _items = new();
+
+    private bool _loading;
+    private bool _saving;
+    private bool _pendingOnly;
+    private string _search = string.Empty;
+
+    private IEnumerable<StudentDocumentChecklistItemResponse> FilteredItems =>
+        _items
+            .Where(x => !_pendingOnly || (x.IsRequired && !x.IsReceived))
+            .Where(x =>
+                string.IsNullOrWhiteSpace(_search) ||
+                x.DocumentName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                x.DocumentCode.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                (x.Description?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (x.Remark?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(x => x.IsRequired)
+            .ThenBy(x => x.DisplayOrder)
+            .ThenBy(x => x.DocumentName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var response = await ChecklistRepo.GetByAdmissionAsync(StudentAdmissionId);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _model = response.Data;
+                _items = _model.Items ?? new();
+            }
+            else
+            {
+                _model = new StudentDocumentChecklistResponse
+                {
+                    StudentAdmissionId = StudentAdmissionId
+                };
+                _items = new();
+
+                Snackbar.Add(response?.Message ?? "Failed to load admission document checklist.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _model = new StudentDocumentChecklistResponse
+            {
+                StudentAdmissionId = StudentAdmissionId
+            };
+            _items = new();
+
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+
+        try
+        {
+            var request = new SaveStudentDocumentChecklistRequest
+            {
+                StudentAdmissionId = StudentAdmissionId,
+                Items = _items.Select(x => new SaveStudentDocumentChecklistItemRequest
+                {
+                    DocumentModelId = x.DocumentModelId,
+                    IsReceived = x.IsReceived,
+                    Remark = x.Remark
+                }).ToList()
+            };
+
+            var response = await ChecklistRepo.SaveAsync(request);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _model = response.Data;
+                _items = _model.Items ?? new();
+
+                Snackbar.Add(response.Message ?? "Document checklist saved successfully.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(response?.Message ?? "Failed to save admission document checklist.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void OpenConfig()
+    {
+        Nav.NavigateTo("/tenant/settings/document-models");
+    }
+   
+    private void GoBack()
+    {
+        Nav.NavigateTo($"/tenant/students/{StudentId}");
+    }
+}

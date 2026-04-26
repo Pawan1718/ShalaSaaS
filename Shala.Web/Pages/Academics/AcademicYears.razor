@@ -1,0 +1,679 @@
+﻿@page "/students/setup/academic-years"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Academics
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.AcademicRepo
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+@using Shala.Web.Components.Common
+
+@inject IAcademicYearRepository AcademicYearRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Academic Years</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="academic-year-page">
+    <MudStack Spacing="4">
+
+        <!-- Header -->
+        <MudPaper Elevation="0" Class="academic-hero">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-700">Academic Years</MudText>
+                    <MudText Typo="Typo.body2" Class="hero-subtitle">
+                        Manage academic sessions, current year switching, and yearly admission cycles.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="LoadAsync">
+                        Refresh
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenCreateDialog">
+                        Add Academic Year
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Stats -->
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-card-primary">
+                    <MudText Typo="Typo.caption" Class="metric-label">Total Years</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Count</MudText>
+                    <MudText Typo="Typo.body2" Class="metric-hint">All configured academic sessions</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-card-success">
+                    <MudText Typo="Typo.caption" Class="metric-label">Current Year</MudText>
+                    <MudText Typo="Typo.h6" Class="metric-value metric-value-sm">@(_currentYear?.Name ?? "-")</MudText>
+                    <MudText Typo="Typo.body2" Class="metric-hint">Used by current operations</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-card-info">
+                    <MudText Typo="Typo.caption" Class="metric-label">Active Years</MudText>
+                    <MudText Typo="Typo.h4" Class="metric-value">@_items.Count(x => x.IsActive)</MudText>
+                    <MudText Typo="Typo.body2" Class="metric-hint">Available in lookup and forms</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="0" Class="metric-card metric-card-neutral">
+                    <MudText Typo="Typo.caption" Class="metric-label">Upcoming Year</MudText>
+                    <MudText Typo="Typo.h6" Class="metric-value metric-value-sm">@(_upcomingYear?.Name ?? "-")</MudText>
+                    <MudText Typo="Typo.body2" Class="metric-hint">Next session in sequence</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Search + info -->
+        <MudPaper Elevation="0" Class="filter-panel">
+            <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+                <MudItem xs="12" md="7">
+                    <MudTextField T="string"
+                                  @bind-Value="_searchText"
+                                  Placeholder="Search academic year..."
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Immediate="true"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Clearable="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="5">
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mb-0">
+                        Academic year name is auto-generated from start and end date.
+                    </MudAlert>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <!-- Current session highlight -->
+        @if (_currentYear is not null)
+        {
+            <MudPaper Elevation="0" Class="current-year-banner">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudAvatar Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Success" Size="Size.Medium" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Class="fw-600">Current Academic Year</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @_currentYear.Name • @_currentYear.StartDate.ToString("dd MMM yyyy") - @_currentYear.EndDate.ToString("dd MMM yyyy")
+                            </MudText>
+                        </div>
+                    </MudStack>
+
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Medium">
+                        Current Session
+                    </MudChip>
+                </MudStack>
+            </MudPaper>
+        }
+
+        <!-- Table -->
+        <MudPaper Elevation="0" Class="table-shell">
+            <MudTable Items="FilteredItems"
+                      Hover="true"
+                      Dense="false"
+                      Loading="_loading"
+                      Breakpoint="Breakpoint.Md"
+                      Class="academic-table">
+                <HeaderContent>
+                    <MudTh>Academic Year</MudTh>
+                    <MudTh>Duration</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Availability</MudTh>
+                    <MudTh Align="Align.Right">Actions</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Academic Year">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle2" Class="fw-600">@context.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Session period
+                            </MudText>
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Duration">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2">@context.StartDate.ToString("dd MMM yyyy")</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                to @context.EndDate.ToString("dd MMM yyyy")
+                            </MudText>
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Status">
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                            @if (context.IsCurrent)
+                            {
+                                <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                                    Current
+                                </MudChip>
+                            }
+                            else if (_upcomingYear?.Id == context.Id)
+                            {
+                                <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">
+                                    Upcoming
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+                                    Regular
+                                </MudChip>
+                            }
+                        </MudStack>
+                    </MudTd>
+
+                    <MudTd DataLabel="Availability">
+                        @if (context.IsActive)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">
+                                Active
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Error" Variant="Variant.Outlined" Size="Size.Small">
+                                Inactive
+                            </MudChip>
+                        }
+                    </MudTd>
+
+                    <MudTd DataLabel="Actions" Align="Align.Right">
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                 Size="Size.Small"
+                                 Color="Color.Default"
+                                 Dense="true">
+                            @if (!context.IsCurrent && context.IsActive)
+                            {
+                                <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle"
+                                             OnClick="@(() => SetCurrentAsync(context))">
+                                    Set as Current
+                                </MudMenuItem>
+                            }
+
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                         OnClick="@(() => OpenEditDialog(context))">
+                                Edit
+                            </MudMenuItem>
+
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                         Class="text-danger"
+                                         OnClick="@(() => OpenDeleteDialog(context))">
+                                Delete
+                            </MudMenuItem>
+                        </MudMenu>
+                    </MudTd>
+                </RowTemplate>
+
+                <NoRecordsContent>
+                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Large" Color="Color.Default" />
+                        <MudText Typo="Typo.subtitle1">No academic years found</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Add your first academic year to get started.
+                        </MudText>
+                    </MudStack>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    </MudStack>
+</MudContainer>
+
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Icon="@(_isEditMode ? Icons.Material.Filled.EditCalendar : Icons.Material.Filled.AddCircle)"
+                       Color="Color.Primary"
+                       Size="Size.Medium" />
+            <div>
+                <MudText Typo="Typo.h6">@(_isEditMode ? "Edit Academic Year" : "Create Academic Year")</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Academic year name will be generated automatically from the selected dates.
+                </MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3" Class="mt-4">
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="Start Date"
+                                   @bind-Date="_model.StartDate"
+                                   Variant="Variant.Outlined"
+                                   Editable="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="End Date"
+                                   @bind-Date="_model.EndDate"
+                                   Variant="Variant.Outlined"
+                                   Editable="true" />
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="name-preview-box">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Generated Name</MudText>
+                <MudText Typo="Typo.h6" Class="fw-600">@GeneratedAcademicYearName</MudText>
+            </MudPaper>
+
+            <MudCheckBox T="bool"
+                         @bind-Value="_model.IsActive"
+                         Label="Keep this academic year active" />
+
+            @if (!_isEditMode)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                    Create the year first, then set it as current from the table actions when needed.
+                </MudAlert>
+            }
+            else if (_model.IsCurrent)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Variant="Variant.Outlined">
+                    This academic year is currently set as the active session.
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseDialog">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">
+            @(_isEditMode ? "Update Academic Year" : "Create Academic Year")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .academic-year-page {
+        padding-top: 1rem;
+        padding-bottom: 2rem;
+    }
+
+    .academic-hero {
+        padding: 1.5rem;
+        border-radius: 24px;
+        background: linear-gradient(135deg, rgba(25,118,210,.10), rgba(76,175,80,.08));
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .hero-subtitle {
+        opacity: .78;
+        margin-top: .25rem;
+    }
+
+    .metric-card {
+        padding: 1.25rem;
+        border-radius: 20px;
+        height: 100%;
+        border: 1px solid rgba(255,255,255,.08);
+        background: rgba(255,255,255,.02);
+    }
+
+    .metric-card-primary {
+        background: linear-gradient(180deg, rgba(25,118,210,.10), rgba(25,118,210,.04));
+    }
+
+    .metric-card-success {
+        background: linear-gradient(180deg, rgba(46,125,50,.12), rgba(46,125,50,.04));
+    }
+
+    .metric-card-info {
+        background: linear-gradient(180deg, rgba(2,136,209,.10), rgba(2,136,209,.04));
+    }
+
+    .metric-card-neutral {
+        background: linear-gradient(180deg, rgba(120,120,120,.10), rgba(120,120,120,.03));
+    }
+
+    .metric-label {
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        opacity: .72;
+    }
+
+    .metric-value {
+        margin-top: .35rem;
+        font-weight: 700;
+    }
+
+    .metric-value-sm {
+        line-height: 1.25;
+    }
+
+    .metric-hint {
+        margin-top: .35rem;
+        opacity: .72;
+    }
+
+    .filter-panel {
+        padding: 1rem 1rem .75rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .current-year-banner {
+        padding: 1rem 1.25rem;
+        border-radius: 20px;
+        border: 1px solid rgba(76,175,80,.18);
+        background: linear-gradient(180deg, rgba(76,175,80,.10), rgba(76,175,80,.04));
+    }
+
+    .table-shell {
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .academic-table .mud-table-container {
+        border-radius: 24px;
+    }
+
+    .name-preview-box {
+        padding: 1rem 1.15rem;
+        border-radius: 16px;
+        background: rgba(255,255,255,.03);
+        border: 1px dashed rgba(255,255,255,.12);
+    }
+
+    .fw-600 {
+        font-weight: 600;
+    }
+
+    .fw-700 {
+        font-weight: 700;
+    }
+
+    .text-danger {
+        color: var(--mud-palette-error) !important;
+    }
+</style>
+
+@code {
+    private List<AcademicYearListItemResponse> _items = new();
+    private bool _loading = true;
+    private string _searchText = string.Empty;
+
+    private bool _dialogOpen;
+    private bool _isEditMode;
+
+    private AcademicYearFormModel _model = new();
+
+    private AcademicYearListItemResponse? _currentYear =>
+        _items
+            .Where(x => x.IsCurrent)
+            .OrderByDescending(x => x.StartDate)
+            .FirstOrDefault();
+
+    private AcademicYearListItemResponse? _upcomingYear =>
+        _items
+            .Where(x => !x.IsCurrent && x.EndDate >= DateTime.Today)
+            .OrderBy(x => x.StartDate)
+            .FirstOrDefault();
+
+    private string GeneratedAcademicYearName
+    {
+        get
+        {
+            if (!_model.StartDate.HasValue || !_model.EndDate.HasValue)
+                return "-";
+
+            var start = _model.StartDate.Value;
+            var end = _model.EndDate.Value;
+
+            return start.Year == end.Year
+                ? start.Year.ToString()
+                : $"{start.Year}-{end.Year}";
+        }
+    }
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        CloseOnEscapeKey = true,
+        FullWidth = true,
+        MaxWidth = MaxWidth.Small
+    };
+
+    private IEnumerable<AcademicYearListItemResponse> FilteredItems =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _items
+            : _items.Where(x =>
+                x.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                x.StartDate.ToString("dd MMM yyyy").Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                x.EndDate.ToString("dd MMM yyyy").Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            var result = await AcademicYearRepository.GetAllAsync(Session.TenantId.Value);
+            _items = result?.Data?
+                .OrderByDescending(x => x.IsCurrent)
+                .ThenByDescending(x => x.StartDate)
+                .ToList()
+                ?? new List<AcademicYearListItemResponse>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenCreateDialog()
+    {
+        var defaultStart = new DateTime(DateTime.Today.Year, 6, 1);
+        var defaultEnd = defaultStart.AddYears(1).AddDays(-1);
+
+        _isEditMode = false;
+        _model = new AcademicYearFormModel
+        {
+            StartDate = defaultStart,
+            EndDate = defaultEnd,
+            IsActive = true
+        };
+        _dialogOpen = true;
+    }
+
+    private void OpenEditDialog(AcademicYearListItemResponse item)
+    {
+        _isEditMode = true;
+        _model = new AcademicYearFormModel
+        {
+            Id = item.Id,
+            StartDate = item.StartDate,
+            EndDate = item.EndDate,
+            IsCurrent = item.IsCurrent,
+            IsActive = item.IsActive
+        };
+        _dialogOpen = true;
+    }
+
+    private void CloseDialog()
+    {
+        _dialogOpen = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found.", Severity.Error);
+                return;
+            }
+
+            if (!_model.StartDate.HasValue || !_model.EndDate.HasValue)
+            {
+                Snackbar.Add("Start date and end date are required.", Severity.Warning);
+                return;
+            }
+
+            if (_model.EndDate.Value <= _model.StartDate.Value)
+            {
+                Snackbar.Add("End date must be greater than start date.", Severity.Warning);
+                return;
+            }
+
+            if (_isEditMode)
+            {
+                var request = new UpdateAcademicYearRequest
+                {
+                    Id = _model.Id,
+                    StartDate = _model.StartDate.Value,
+                    EndDate = _model.EndDate.Value,
+                    IsCurrent = _model.IsCurrent,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await AcademicYearRepository.UpdateAsync(request);
+
+                if (result?.Success == true)
+                {
+                    Snackbar.Add(result.Message ?? "Academic year updated.", Severity.Success);
+                    _dialogOpen = false;
+                    await LoadAsync();
+                }
+                else
+                {
+                    Snackbar.Add(result?.Message ?? "Failed to update academic year.", Severity.Error);
+                }
+            }
+            else
+            {
+                var request = new CreateAcademicYearRequest
+                {
+                    StartDate = _model.StartDate.Value,
+                    EndDate = _model.EndDate.Value,
+                    IsCurrent = false,
+                    IsActive = _model.IsActive
+                };
+
+                var result = await AcademicYearRepository.CreateAsync(request);
+
+                if (result?.Success == true)
+                {
+                    Snackbar.Add(result.Message ?? "Academic year created.", Severity.Success);
+                    _dialogOpen = false;
+                    await LoadAsync();
+                }
+                else
+                {
+                    Snackbar.Add(result?.Message ?? "Failed to create academic year.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SetCurrentAsync(AcademicYearListItemResponse item)
+    {
+        Snackbar.Add("Connect SetCurrent API endpoint, then enable this action.", Severity.Info);
+        await Task.CompletedTask;
+    }
+
+    private async Task OpenDeleteDialog(AcademicYearListItemResponse item)
+    {
+        try
+        {
+            var parameters = new DialogParameters
+            {
+                ["Title"] = "Delete Academic Year",
+                ["Message"] = $"Delete Academic Year '{item.Name}'?",
+                ["ConfirmText"] = "Delete",
+                ["CancelText"] = "Cancel",
+                ["ConfirmColor"] = Color.Error
+            };
+
+            var options = new DialogOptions
+            {
+                CloseOnEscapeKey = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+                FullWidth = true
+            };
+
+            var dialog = await DialogService.ShowAsync<ConfirmDialog>("", parameters, options);
+            var result = await dialog.Result;
+
+            if (result is null || result.Canceled)
+                return;
+
+            var deleteResult = await AcademicYearRepository.DeleteAsync(item.Id);
+
+            if (deleteResult?.Success == true)
+            {
+                Snackbar.Add(deleteResult.Message ?? "Academic year deleted.", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(deleteResult?.Message ?? "Failed to delete academic year.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private sealed class AcademicYearFormModel
+    {
+        public int Id { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public bool IsCurrent { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+}

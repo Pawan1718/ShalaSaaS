@@ -1,0 +1,1003 @@
+﻿@page "/tenant/students/{StudentId:int}/admissions/{AdmissionId:int}/fees"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Shared.Responses.Settings
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Fees
+@using Shala.Web.Models.Fees
+@using Shala.Web.Repositories.Fees
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.Settings
+@using Shala.Web.Services.State
+
+@inject IBranchDocumentProfileWebRepository ProfileRepo
+@inject IFeeWebRepository FeeWebRepository
+@inject IStudentRepository StudentRepository
+@inject ApiSession ApiSession
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<PageTitle>Admission Fees</PageTitle>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-10 d-flex justify-center align-center" Elevation="0">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Loading fee workspace...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Dense="true" Class="mb-4">
+        @_error
+    </MudAlert>
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudPaper Class="pa-5 pa-md-6"
+                  Elevation="2"
+                  Style="background: linear-gradient(135deg, rgba(25,118,210,0.10), rgba(156,39,176,0.10), rgba(46,125,50,0.10)); border-radius: 20px;">
+            <MudGrid Spacing="3" AlignItems="AlignItems.Center">
+                <MudItem xs="12" lg="7">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Large">
+                                <MudIcon Icon="@Icons.Material.Filled.Payments" />
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.h4">Admission Fees</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Assignment, generation, collection, receipts, and cancellation flow aligned to backend safety rules.
+                                </MudText>
+                            </div>
+                        </MudStack>
+
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                            <MudChip T="string" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small">
+                                Student #@StudentId
+                            </MudChip>
+                            <MudChip T="string" Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small">
+                                Admission #@AdmissionId
+                            </MudChip>
+                            <MudChip T="string" Variant="Variant.Filled" Color="@GetWorkflowColor()" Size="Size.Small">
+                                @GetWorkflowText()
+                            </MudChip>
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" lg="5">
+                    <MudStack Spacing="2" AlignItems="AlignItems.End">
+                        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Quick Actions</MudText>
+
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap" Justify="Justify.FlexEnd">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Default"
+                                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                                       OnClick="GoBack">
+                                Back
+                            </MudButton>
+
+                            @if (_dashboard.Assignment is null)
+                            {
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
+                                           OnClick="OpenAssignDialogAsync">
+                                    Assign Structure
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Edit"
+                                           Disabled="@_busyAssignmentAction"
+                                           OnClick="OpenEditAssignmentDialogAsync">
+                                    Edit Assignment
+                                </MudButton>
+
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Error"
+                                           StartIcon="@Icons.Material.Filled.Block"
+                                           Disabled="@_busyAssignmentAction"
+                                           OnClick="DeactivateAssignmentAsync">
+                                    Deactivate
+                                </MudButton>
+                            }
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Secondary"
+                                       StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                       Disabled="@(!CanGenerateOrRegenerate || _busyGenerate)"
+                                       OnClick="GenerateOrRegenerateChargesAsync">
+                                @GetGenerateButtonText()
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.Payments"
+                                       Disabled="@(!CanCollectFee || _busyCollect)"
+                                       OnClick="OpenCollectFeeDialogAsync">
+                                @(_busyCollect ? "Saving..." : "Collect Fee")
+                            </MudButton>
+                        </MudStack>
+
+                        <MudAlert Severity="@GetGuidanceSeverity()"
+                                  Variant="Variant.Outlined"
+                                  Dense="true"
+                                  Class="mt-2"
+                                  Style="max-width: 520px;">
+                            @GetGuidanceMessage()
+                        </MudAlert>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (HasPaidActiveCharges)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Paid charges exist for this admission. Fee-impact assignment changes and regeneration may be blocked by backend.
+            </MudAlert>
+        }
+
+        <FeeSummaryCards Summary="_dashboard.Summary" />
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="6" lg="4">
+                <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-left: 6px solid var(--mud-palette-primary); border-radius: 18px;">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                                <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" />
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Fee Plan Summary</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Current structure linked to this admission</MudText>
+                            </div>
+                        </MudStack>
+
+                        @if (_dashboard.Assignment is null)
+                        {
+                            <MudPaper Class="pa-3" Outlined="true">
+                                <MudText Typo="Typo.subtitle2">No plan assigned yet</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                                    Assign a fee structure first to unlock charge generation and collection.
+                                </MudText>
+                            </MudPaper>
+                        }
+                        else
+                        {
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Fee Plan</MudText>
+                                    <MudText Typo="Typo.h6">@DisplayText(_dashboard.Assignment.FeeStructureName)</MudText>
+                                </MudItem>
+
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned On</MudText>
+                                    <MudText Typo="Typo.body1">@FormatDate(_dashboard.Assignment.CreatedAt)</MudText>
+                                </MudItem>
+
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                                    <MudChip T="string"
+                                             Color="@(_dashboard.Assignment.IsActive ? Color.Success : Color.Default)"
+                                             Variant="Variant.Filled"
+                                             Size="Size.Small">
+                                        @(_dashboard.Assignment.IsActive ? "Active" : "Inactive")
+                                    </MudChip>
+                                </MudItem>
+
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Discount</MudText>
+                                    <MudText Typo="Typo.body1">@_dashboard.Assignment.DiscountAmount.ToString("N2")</MudText>
+                                </MudItem>
+
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Additional</MudText>
+                                    <MudText Typo="Typo.body1">@_dashboard.Assignment.AdditionalChargeAmount.ToString("N2")</MudText>
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Academic Year</MudText>
+                                    <MudText Typo="Typo.body1">@DisplayText(_dashboard.Assignment.AcademicYear)</MudText>
+                                </MudItem>
+                            </MudGrid>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6" lg="4">
+                <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-left: 6px solid var(--mud-palette-success); border-radius: 18px;">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudAvatar Color="Color.Success" Variant="Variant.Filled">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Collection Progress</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Based only on active charges</MudText>
+                            </div>
+                        </MudStack>
+
+                        <MudProgressLinear Rounded="true" Value="@GetCollectionProgress()" Color="Color.Success" />
+                        <MudText Typo="Typo.h5">@GetCollectionProgress().ToString("0.##")%</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @_dashboard.Summary.TotalPaid.ToString("N2") paid out of @_dashboard.Summary.TotalAmount.ToString("N2")
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4 h-100" Elevation="2" Style="border-left: 6px solid var(--mud-palette-warning); border-radius: 18px;">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.subtitle1">@GetNextActionTitle()</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@GetNextActionDescription()</MudText>
+                        <MudIcon Icon="@GetNextActionIcon()" Size="Size.Large" Color="Color.Warning" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudTabs Rounded="true" PanelClass="pa-0">
+            <MudTabPanel Text="Charges" Icon="@Icons.Material.Filled.RequestQuote">
+                <MudPaper Class="pa-4" Elevation="1" Style="border-radius: 16px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <div>
+                            <MudText Typo="Typo.h6">Charges</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Active, paid, partial, overdue, and cancelled charges for this admission.
+                            </MudText>
+                        </div>
+
+                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                            @AdmissionCharges.Count charge(s)
+                        </MudChip>
+                    </MudStack>
+
+                    <StudentChargesTable Charges="AdmissionCharges"
+                                         BusyChargeId="_busyChargeId"
+                                         OnCancelCharge="CancelChargeAsync" />
+                </MudPaper>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Receipts" Icon="@Icons.Material.Filled.Receipt">
+                <MudPaper Class="pa-4" Elevation="1" Style="border-radius: 16px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <div>
+                            <MudText Typo="Typo.h6">Receipts</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                View active and cancelled receipts for this admission.
+                            </MudText>
+                        </div>
+
+                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
+                            @AdmissionReceipts.Count receipt(s)
+                        </MudChip>
+                    </MudStack>
+
+                    <FeeReceiptsTable Receipts="AdmissionReceipts"
+                                      BusyReceiptId="_busyReceiptId"
+                                      OnViewReceipt="OpenReceiptFromListAsync"
+                                      OnCancelReceipt="CancelReceiptAsync" />
+                </MudPaper>
+            </MudTabPanel>
+        </MudTabs>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public int StudentId { get; set; }
+    [Parameter] public int AdmissionId { get; set; }
+
+    private bool _loading = true;
+    private bool _busyGenerate;
+    private bool _busyCollect;
+    private bool _busyAssignmentAction;
+    private int? _busyReceiptId;
+    private int? _busyChargeId;
+    private string? _error;
+
+    private AdmissionFeeDashboardVm _dashboard = new();
+    private StudentDetailsResponse? _studentDetails;
+
+    private List<StudentChargeResponse> AdmissionCharges => _dashboard.Charges
+        .Where(x => x.StudentAdmissionId == AdmissionId)
+        .OrderBy(x => x.DueDate)
+        .ThenBy(x => x.Id)
+        .ToList();
+
+    private List<FeeReceiptResponse> AdmissionReceipts => _dashboard.Receipts
+        .Where(x => x.StudentAdmissionId == AdmissionId)
+        .OrderByDescending(x => x.ReceiptDate)
+        .ThenByDescending(x => x.Id)
+        .ToList();
+
+    private List<StudentChargeResponse> ActiveCharges => AdmissionCharges.Where(x => !x.IsCancelled).ToList();
+    private bool HasAnyCharges => AdmissionCharges.Count > 0;
+    private bool HasActiveCharges => ActiveCharges.Count > 0;
+    private bool HasPaidActiveCharges => ActiveCharges.Any(x => x.PaidAmount > 0);
+    private bool CanCollectFee => ActiveCharges.Any(x => x.BalanceAmount > 0);
+    private bool CanGenerateOrRegenerate => _dashboard.Assignment is not null && _dashboard.Assignment.IsActive && !HasPaidActiveCharges;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            var structuresTask = FeeWebRepository.GetFeeStructuresAsync();
+            var chargesTask = FeeWebRepository.GetStudentChargesAsync(StudentId);
+            var receiptsTask = FeeWebRepository.GetStudentReceiptsAsync(StudentId);
+            var assignmentTask = FeeWebRepository.GetAssignmentAsync(AdmissionId);
+
+            await Task.WhenAll(structuresTask, chargesTask, receiptsTask, assignmentTask);
+
+            _dashboard.AvailableStructures = (await structuresTask)
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Name)
+                .ToList();
+
+            _dashboard.Charges = (await chargesTask)
+                .Where(x => x.StudentAdmissionId == AdmissionId)
+                .OrderBy(x => x.DueDate)
+                .ThenBy(x => x.Id)
+                .ToList();
+
+            _dashboard.Receipts = (await receiptsTask)
+                .Where(x => x.StudentAdmissionId == AdmissionId)
+                .OrderByDescending(x => x.ReceiptDate)
+                .ThenByDescending(x => x.Id)
+                .ToList();
+
+            _dashboard.Assignment = await assignmentTask;
+            _dashboard.Summary = BuildSummary(_dashboard.Charges);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo($"/tenant/students/{StudentId}");
+    }
+
+    private async Task OpenAssignDialogAsync()
+    {
+        if (_dashboard.Assignment is not null)
+        {
+            Snackbar.Add("Assignment already exists for this admission.", Severity.Warning);
+            return;
+        }
+
+        if (!_dashboard.AvailableStructures.Any())
+        {
+            Snackbar.Add("No active fee structures available.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await DialogService.ShowAsync<AssignFeeStructureDialog>(
+            "Assign Fee Structure",
+            new DialogParameters
+            {
+                [nameof(AssignFeeStructureDialog.FeeStructures)] = _dashboard.AvailableStructures,
+                [nameof(AssignFeeStructureDialog.IsEditMode)] = false
+            });
+
+        var result = await dialog.Result;
+        if (result.Canceled || result.Data is not AssignFeeStructureVm model)
+            return;
+
+        try
+        {
+            _busyAssignmentAction = true;
+
+            var request = new CreateStudentFeeAssignmentRequest
+            {
+                StudentId = StudentId,
+                StudentAdmissionId = AdmissionId,
+                FeeStructureId = model.FeeStructureId,
+                DiscountAmount = model.DiscountAmount,
+                AdditionalChargeAmount = model.AdditionalChargeAmount,
+                IsActive = true
+            };
+
+            var assignment = await FeeWebRepository.AssignFeeStructureAsync(request);
+            Snackbar.Add("Fee structure assigned successfully.", Severity.Success);
+
+            if (model.AutoGenerateCharges)
+            {
+                await FeeWebRepository.GenerateChargesAsync(assignment.Id);
+                Snackbar.Add("Charges generated successfully.", Severity.Success);
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task OpenEditAssignmentDialogAsync()
+    {
+        if (_dashboard.Assignment is null)
+        {
+            Snackbar.Add("Assignment not found.", Severity.Warning);
+            return;
+        }
+
+        var initialModel = new AssignFeeStructureVm
+        {
+            FeeStructureId = _dashboard.Assignment.FeeStructureId,
+            DiscountAmount = _dashboard.Assignment.DiscountAmount,
+            AdditionalChargeAmount = _dashboard.Assignment.AdditionalChargeAmount,
+            AutoGenerateCharges = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AssignFeeStructureDialog>(
+            "Update Fee Assignment",
+            new DialogParameters
+            {
+                [nameof(AssignFeeStructureDialog.FeeStructures)] = _dashboard.AvailableStructures,
+                [nameof(AssignFeeStructureDialog.InitialModel)] = initialModel,
+                [nameof(AssignFeeStructureDialog.IsEditMode)] = true
+            });
+
+        var result = await dialog.Result;
+        if (result.Canceled || result.Data is not AssignFeeStructureVm model)
+            return;
+
+        var structureChanged = model.FeeStructureId != _dashboard.Assignment.FeeStructureId;
+        var discountChanged = model.DiscountAmount != _dashboard.Assignment.DiscountAmount;
+        var additionalChanged = model.AdditionalChargeAmount != _dashboard.Assignment.AdditionalChargeAmount;
+
+        if (structureChanged || discountChanged || additionalChanged || model.AutoGenerateCharges)
+        {
+            var proposedStructureName = _dashboard.AvailableStructures
+                .FirstOrDefault(x => x.Id == model.FeeStructureId)?.Name;
+
+            var reviewDialog = await DialogService.ShowAsync<AssignmentImpactDialog>(
+                "Review Assignment Change",
+                new DialogParameters
+                {
+                    [nameof(AssignmentImpactDialog.Model)] = model,
+                    [nameof(AssignmentImpactDialog.CurrentStructureName)] = _dashboard.Assignment.FeeStructureName,
+                    [nameof(AssignmentImpactDialog.ProposedStructureName)] = proposedStructureName,
+                    [nameof(AssignmentImpactDialog.CurrentDiscount)] = _dashboard.Assignment.DiscountAmount,
+                    [nameof(AssignmentImpactDialog.CurrentAdditional)] = _dashboard.Assignment.AdditionalChargeAmount,
+                    [nameof(AssignmentImpactDialog.HasPaidCharges)] = HasPaidActiveCharges,
+                    [nameof(AssignmentImpactDialog.HasActiveCharges)] = HasActiveCharges
+                });
+
+            var reviewResult = await reviewDialog.Result;
+            if (reviewResult.Canceled)
+                return;
+        }
+
+        try
+        {
+            _busyAssignmentAction = true;
+
+            var request = new UpdateStudentFeeAssignmentRequest
+            {
+                Id = _dashboard.Assignment.Id,
+                StudentId = StudentId,
+                StudentAdmissionId = AdmissionId,
+                FeeStructureId = model.FeeStructureId,
+                DiscountAmount = model.DiscountAmount,
+                AdditionalChargeAmount = model.AdditionalChargeAmount,
+                IsActive = _dashboard.Assignment.IsActive
+            };
+
+            await FeeWebRepository.UpdateAssignmentAsync(_dashboard.Assignment.Id, request);
+            Snackbar.Add("Assignment updated successfully.", Severity.Success);
+
+            if (model.AutoGenerateCharges)
+            {
+                await FeeWebRepository.GenerateChargesAsync(_dashboard.Assignment.Id);
+                Snackbar.Add("Charges regenerated successfully.", Severity.Success);
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task DeactivateAssignmentAsync()
+    {
+        if (_dashboard.Assignment is null)
+            return;
+
+        var dialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Deactivate Assignment",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Deactivate Assignment",
+                [nameof(CancelReasonDialog.Description)] = "Enter a reason before deactivating this assignment. Backend may cancel unpaid active charges."
+            });
+
+        var result = await dialog.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            _busyAssignmentAction = true;
+            await FeeWebRepository.DeleteAssignmentAsync(_dashboard.Assignment.Id);
+            Snackbar.Add("Assignment deactivated successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task GenerateOrRegenerateChargesAsync()
+    {
+        if (_dashboard.Assignment is null)
+        {
+            Snackbar.Add("No assignment found.", Severity.Warning);
+            return;
+        }
+
+        if (!CanGenerateOrRegenerate)
+        {
+            Snackbar.Add("Charges cannot be generated or regenerated while paid active charges exist.", Severity.Warning);
+            return;
+        }
+
+        if (HasActiveCharges)
+        {
+            var confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                "Regenerate charges? Existing unpaid active charges will be cancelled and a fresh set will be created.");
+
+            if (!confirmed)
+                return;
+        }
+
+        try
+        {
+            _busyGenerate = true;
+            await FeeWebRepository.GenerateChargesAsync(_dashboard.Assignment.Id);
+            Snackbar.Add(HasActiveCharges ? "Charges regenerated successfully." : "Charges generated successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyGenerate = false;
+        }
+    }
+
+    private async Task OpenCollectFeeDialogAsync()
+    {
+        if (!CanCollectFee)
+        {
+            Snackbar.Add("No pending balance available for collection.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await DialogService.ShowAsync<CollectFeeDialog>(
+            "Collect Fee",
+            new DialogParameters
+            {
+                [nameof(CollectFeeDialog.StudentId)] = StudentId,
+                [nameof(CollectFeeDialog.StudentAdmissionId)] = AdmissionId,
+                [nameof(CollectFeeDialog.Charges)] = AdmissionCharges
+            });
+
+        var result = await dialog.Result;
+        if (result.Canceled || result.Data is not CreateFeeReceiptRequest request)
+            return;
+
+        try
+        {
+            _busyCollect = true;
+
+            var response = await FeeWebRepository.CollectFeeAsync(request);
+            Snackbar.Add("Fee collected successfully.", Severity.Success);
+
+            await LoadAsync();
+            await OpenReceiptActionDialogAsync(response.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyCollect = false;
+        }
+    }
+
+    private async Task CancelReceiptAsync(FeeReceiptResponse receipt)
+    {
+        if (receipt.IsCancelled)
+            return;
+
+        var reasonDialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Cancel Receipt",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Cancel Receipt",
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason for cancelling receipt {receipt.ReceiptNo}."
+            });
+
+        var reasonResult = await reasonDialog.Result;
+        if (reasonResult.Canceled || reasonResult.Data is not string reason)
+            return;
+
+        try
+        {
+            _busyReceiptId = receipt.Id;
+            await FeeWebRepository.CancelReceiptAsync(receipt.Id, reason);
+            Snackbar.Add("Receipt cancelled successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyReceiptId = null;
+        }
+    }
+
+    private async Task CancelChargeAsync(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled)
+            return;
+
+        var reasonDialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Cancel Charge",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Cancel Charge",
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason for cancelling charge '{charge.ChargeLabel}'."
+            });
+
+        var reasonResult = await reasonDialog.Result;
+        if (reasonResult.Canceled)
+            return;
+
+        try
+        {
+            _busyChargeId = charge.Id;
+            await FeeWebRepository.CancelChargeAsync(charge.Id);
+            Snackbar.Add("Charge cancelled successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyChargeId = null;
+        }
+    }
+
+    private async Task OpenReceiptFromListAsync(FeeReceiptResponse receipt)
+    {
+        await OpenReceiptActionDialogAsync(receipt.Id);
+    }
+
+    private async Task OpenReceiptActionDialogAsync(int receiptId)
+    {
+        try
+        {
+            var receipt = await FeeWebRepository.GetReceiptByIdAsync(receiptId)
+                         ?? _dashboard.Receipts.FirstOrDefault(x => x.Id == receiptId);
+
+            if (receipt is null)
+            {
+                Snackbar.Add("Receipt preview could not be loaded.", Severity.Warning);
+                return;
+            }
+
+            await EnsureStudentDetailsLoadedAsync();
+
+            var profile = await ProfileRepo.GetAsync();
+            var currentAdmission = _studentDetails?.Admissions?.FirstOrDefault(x => x.Id == AdmissionId);
+
+            var allocations = receipt.Allocations?
+                .Where(x => x.AllocatedAmount != 0)
+                .ToList() ?? new List<FeeReceiptAllocationResponse>();
+
+            var lines = allocations
+                .Select(allocation =>
+                {
+                    var charge = AdmissionCharges.FirstOrDefault(c => c.Id == allocation.StudentChargeId);
+
+                    return new FeeReceiptPrintLineVm
+                    {
+                        Label = !string.IsNullOrWhiteSpace(allocation.ChargeLabel)
+                            ? allocation.ChargeLabel!
+                            : charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
+                        FeeHeadName = !string.IsNullOrWhiteSpace(allocation.FeeHeadName)
+                            ? allocation.FeeHeadName
+                            : charge?.ChargeLabel ?? "-",
+                        DueDate = allocation.DueDate ?? charge?.DueDate,
+                        Amount = allocation.AllocatedAmount
+                    };
+                })
+                .ToList();
+
+            var computedTotal = lines.Sum(x => x.Amount);
+            var finalTotal = receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal;
+
+            var printModel = new FeeReceiptPrintVm
+            {
+                ReceiptId = receipt.Id,
+                ReceiptNo = receipt.ReceiptNo ?? "-",
+                ReceiptDate = receipt.ReceiptDate,
+                ReceiptTitle = string.IsNullOrWhiteSpace(profile?.ReceiptTitle) ? "Fee Receipt" : profile!.ReceiptTitle!,
+                ReceiptFooterNote = profile?.ReceiptFooterNote,
+                StudentName = _studentDetails?.FullName ?? "-",
+                AdmissionNo = currentAdmission?.AdmissionNo ?? _studentDetails?.AdmissionNo ?? "-",
+                ClassName = currentAdmission?.ClassName ?? "-",
+                SectionName = currentAdmission?.SectionName ?? "-",
+                PaymentMode = GetPaymentModeText(receipt.PaymentMode),
+                TransactionReference = receipt.TransactionReference,
+                Remarks = receipt.IsCancelled
+         ? $"{receipt.Remarks}{(string.IsNullOrWhiteSpace(receipt.CancelReason) ? string.Empty : $" | Cancelled: {receipt.CancelReason}")}"
+         : receipt.Remarks,
+                ShowStudentDetailsInReceipt = true,
+                ShowFeeHeadInReceipt = false,
+                ShowAmountInWords = false,
+                AllowPrintReceipt = profile?.AllowPrintReceipt ?? true,
+                AllowDownloadReceipt = profile?.AllowDownloadReceipt ?? true,
+                TotalAmount = finalTotal,
+                AmountInWords = string.Empty,
+                IsCancelled = receipt.IsCancelled,
+                Lines = lines
+            };
+
+            printModel.GetType().GetProperty("IsCancelled")?.SetValue(printModel, receipt.IsCancelled);
+
+            var receiptDialog = await DialogService.ShowAsync<FeeReceiptActionDialog>(
+                "Fee Receipt",
+                new DialogParameters
+                {
+                    [nameof(FeeReceiptActionDialog.Model)] = printModel,
+                    [nameof(FeeReceiptActionDialog.Profile)] = profile,
+                    [nameof(FeeReceiptActionDialog.AllowCancel)] = !receipt.IsCancelled
+                },
+                new DialogOptions
+                {
+                    MaxWidth = MaxWidth.ExtraLarge,
+                    FullWidth = true,
+                    CloseButton = true
+                });
+
+            var receiptDialogResult = await receiptDialog.Result;
+            if (!receiptDialogResult.Canceled && receiptDialogResult.Data is string action && action == "cancel")
+            {
+                await CancelReceiptAsync(receipt);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task EnsureStudentDetailsLoadedAsync()
+    {
+        if (_studentDetails is not null)
+            return;
+
+        var tenantId = ApiSession.TenantId;
+        if (!tenantId.HasValue || tenantId.Value <= 0)
+            return;
+
+        var response = await StudentRepository.GetByIdAsync(StudentId, tenantId.Value);
+        if (response?.Success == true && response.Data is not null)
+            _studentDetails = response.Data;
+    }
+
+    private Color GetWorkflowColor()
+    {
+        if (_dashboard.Assignment is null)
+            return Color.Warning;
+
+        if (!HasAnyCharges)
+            return Color.Info;
+
+        if (CanCollectFee)
+            return Color.Success;
+
+        return Color.Primary;
+    }
+
+    private string GetWorkflowText()
+    {
+        if (_dashboard.Assignment is null)
+            return "Pending Assignment";
+
+        if (!HasAnyCharges)
+            return "Ready to Generate";
+
+        if (CanCollectFee)
+            return "Ready to Collect";
+
+        return "Review / Settled";
+    }
+
+    private string GetGenerateButtonText()
+    {
+        return HasActiveCharges ? "Regenerate Charges" : "Generate Charges";
+    }
+
+    private Severity GetGuidanceSeverity()
+    {
+        if (_dashboard.Assignment is null)
+            return Severity.Warning;
+
+        if (!HasAnyCharges)
+            return Severity.Info;
+
+        if (HasPaidActiveCharges)
+            return Severity.Normal;
+
+        if (CanCollectFee)
+            return Severity.Success;
+
+        return Severity.Normal;
+    }
+
+    private string GetGuidanceMessage()
+    {
+        if (_dashboard.Assignment is null)
+            return "Assign a fee structure first. This links a fee plan to the current admission.";
+
+        if (!HasAnyCharges)
+            return "The fee plan is assigned. Generate charges now to create installments for collection.";
+
+        if (HasPaidActiveCharges)
+            return "Paid charges exist. Backend will protect against unsafe regeneration and destructive assignment changes.";
+
+        if (CanCollectFee)
+            return "Pending balance exists. You can collect fee or safely cancel an unpaid charge.";
+
+        return "No pending collection remains. You can review charges and receipts anytime.";
+    }
+
+    private string GetNextActionTitle()
+    {
+        if (_dashboard.Assignment is null)
+            return "Assign the fee plan";
+
+        if (!HasAnyCharges)
+            return "Generate installments";
+
+        if (CanCollectFee)
+            return "Collect pending fee";
+
+        return "Review records";
+    }
+
+    private string GetNextActionDescription()
+    {
+        if (_dashboard.Assignment is null)
+            return "Choose a structure so this admission can move into billing.";
+
+        if (!HasAnyCharges)
+            return "Create installment rows from the assigned fee plan.";
+
+        if (CanCollectFee)
+            return "Record a payment against the pending balance and issue a receipt.";
+
+        return "All active items are settled or cancelled. Review receipts and charges.";
+    }
+
+    private string GetNextActionIcon()
+    {
+        if (_dashboard.Assignment is null)
+            return Icons.Material.Filled.AccountBalanceWallet;
+
+        if (!HasAnyCharges)
+            return Icons.Material.Filled.AutoFixHigh;
+
+        if (CanCollectFee)
+            return Icons.Material.Filled.Payments;
+
+        return Icons.Material.Filled.DoneAll;
+    }
+
+    private double GetCollectionProgress()
+    {
+        if (_dashboard.Summary.TotalAmount <= 0)
+            return 0;
+
+        var value = (_dashboard.Summary.TotalPaid / _dashboard.Summary.TotalAmount) * 100m;
+        return (double)Math.Min(100m, Math.Max(0m, value));
+    }
+
+    private static FeeSummaryVm BuildSummary(List<StudentChargeResponse> charges)
+    {
+        var activeCharges = charges.Where(x => !x.IsCancelled).ToList();
+
+        return new FeeSummaryVm
+        {
+            TotalAmount = activeCharges.Sum(x => x.Amount),
+            TotalDiscount = activeCharges.Sum(x => x.DiscountAmount),
+            TotalPaid = activeCharges.Sum(x => x.PaidAmount),
+            TotalBalance = activeCharges.Sum(x => x.BalanceAmount),
+            TotalInstallments = activeCharges.Count,
+            PaidInstallments = activeCharges.Count(x => x.BalanceAmount <= 0),
+            PartialInstallments = activeCharges.Count(x => x.PaidAmount > 0 && x.BalanceAmount > 0),
+            PendingInstallments = activeCharges.Count(x => x.PaidAmount <= 0 && x.BalanceAmount > 0)
+        };
+    }
+
+    private static string DisplayText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatDate(DateTime value)
+    {
+        return value == default ? "-" : value.ToString("dd MMM yyyy");
+    }
+
+    private static string GetPaymentModeText(int paymentMode) => paymentMode switch
+    {
+        1 => "Cash",
+        2 => "UPI",
+        3 => "Bank Transfer",
+        4 => "Cheque",
+        5 => "Card",
+        _ => "Other"
+    };
+}

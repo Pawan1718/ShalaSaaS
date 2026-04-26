@@ -1,0 +1,375 @@
+﻿@page "/tenant/students/{Id:int}/edit"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+
+@inject IStudentRepository StudentRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Edit Student</PageTitle>
+
+@if (_loading)
+{
+    <MudPaper Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Typo="Typo.body1">Loading student details...</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (_student is null)
+{
+    <MudPaper Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Default" />
+            <MudText Typo="Typo.h6">Student not found</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBackToStudents">
+                Back to Students
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudStack Spacing="3">
+
+        <MudPaper Class="page-header pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.h4" Class="fw-bold">Edit Student</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Update profile details for @_student.FullName
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="GoBackToDetails">
+                        Back
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-4 detail-card h-100">
+                        <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Student Summary</MudText>
+
+                        <MudStack Spacing="2">
+                            <DetailRow Label="Admission No" Value="@_student.AdmissionNo" />
+                            <DetailRow Label="Tenant Id" Value="@_student.TenantId.ToString()" />
+                            <DetailRow Label="Branch Id" Value="@_student.BranchId.ToString()" />
+                        </MudStack>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            Admission No, tenant, and branch are fixed here. Only profile fields are editable.
+                        </MudAlert>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="8">
+                    <MudPaper Class="pa-4 detail-card">
+                        <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Profile Details</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_formError))
+                        {
+                            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">
+                                @_formError
+                            </MudAlert>
+                        }
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="First Name"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.FirstName"
+                                              Required="true" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="Middle Name"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.MiddleName" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="Last Name"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.LastName"
+                                              Required="true" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int"
+                                           Label="Gender"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           @bind-Value="_model.Gender"
+                                           Required="true">
+                                    <MudSelectItem T="int" Value="1">Male</MudSelectItem>
+                                    <MudSelectItem T="int" Value="2">Female</MudSelectItem>
+                                    <MudSelectItem T="int" Value="3">Other</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudDatePicker Label="Date of Birth"
+                                               Variant="Variant.Outlined"
+                                               Margin="Margin.Dense"
+                                               Date="_dateOfBirth"
+                                               DateChanged="OnDateChanged"
+                                               Editable="true" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int"
+                                           Label="Status"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           @bind-Value="_model.Status">
+                                    <MudSelectItem T="int" Value="1">Active</MudSelectItem>
+                                    <MudSelectItem T="int" Value="2">Inactive</MudSelectItem>
+                                    <MudSelectItem T="int" Value="3">Left</MudSelectItem>
+                                    <MudSelectItem T="int" Value="4">Alumni</MudSelectItem>
+                                    <MudSelectItem T="int" Value="5">Suspended</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="Aadhaar No"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.AadhaarNo" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="Blood Group"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.BloodGroup" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudTextField T="string"
+                                              Label="Mobile"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.Mobile" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudTextField T="string"
+                                              Label="Email"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.Email" />
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudTextField T="string"
+                                              Label="Photo URL"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              @bind-Value="_model.PhotoUrl" />
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudTextField T="string"
+                                              Label="Address"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Lines="3"
+                                              @bind-Value="_model.Address" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Default"
+                                       ButtonType="ButtonType.Button"
+                                       OnClick="GoBackToDetails">
+                                Cancel
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       ButtonType="ButtonType.Submit"
+                                       Disabled="_saving"
+                                       StartIcon="@Icons.Material.Filled.Save">
+                                @(_saving ? "Saving..." : "Update Student")
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _formError;
+
+    private StudentDetailsResponse? _student;
+    private UpdateStudentRequest _model = new();
+    private DateTime? _dateOfBirth = DateTime.Today;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Session.TenantId is null)
+        {
+            Snackbar.Add("Tenant context is missing.", Severity.Error);
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+
+        try
+        {
+            var response = await StudentRepository.GetByIdAsync(Id, Session.TenantId.Value);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _student = response.Data;
+
+                _model = new UpdateStudentRequest
+                {
+           
+                    FirstName = _student.FirstName,
+                    MiddleName = _student.MiddleName,
+                    LastName = _student.LastName,
+                    Gender = MapGenderToInt(_student.Gender),
+                    DateOfBirth = _student.DateOfBirth,
+                    AadhaarNo = _student.AadhaarNo,
+                    BloodGroup = _student.BloodGroup,
+                    Mobile = _student.Mobile,
+                    Email = _student.Email,
+                    Address = _student.Address,
+                    PhotoUrl = _student.PhotoUrl,
+                    Status = MapStatusToInt(_student.Status)
+                };
+
+                _dateOfBirth = _model.DateOfBirth;
+            }
+            else
+            {
+                _student = null;
+                Snackbar.Add(response?.Message ?? "Failed to load student details.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnDateChanged(DateTime? value)
+    {
+        _dateOfBirth = value;
+        _model.DateOfBirth = value ?? DateTime.Today;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _formError = null;
+
+        if (Session.TenantId is null)
+        {
+            _formError = "Tenant context is missing.";
+            return;
+        }
+
+  
+
+        _saving = true;
+
+        try
+        {
+            var response = await StudentRepository.UpdateAsync(Id, _model);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                Snackbar.Add(response.Message ?? "Student updated successfully.", Severity.Success);
+                Navigation.NavigateTo($"/tenant/students/{Id}");
+            }
+            else
+            {
+                _formError = response?.Message ?? "Failed to update student.";
+                Snackbar.Add(_formError, Severity.Error);
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void GoBackToDetails()
+    {
+        Navigation.NavigateTo($"/tenant/students/{Id}");
+    }
+
+    private void GoBackToStudents()
+    {
+        Navigation.NavigateTo("/tenant/students");
+    }
+
+    private static int MapGenderToInt(string? gender)
+    {
+        return gender?.ToLower() switch
+        {
+            "male" => 1,
+            "female" => 2,
+            "other" => 3,
+            _ => 1
+        };
+    }
+
+    private static int MapStatusToInt(string? status)
+    {
+        return status?.ToLower() switch
+        {
+            "active" => 1,
+            "inactive" => 2,
+            "left" => 3,
+            "alumni" => 4,
+            "suspended" => 5,
+            _ => 1
+        };
+    }
+}

@@ -1,0 +1,202 @@
+﻿@page "/"
+@layout Shala.Web.Components.Layouts.AuthLayout
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@inject NavigationManager Nav
+
+<PageTitle>Shala SaaS</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-10 mb-10">
+
+    <!-- Hero Section -->
+    <MudGrid AlignItems="AlignItems.Center" Spacing="4">
+
+        <MudItem xs="12" md="6">
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4">
+                School Management SaaS
+            </MudChip>
+
+            <MudText Typo="Typo.h3" Class="fw-bold mb-3">
+                Shala SaaS
+            </MudText>
+
+            <MudText Typo="Typo.h5" Class="mb-3">
+                Smart School Management Made Simple
+            </MudText>
+
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+                Manage students, teachers, attendance, fees, classes, and school operations
+                from one modern platform. Built for schools that want a simple, powerful,
+                and scalable digital system.
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           OnClick="@GoToTenantLogin">
+                    Tenant Login
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.AdminPanelSettings"
+                           OnClick="@GoToPlatformLogin">
+                    Platform Login
+                </MudButton>
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2" Class="mt-3" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@GoToTenantLogin">
+                    Get Started
+                </MudButton>
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Dashboard"
+                           OnClick="@GoToPlatformLogin">
+                    Super Admin
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-6 rounded-lg" Elevation="2">
+                <MudStack Spacing="3">
+
+                    <MudText Typo="Typo.h6">Why Shala?</MudText>
+
+                    <MudPaper Class="pa-4" Outlined="true">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Primary" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Student Management</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Maintain complete student records in one place.
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4" Outlined="true">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Primary" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Attendance Tracking</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Mark and monitor daily attendance quickly.
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4" Outlined="true">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Fees & Reports</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Track fees, dues, and useful analytics.
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+
+    <!-- Feature Cards -->
+    <MudText Typo="Typo.h4" Class="mt-12 mb-6 text-center">Core Features</MudText>
+
+    <MudGrid Spacing="3">
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-5 rounded-lg text-center fill-height" Elevation="1">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.h6" Class="mt-3">Students</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Add, update, and manage student data easily.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-5 rounded-lg text-center fill-height" Elevation="1">
+                <MudIcon Icon="@Icons.Material.Filled.Badge" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.h6" Class="mt-3">Teachers</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Organize teacher records and responsibilities.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-5 rounded-lg text-center fill-height" Elevation="1">
+                <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.h6" Class="mt-3">Attendance</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Fast attendance marking and summary reports.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-5 rounded-lg text-center fill-height" Elevation="1">
+                <MudIcon Icon="@Icons.Material.Filled.Analytics" Size="Size.Large" Color="Color.Primary" />
+                <MudText Typo="Typo.h6" Class="mt-3">Analytics</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Get useful data insights for your school operations.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+    </MudGrid>
+
+    <!-- CTA -->
+    <MudPaper Class="pa-8 rounded-lg mt-12 text-center" Elevation="2">
+        <MudText Typo="Typo.h4" Class="mb-3">
+            Ready to manage your school better?
+        </MudText>
+
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-5">
+            Login as a registered school or access the platform as Super Admin.
+        </MudText>
+
+        <MudStack Row="true" Justify="Justify.Center" Spacing="2" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.School"
+                       OnClick="@GoToTenantLogin">
+                School / Tenant Login
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.AdminPanelSettings"
+                       OnClick="@GoToPlatformLogin">
+                Platform / Admin Login
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+    private void GoToPlatformLogin()
+    {
+        Nav.NavigateTo("/platform/login");
+    }
+
+    private void GoToTenantLogin()
+    {
+        Nav.NavigateTo("/tenant/login");
+    }
+}

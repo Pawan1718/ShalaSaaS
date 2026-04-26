@@ -1,0 +1,27 @@
+﻿@using MudBlazor
+
+<MudPaper Class="shala-card shala-stat-card pa-4" Elevation="0">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        <MudAvatar Color="@Color" Variant="Variant.Filled">
+            <MudIcon Icon="@Icon" />
+        </MudAvatar>
+
+        <div>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Label</MudText>
+            <MudText Typo="Typo.h6" Class="fw-bold">@Value</MudText>
+
+            @if (!string.IsNullOrWhiteSpace(Hint))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@Hint</MudText>
+            }
+        </div>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.Analytics;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+}

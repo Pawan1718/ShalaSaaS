@@ -1,0 +1,17 @@
+﻿@using MudBlazor
+
+@if (IsVisible)
+{
+    <AppCard>
+        @for (int i = 0; i < Rows; i++)
+        {
+            <MudSkeleton Height="@RowHeight" Width="100%" Class="mb-2" />
+        }
+    </AppCard>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; } = true;
+    [Parameter] public int Rows { get; set; } = 5;
+    [Parameter] public string RowHeight { get; set; } = "42px";
+}

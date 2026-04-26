@@ -1,0 +1,177 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Platform
+@using Shala.Shared.Requests.Tenant
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Repositories.PlatformRepo
+@using Shala.Web.Repositories.TenantRepo
+@using Shala.Web.Services.State
+@using Shala.Shared.Enums
+
+@inject TenantUserRepository UserRepo
+@inject IBranchRepository BranchRepo
+@inject ISnackbar Snackbar
+@inject ApiSession Session
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudTextField T="string"
+                              @bind-Value="_model.FullName"
+                              Label="Full Name"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField T="string"
+                              @bind-Value="_model.Email"
+                              Label="Email"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField T="string"
+                              @bind-Value="_model.MobileNumber"
+                              Label="Mobile"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTextField T="string"
+                              @bind-Value="_model.Password"
+                              Label="Password"
+                              InputType="InputType.Password"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="AppRole"
+                           Value="_model.Role"
+                           ValueChanged="OnRoleChanged"
+                           Label="Role"
+                           Variant="Variant.Outlined">
+                    <MudSelectItem T="AppRole" Value="@AppRole.Teacher">Teacher</MudSelectItem>
+                    <MudSelectItem T="AppRole" Value="@AppRole.Staff">Staff</MudSelectItem>
+                    <MudSelectItem T="AppRole" Value="@AppRole.BranchAdmin">Branch Admin</MudSelectItem>
+                    <MudSelectItem T="AppRole" Value="@AppRole.Accountant">Accountant</MudSelectItem>
+                    <MudSelectItem T="AppRole" Value="@AppRole.SchoolAdmin">School Admin</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="int"
+                           @bind-Value="_model.DefaultBranchId"
+                           Label="Default Branch"
+                           Variant="Variant.Outlined">
+                    @foreach (var b in _branches)
+                    {
+                        <MudSelectItem T="int" Value="@b.Id">@b.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudSelect T="int"
+                           Label="Allowed Branches"
+                           MultiSelection="true"
+                           SelectedValues="_selectedBranchIds"
+                           SelectedValuesChanged="OnSelectedBranchesChanged"
+                           Variant="Variant.Outlined">
+                    @foreach (var b in _branches)
+                    {
+                        <MudSelectItem T="int" Value="@b.Id">@b.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">
+            Cancel
+        </MudButton>
+
+        <MudButton OnClick="Submit"
+                   Color="Color.Primary"
+                   Variant="Variant.Filled">
+            Create
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private readonly CreateTenantUserRequest _model = new();
+    private List<BranchResponse> _branches = new();
+    private IReadOnlyCollection<int> _selectedBranchIds = new List<int>();
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+
+        if (Session.TenantId.HasValue)
+        {
+            _branches = await BranchRepo.GetAllAsync(Session.TenantId.Value);
+
+            if (_branches.Count == 1)
+            {
+                var branchId = _branches[0].Id;
+                _model.DefaultBranchId = branchId;
+                _selectedBranchIds = new List<int> { branchId };
+                _model.AllowedBranchIds = new List<int> { branchId };
+            }
+        }
+    }
+
+    private Task OnSelectedBranchesChanged(IReadOnlyCollection<int> values)
+    {
+        _selectedBranchIds = values;
+        _model.AllowedBranchIds = values.ToList();
+
+        if (_model.DefaultBranchId > 0 && !_model.AllowedBranchIds.Contains(_model.DefaultBranchId))
+        {
+            _model.DefaultBranchId = 0;
+        }
+
+        return Task.CompletedTask;
+    }
+    private Task OnRoleChanged(AppRole value)
+    {
+        _model.Role = value;
+        return Task.CompletedTask;
+    }
+    private async Task Submit()
+    {
+        if (_model.AllowedBranchIds.Count == 0)
+        {
+            Snackbar.Add("Select at least one allowed branch.", Severity.Warning);
+            return;
+        }
+
+        if (_model.DefaultBranchId <= 0)
+        {
+            Snackbar.Add("Select a default branch.", Severity.Warning);
+            return;
+        }
+
+        if (!_model.AllowedBranchIds.Contains(_model.DefaultBranchId))
+        {
+            _model.AllowedBranchIds.Add(_model.DefaultBranchId);
+        }
+
+        var res = await UserRepo.CreateUserAsync(_model);
+
+        if (res.IsSuccess)
+        {
+            Snackbar.Add("User created", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            var body = await res.GetBodyPartAsync();
+            Snackbar.Add(string.IsNullOrWhiteSpace(body) ? "Failed to create user." : body, Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
