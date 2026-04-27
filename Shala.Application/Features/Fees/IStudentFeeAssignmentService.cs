@@ -15,11 +15,11 @@ public interface IStudentFeeAssignmentService
         int id,
         CancellationToken cancellationToken = default);
 
-    Task<StudentFeeAssignment?> GetByAdmissionIdAsync(
-        int tenantId,
-        int branchId,
-        int studentAdmissionId,
-        CancellationToken cancellationToken = default);
+    Task<List<StudentFeeAssignment>> GetByAdmissionIdAsync(
+     int tenantId,
+     int branchId,
+     int studentAdmissionId,
+     CancellationToken cancellationToken = default);
 
     Task<(bool Success, string Message, StudentFeeAssignment? Data)> AssignAsync(
         int tenantId,

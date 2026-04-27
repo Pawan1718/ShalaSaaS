@@ -9,21 +9,27 @@ namespace Shala.Application.Features.Fees;
 public class StudentFeeAssignmentService : IStudentFeeAssignmentService
 {
     private readonly IStudentFeeAssignmentRepository _repo;
+    private readonly IFeeStructureRepository _feeStructureRepository;
     private readonly IStudentChargeRepository _chargeRepository;
     private readonly IFeeLedgerPostingService _ledgerPostingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public StudentFeeAssignmentService(
-        IStudentFeeAssignmentRepository repo,
-        IStudentChargeRepository chargeRepository,
-        IFeeLedgerPostingService ledgerPostingService,
-        IUnitOfWork unitOfWork)
+    IStudentFeeAssignmentRepository repo,
+    IFeeStructureRepository feeStructureRepository,
+    IStudentChargeRepository chargeRepository,
+    IFeeLedgerPostingService ledgerPostingService,
+    IUnitOfWork unitOfWork)
     {
         _repo = repo;
+        _feeStructureRepository = feeStructureRepository;
         _chargeRepository = chargeRepository;
         _ledgerPostingService = ledgerPostingService;
         _unitOfWork = unitOfWork;
     }
+
+
+
 
     public Task<List<StudentFeeAssignment>> GetAllAsync(
         int tenantId,
@@ -42,11 +48,11 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         return _repo.GetByIdAsync(id, tenantId, branchId, cancellationToken);
     }
 
-    public Task<StudentFeeAssignment?> GetByAdmissionIdAsync(
-        int tenantId,
-        int branchId,
-        int studentAdmissionId,
-        CancellationToken cancellationToken = default)
+    public Task<List<StudentFeeAssignment>> GetByAdmissionIdAsync(
+      int tenantId,
+      int branchId,
+      int studentAdmissionId,
+      CancellationToken cancellationToken = default)
     {
         return _repo.GetByAdmissionIdAsync(studentAdmissionId, tenantId, branchId, cancellationToken);
     }
@@ -70,9 +76,27 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
         entity.BranchId = branchId;
         entity.IsActive = true;
 
-        var existing = await _repo.GetByAdmissionIdAsync(entity.StudentAdmissionId, tenantId, branchId, cancellationToken);
+        var existing = await _repo.GetByAdmissionAndStructureIdAsync(
+    entity.StudentAdmissionId,
+    entity.FeeStructureId,
+    tenantId,
+    branchId,
+    cancellationToken);
+
         if (existing is not null)
-            return (false, "Fee structure already assigned for this admission.", null);
+            return (false, "This fee structure is already assigned for this admission.", null);
+
+        var overlapValidation = await ValidateNoFeeHeadOverlapAsync(
+    tenantId,
+    branchId,
+    entity.StudentAdmissionId,
+    entity.FeeStructureId,
+    null,
+    cancellationToken);
+
+        if (!overlapValidation.Success)
+            return (false, overlapValidation.Message, null);
+
 
         await _repo.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -100,6 +124,21 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
             var existing = await _repo.GetByIdAsync(entity.Id, tenantId, branchId, cancellationToken);
             if (existing is null)
                 return await RollbackAsync("Student fee assignment not found.", cancellationToken);
+
+
+
+            var overlapValidation = await ValidateNoFeeHeadOverlapAsync(
+    tenantId,
+    branchId,
+    existing.StudentAdmissionId,
+    entity.FeeStructureId,
+    existing.Id,
+    cancellationToken);
+
+            if (!overlapValidation.Success)
+                return await RollbackAsync(overlapValidation.Message, cancellationToken);
+
+
 
             var existingCharges = await _chargeRepository.GetByAssignmentIdAsync(existing.Id, tenantId, branchId, cancellationToken);
             var hasPaidCharges = existingCharges.Any(x => x.PaidAmount > 0);
@@ -250,5 +289,69 @@ public class StudentFeeAssignmentService : IStudentFeeAssignmentService
     {
         await _unitOfWork.RollbackTransactionAsync(cancellationToken);
         return (false, message);
+    }
+
+
+
+
+    private async Task<(bool Success, string Message)> ValidateNoFeeHeadOverlapAsync(
+    int tenantId,
+    int branchId,
+    int studentAdmissionId,
+    int feeStructureId,
+    int? ignoreAssignmentId,
+    CancellationToken cancellationToken)
+    {
+        var newStructure = await _feeStructureRepository.GetWithItemsAsync(
+            feeStructureId,
+            tenantId,
+            branchId,
+            cancellationToken);
+
+        if (newStructure is null)
+            return (false, "Fee structure not found.");
+
+        var newFeeHeadIds = newStructure.Items
+            .Where(x => x.IsActive)
+            .Select(x => x.FeeHeadId)
+            .Distinct()
+            .ToHashSet();
+
+        if (newFeeHeadIds.Count == 0)
+            return (false, "Fee structure has no active fee heads.");
+
+        var existingAssignments = await _repo.GetByAdmissionIdAsync(
+            studentAdmissionId,
+            tenantId,
+            branchId,
+            cancellationToken);
+
+        var conflictingAssignments = existingAssignments
+            .Where(x => x.IsActive)
+            .Where(x => !ignoreAssignmentId.HasValue || x.Id != ignoreAssignmentId.Value)
+            .Where(x => x.FeeStructure?.Items != null)
+            .Select(x => new
+            {
+                Assignment = x,
+                ConflictingFeeHeads = x.FeeStructure.Items
+                    .Where(i => i.IsActive && newFeeHeadIds.Contains(i.FeeHeadId))
+                    .Select(i => i.Label)
+                    .Distinct()
+                    .ToList()
+            })
+            .Where(x => x.ConflictingFeeHeads.Any())
+            .ToList();
+
+        if (conflictingAssignments.Any())
+        {
+            var conflicts = conflictingAssignments
+                .Select(x => $"{x.Assignment.FeeStructure?.Name ?? "Existing structure"} ({string.Join(", ", x.ConflictingFeeHeads)})");
+
+            return (
+                false,
+                $"This admission already has matching fee heads assigned: {string.Join("; ", conflicts)}.");
+        }
+
+        return (true, "OK");
     }
 }

@@ -1,0 +1,37 @@
+﻿.section-title {
+    font-weight: 700;
+}
+
+.preview-box {
+    padding: 22px;
+    border-radius: var(--shala-radius-lg);
+    border: 1px solid var(--shala-border);
+    background: linear-gradient(135deg, var(--shala-primary-light), #ffffff);
+}
+
+.preview-label {
+    color: var(--shala-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.preview-value {
+    font-weight: 800;
+    color: var(--shala-primary);
+    margin-top: 6px;
+}
+
+.reset-summary-card {
+    padding: 14px;
+}
+
+.mini-stat-value {
+    font-weight: 700;
+    color: var(--shala-text);
+}
+
+.placeholder-set {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}

@@ -4,7 +4,10 @@ namespace Shala.Web.Models.Fees;
 
 public class AdmissionFeeDashboardVm
 {
-    public StudentFeeAssignmentResponse? Assignment { get; set; }
+    public List<StudentFeeAssignmentResponse> Assignments { get; set; } = new();
+
+    public StudentFeeAssignmentResponse? Assignment =>
+        Assignments.FirstOrDefault(x => x.IsActive) ?? Assignments.FirstOrDefault();
 
     public List<FeeStructureResponse> AvailableStructures { get; set; } = new();
     public List<StudentChargeResponse> Charges { get; set; } = new();

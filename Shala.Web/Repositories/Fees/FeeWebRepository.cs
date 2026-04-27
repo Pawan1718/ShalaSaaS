@@ -261,20 +261,26 @@ public sealed class FeeWebRepository : IFeeWebRepository
 
         EnsureSuccess(response);
     }
-
-    public async Task<StudentFeeAssignmentResponse?> GetAssignmentAsync(
-        int admissionId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<StudentFeeAssignmentResponse>> GetAssignmentsAsync(
+    int admissionId,
+    CancellationToken cancellationToken = default)
     {
-        var response = await _httpService.GetAsync<StudentFeeAssignmentResponse>(
+        var response = await _httpService.GetAsync<List<StudentFeeAssignmentResponse>>(
             $"api/fees/assignments/admission/{admissionId}",
             cancellationToken);
 
         if (IsNotFound(response))
-            return null;
+            return new List<StudentFeeAssignmentResponse>();
 
         EnsureSuccess(response);
-        return await GetPayloadOrFallbackAsync<StudentFeeAssignmentResponse?>(response, null);
+        return await GetPayloadOrFallbackAsync(response, new List<StudentFeeAssignmentResponse>());
+    }
+    public async Task<StudentFeeAssignmentResponse?> GetAssignmentAsync(
+     int admissionId,
+     CancellationToken cancellationToken = default)
+    {
+        var assignments = await GetAssignmentsAsync(admissionId, cancellationToken);
+        return assignments.FirstOrDefault(x => x.IsActive) ?? assignments.FirstOrDefault();
     }
 
     public async Task<StudentFeeAssignmentResponse> AssignFeeStructureAsync(

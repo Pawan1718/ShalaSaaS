@@ -26,6 +26,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RollNumberSetting> RollNumberSettings => Set<RollNumberSetting>();
     public DbSet<AcademicClass> AcademicClasses => Set<AcademicClass>();
     public DbSet<Section> Sections => Set<Section>();
+    public DbSet<AdmissionNumberCounter> AdmissionNumberCounters { get; set; }
 
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Guardian> Guardians => Set<Guardian>();
@@ -201,6 +202,27 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .OnDelete(DeleteBehavior.NoAction)
                 .IsRequired(false);
         });
+        builder.Entity<AdmissionNumberCounter>(entity =>
+        {
+            entity.ToTable("AdmissionNumberCounters");
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.AcademicYearId
+            }).IsUnique();
+        });
+        builder.Entity<StudentAdmission>(entity =>
+        {
+            entity.HasIndex(x => new
+            {
+                x.TenantId,
+                x.BranchId,
+                x.AdmissionNo
+            }).IsUnique();
+        });
     }
 
     private static void ConfigureStudents(ModelBuilder builder)
@@ -296,7 +318,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .HasForeignKey(x => x.FeeStructureId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentAdmissionId,x.FeeStructureId}).IsUnique();
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.StudentId });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.FeeStructureId });
             entity.HasIndex(x => new { x.TenantId, x.BranchId, x.IsActive });

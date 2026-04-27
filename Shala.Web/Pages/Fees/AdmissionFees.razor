@@ -1,4 +1,4 @@
-﻿
+﻿    
 @page "/tenant/students/{StudentId:int}/admissions/{AdmissionId:int}/fees"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
@@ -63,30 +63,10 @@
                 </Filters>
 
                 <Actions>
-                    @if (_dashboard.Assignment is null)
-                    {
-                        <AppButton StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
-                                   OnClick="@((MouseEventArgs _) => OpenAssignDialogAsync())">
-                            Assign Structure
-                        </AppButton>
-                    }
-                    else
-                    {
-                        <AppButton Variant="Variant.Outlined"
-                                   StartIcon="@Icons.Material.Filled.Edit"
-                                   Disabled="@_busyAssignmentAction"
-                                   OnClick="@((MouseEventArgs _) => OpenEditAssignmentDialogAsync())">
-                            Edit Assignment
-                        </AppButton>
-
-                        <AppButton Variant="Variant.Outlined"
-                                   Color="Color.Error"
-                                   StartIcon="@Icons.Material.Filled.Block"
-                                   Disabled="@_busyAssignmentAction"
-                                   OnClick="@((MouseEventArgs _) => DeactivateAssignmentAsync())">
-                            Deactivate
-                        </AppButton>
-                    }
+                    <AppButton StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@((MouseEventArgs _) => OpenAssignDialogAsync())">
+                        Add Fee Plan
+                    </AppButton>
 
                     <AppButton Variant="Variant.Filled"
                                Color="Color.Secondary"
@@ -124,51 +104,165 @@
             <FeeSummaryCards Summary="_dashboard.Summary" />
 
             <MudGrid Spacing="3" Class="mt-1 mb-4">
-                <MudItem xs="12" md="6" lg="4">
+                <MudItem xs="12" md="12" lg="4">
                     <AppCard Class="h-100">
                         <MudStack Spacing="2">
-                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                                <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
-                                    <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" />
-                                </MudAvatar>
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                                        <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" />
+                                    </MudAvatar>
 
-                                <div>
-                                    <MudText Typo="Typo.subtitle1" Class="fw-semibold">Fee Plan Summary</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        Current structure linked to this admission
-                                    </MudText>
-                                </div>
+                                    <div>
+                                        <MudText Typo="Typo.subtitle1" Class="fw-semibold">Fee Plans</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Multiple structures linked to this admission
+                                        </MudText>
+                                    </div>
+                                </MudStack>
+                                @if (GetConflictingAvailableStructures().Any())
+                                {
+                                    <AppError Message="@GetConflictingStructureMessage()"
+                                              Severity="Severity.Info"
+                                              Variant="Variant.Outlined"
+                                              Dense="true" />
+                                }
+                                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                                    @_dashboard.Assignments.Count(x => x.IsActive) Active
+                                </MudChip>
                             </MudStack>
 
-                            @if (_dashboard.Assignment is null)
+                            @if (!_dashboard.Assignments.Any())
                             {
                                 <AppEmptyState Title="No plan assigned yet"
-                                               Message="Assign a fee structure first to unlock charge generation and collection."
+                                               Message="Assign registration, tuition, transport, or other fee structures."
                                                Icon="@Icons.Material.Filled.AccountBalanceWallet" />
                             }
                             else
                             {
                                 <MudStack Spacing="2">
-                                    <DetailRow Label="Fee Plan" Value="@DisplayText(_dashboard.Assignment.FeeStructureName)" />
-                                    <DetailRow Label="Assigned On" Value="@FormatDate(_dashboard.Assignment.CreatedAt)" />
-                                    <DetailRow Label="Discount" Value="@_dashboard.Assignment.DiscountAmount.ToString("N2")" />
-                                    <DetailRow Label="Additional" Value="@_dashboard.Assignment.AdditionalChargeAmount.ToString("N2")" />
-                                    <DetailRow Label="Academic Year" Value="@DisplayText(_dashboard.Assignment.AcademicYear)" />
+                                    @foreach (var assignment in _dashboard.Assignments.OrderByDescending(x => x.IsActive).ThenBy(x => x.FeeStructureName))
+                                    {
+                                        var assignmentCharges = AdmissionCharges
+                                            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+                                            .ToList();
 
-                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Status</MudText>
-                                        <StatusChip IsActive="@_dashboard.Assignment.IsActive"
-                                                    ActiveText="Active"
-                                                    InactiveText="Inactive"
-                                                    ActiveColor="Color.Success"
-                                                    InactiveColor="Color.Default" />
-                                    </MudStack>
+                                        var total = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.NetAmount);
+
+                                        var paid = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.PaidAmount);
+
+                                        var balance = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.BalanceAmount);
+
+                                        var hasPaid = assignmentCharges.Any(x => !x.IsCancelled && x.PaidAmount > 0);
+                                        var hasCharges = assignmentCharges.Any();
+
+                                        <MudPaper Class="pa-3 rounded-4 border fee-plan-card" Elevation="0">
+                                            <MudStack Spacing="2">
+                                                <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Spacing="2">
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.subtitle2" Class="fw-semibold">
+                                                            @DisplayText(assignment.FeeStructureName)
+                                                        </MudText>
+
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            Assigned @FormatDate(assignment.CreatedAt)
+                                                        </MudText>
+                                                    </MudStack>
+
+                                                    <StatusChip IsActive="@assignment.IsActive"
+                                                                ActiveText="Active"
+                                                                InactiveText="Inactive"
+                                                                ActiveColor="Color.Success"
+                                                                InactiveColor="Color.Default" />
+                                                </MudStack>
+
+                                                <MudGrid Spacing="1">
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@total.ToString("N2")</MudText>
+                                                    </MudItem>
+
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Paid</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@paid.ToString("N2")</MudText>
+                                                    </MudItem>
+
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Due</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@balance.ToString("N2")</MudText>
+                                                    </MudItem>
+                                                </MudGrid>
+
+                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+                                                    @if (assignment.DiscountAmount > 0)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success">
+                                                            Discount @assignment.DiscountAmount.ToString("N2")
+                                                        </MudChip>
+                                                    }
+
+                                                    @if (assignment.AdditionalChargeAmount > 0)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning">
+                                                            Additional @assignment.AdditionalChargeAmount.ToString("N2")
+                                                        </MudChip>
+                                                    }
+
+                                                    @if (hasCharges)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
+                                                            @assignmentCharges.Count charge(s)
+                                                        </MudChip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning">
+                                                            Not Generated
+                                                        </MudChip>
+                                                    }
+                                                </MudStack>
+
+                                                <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd" Class="flex-wrap">
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               StartIcon="@Icons.Material.Filled.Edit"
+                                                               Disabled="@(_busyAssignmentAction || hasPaid)"
+                                                               OnClick="@(() => OpenEditAssignmentDialogAsync(assignment))">
+                                                        Edit
+                                                    </MudButton>
+
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="Color.Secondary"
+                                                               StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                                               Disabled="@(_busyGenerate || !assignment.IsActive || hasPaid)"
+                                                               OnClick="@(() => GenerateOrRegenerateChargesAsync(assignment))">
+                                                        @(hasCharges ? "Regenerate" : "Generate")
+                                                    </MudButton>
+
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="Color.Error"
+                                                               StartIcon="@Icons.Material.Filled.Block"
+                                                               Disabled="@(_busyAssignmentAction || hasPaid)"
+                                                               OnClick="@(() => DeactivateAssignmentAsync(assignment))">
+                                                        Deactivate
+                                                    </MudButton>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudPaper>
+                                    }
                                 </MudStack>
                             }
                         </MudStack>
                     </AppCard>
                 </MudItem>
-
                 <MudItem xs="12" md="6" lg="4">
                     <AppCard Class="h-100">
                         <MudStack Spacing="2">
@@ -350,10 +444,9 @@
             var structuresTask = FeeWebRepository.GetFeeStructuresAsync();
             var chargesTask = FeeWebRepository.GetStudentChargesAsync(StudentId);
             var receiptsTask = FeeWebRepository.GetStudentReceiptsAsync(StudentId);
-            var assignmentTask = FeeWebRepository.GetAssignmentAsync(AdmissionId);
+            var assignmentsTask = FeeWebRepository.GetAssignmentsAsync(AdmissionId);
 
-            await Task.WhenAll(structuresTask, chargesTask, receiptsTask, assignmentTask);
-
+            await Task.WhenAll(structuresTask, chargesTask, receiptsTask, assignmentsTask);
             _dashboard.AvailableStructures = (await structuresTask)
                 .Where(x => x.IsActive)
                 .OrderBy(x => x.Name)
@@ -371,7 +464,7 @@
                 .ThenByDescending(x => x.Id)
                 .ToList();
 
-            _dashboard.Assignment = await assignmentTask;
+            _dashboard.Assignments = await assignmentsTask;
             _dashboard.Summary = BuildSummary(_dashboard.Charges);
         }
         catch (Exception ex)
@@ -393,10 +486,30 @@
 
     private async Task OpenAssignDialogAsync()
     {
-        if (_dashboard.Assignment is not null)
+        var assignedStructureIds = _dashboard.Assignments
+     .Where(x => x.IsActive)
+     .Select(x => x.FeeStructureId)
+     .ToHashSet();
+
+        var assignedFeeHeadIds = _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .SelectMany(a =>
+                _dashboard.AvailableStructures
+                    .FirstOrDefault(s => s.Id == a.FeeStructureId)?
+                    .Items ?? new List<FeeStructureItemResponse>())
+            .Where(i => i.IsActive)
+            .Select(i => i.FeeHeadId)
+            .ToHashSet();
+
+        var availableStructures = _dashboard.AvailableStructures
+            .Where(x => !assignedStructureIds.Contains(x.Id))
+            .Where(x => !x.Items.Any(i => i.IsActive && assignedFeeHeadIds.Contains(i.FeeHeadId)))
+            .ToList();
+
+
+        if (!availableStructures.Any())
         {
-            Snackbar.Add("Assignment already exists for this admission.", Severity.Warning);
-            return;
+            Snackbar.Add("No compatible fee structures available. Existing assigned fee heads would conflict.", Severity.Warning); return;
         }
 
         if (!_dashboard.AvailableStructures.Any())
@@ -409,7 +522,7 @@
             "Assign Fee Structure",
             new DialogParameters
             {
-                [nameof(AssignFeeStructureDialog.FeeStructures)] = _dashboard.AvailableStructures,
+                [nameof(AssignFeeStructureDialog.FeeStructures)] = availableStructures,
                 [nameof(AssignFeeStructureDialog.IsEditMode)] = false
             });
 
@@ -453,19 +566,27 @@
         }
     }
 
-    private async Task OpenEditAssignmentDialogAsync()
+    private async Task OpenEditAssignmentDialogAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
     {
-        if (_dashboard.Assignment is null)
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
         {
             Snackbar.Add("Assignment not found.", Severity.Warning);
             return;
         }
 
+        var assignmentCharges = AdmissionCharges
+            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+            .ToList();
+
+        var hasPaidForAssignment = assignmentCharges.Any(x => !x.IsCancelled && x.PaidAmount > 0);
+
         var initialModel = new AssignFeeStructureVm
         {
-            FeeStructureId = _dashboard.Assignment.FeeStructureId,
-            DiscountAmount = _dashboard.Assignment.DiscountAmount,
-            AdditionalChargeAmount = _dashboard.Assignment.AdditionalChargeAmount,
+            FeeStructureId = assignment.FeeStructureId,
+            DiscountAmount = assignment.DiscountAmount,
+            AdditionalChargeAmount = assignment.AdditionalChargeAmount,
             AutoGenerateCharges = false
         };
 
@@ -483,9 +604,9 @@
         if (result.Canceled || result.Data is not AssignFeeStructureVm model)
             return;
 
-        var structureChanged = model.FeeStructureId != _dashboard.Assignment.FeeStructureId;
-        var discountChanged = model.DiscountAmount != _dashboard.Assignment.DiscountAmount;
-        var additionalChanged = model.AdditionalChargeAmount != _dashboard.Assignment.AdditionalChargeAmount;
+        var structureChanged = model.FeeStructureId != assignment.FeeStructureId;
+        var discountChanged = model.DiscountAmount != assignment.DiscountAmount;
+        var additionalChanged = model.AdditionalChargeAmount != assignment.AdditionalChargeAmount;
 
         if (structureChanged || discountChanged || additionalChanged || model.AutoGenerateCharges)
         {
@@ -497,12 +618,12 @@
                 new DialogParameters
                 {
                     [nameof(AssignmentImpactDialog.Model)] = model,
-                    [nameof(AssignmentImpactDialog.CurrentStructureName)] = _dashboard.Assignment.FeeStructureName,
+                    [nameof(AssignmentImpactDialog.CurrentStructureName)] = assignment.FeeStructureName,
                     [nameof(AssignmentImpactDialog.ProposedStructureName)] = proposedStructureName,
-                    [nameof(AssignmentImpactDialog.CurrentDiscount)] = _dashboard.Assignment.DiscountAmount,
-                    [nameof(AssignmentImpactDialog.CurrentAdditional)] = _dashboard.Assignment.AdditionalChargeAmount,
-                    [nameof(AssignmentImpactDialog.HasPaidCharges)] = HasPaidActiveCharges,
-                    [nameof(AssignmentImpactDialog.HasActiveCharges)] = HasActiveCharges
+                    [nameof(AssignmentImpactDialog.CurrentDiscount)] = assignment.DiscountAmount,
+                    [nameof(AssignmentImpactDialog.CurrentAdditional)] = assignment.AdditionalChargeAmount,
+                    [nameof(AssignmentImpactDialog.HasPaidCharges)] = hasPaidForAssignment,
+                    [nameof(AssignmentImpactDialog.HasActiveCharges)] = assignmentCharges.Any(x => !x.IsCancelled)
                 });
 
             var reviewResult = await reviewDialog.Result;
@@ -517,21 +638,21 @@
 
             var request = new UpdateStudentFeeAssignmentRequest
             {
-                Id = _dashboard.Assignment.Id,
+                Id = assignment.Id,
                 StudentId = StudentId,
                 StudentAdmissionId = AdmissionId,
                 FeeStructureId = model.FeeStructureId,
                 DiscountAmount = model.DiscountAmount,
                 AdditionalChargeAmount = model.AdditionalChargeAmount,
-                IsActive = _dashboard.Assignment.IsActive
+                IsActive = assignment.IsActive
             };
 
-            await FeeWebRepository.UpdateAssignmentAsync(_dashboard.Assignment.Id, request);
+            await FeeWebRepository.UpdateAssignmentAsync(assignment.Id, request);
             Snackbar.Add("Assignment updated successfully.", Severity.Success);
 
             if (model.AutoGenerateCharges)
             {
-                await FeeWebRepository.GenerateChargesAsync(_dashboard.Assignment.Id);
+                await FeeWebRepository.GenerateChargesAsync(assignment.Id);
                 Snackbar.Add("Charges regenerated successfully.", Severity.Success);
             }
 
@@ -547,9 +668,11 @@
         }
     }
 
-    private async Task DeactivateAssignmentAsync()
+    private async Task DeactivateAssignmentAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
     {
-        if (_dashboard.Assignment is null)
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
             return;
 
         var dialog = await DialogService.ShowAsync<CancelReasonDialog>(
@@ -557,7 +680,7 @@
             new DialogParameters
             {
                 [nameof(CancelReasonDialog.Title)] = "Deactivate Assignment",
-                [nameof(CancelReasonDialog.Description)] = "Enter a reason before deactivating this assignment. Backend may cancel unpaid active charges."
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason before deactivating '{assignment.FeeStructureName}'. Backend may cancel unpaid active charges."
             });
 
         var result = await dialog.Result;
@@ -568,7 +691,7 @@
         try
         {
             _busyAssignmentAction = true;
-            await FeeWebRepository.DeleteAssignmentAsync(_dashboard.Assignment.Id);
+            await FeeWebRepository.DeleteAssignmentAsync(assignment.Id);
             Snackbar.Add("Assignment deactivated successfully.", Severity.Success);
             await LoadAsync();
         }
@@ -582,25 +705,37 @@
         }
     }
 
-    private async Task GenerateOrRegenerateChargesAsync()
+    private async Task GenerateOrRegenerateChargesAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
     {
-        if (_dashboard.Assignment is null)
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
         {
             Snackbar.Add("No assignment found.", Severity.Warning);
             return;
         }
 
-        if (!CanGenerateOrRegenerate)
+        var assignmentCharges = AdmissionCharges
+            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+            .ToList();
+
+        var activeAssignmentCharges = assignmentCharges
+            .Where(x => !x.IsCancelled)
+            .ToList();
+
+        var hasPaidForAssignment = activeAssignmentCharges.Any(x => x.PaidAmount > 0);
+
+        if (!assignment.IsActive || hasPaidForAssignment)
         {
-            Snackbar.Add("Charges cannot be generated or regenerated while paid active charges exist.", Severity.Warning);
+            Snackbar.Add("Charges cannot be generated or regenerated while paid active charges exist for this plan.", Severity.Warning);
             return;
         }
 
-        if (HasActiveCharges)
+        if (activeAssignmentCharges.Any())
         {
             var confirmed = await JS.InvokeAsync<bool>(
                 "confirm",
-                "Regenerate charges? Existing unpaid active charges will be cancelled and a fresh set will be created.");
+                $"Regenerate charges for '{assignment.FeeStructureName}'? Existing unpaid active charges for this plan will be cancelled and recreated.");
 
             if (!confirmed)
                 return;
@@ -609,8 +744,8 @@
         try
         {
             _busyGenerate = true;
-            await FeeWebRepository.GenerateChargesAsync(_dashboard.Assignment.Id);
-            Snackbar.Add(HasActiveCharges ? "Charges regenerated successfully." : "Charges generated successfully.", Severity.Success);
+            await FeeWebRepository.GenerateChargesAsync(assignment.Id);
+            Snackbar.Add(activeAssignmentCharges.Any() ? "Charges regenerated successfully." : "Charges generated successfully.", Severity.Success);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -1013,4 +1148,50 @@
         5 => "Card",
         _ => "Other"
     };
+
+    private HashSet<int> GetAssignedFeeHeadIds()
+    {
+        return _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .SelectMany(a =>
+                _dashboard.AvailableStructures
+                    .FirstOrDefault(s => s.Id == a.FeeStructureId)?
+                    .Items ?? new List<FeeStructureItemResponse>())
+            .Where(i => i.IsActive)
+            .Select(i => i.FeeHeadId)
+            .ToHashSet();
+    }
+
+    private List<FeeStructureResponse> GetConflictingAvailableStructures()
+    {
+        var assignedStructureIds = _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .Select(x => x.FeeStructureId)
+            .ToHashSet();
+
+        var assignedFeeHeadIds = GetAssignedFeeHeadIds();
+
+        return _dashboard.AvailableStructures
+            .Where(x => x.IsActive)
+            .Where(x => !assignedStructureIds.Contains(x.Id))
+            .Where(x => x.Items.Any(i => i.IsActive && assignedFeeHeadIds.Contains(i.FeeHeadId)))
+            .ToList();
+    }
+
+    private string GetConflictingStructureMessage()
+    {
+        var conflicts = GetConflictingAvailableStructures();
+
+        if (!conflicts.Any())
+            return string.Empty;
+
+        var names = conflicts
+            .Take(3)
+            .Select(x => x.Name)
+            .ToList();
+
+        var suffix = conflicts.Count > 3 ? $" +{conflicts.Count - 3} more" : string.Empty;
+
+        return $"Some fee structures are hidden because their fee heads are already assigned: {string.Join(", ", names)}{suffix}.";
+    }
 }

@@ -46,7 +46,7 @@ public class StudentFeeAssignmentRepository : GenericRepository<StudentFeeAssign
                 cancellationToken);
     }
 
-    public async Task<StudentFeeAssignment?> GetByAdmissionIdAsync(
+    public async Task<List<StudentFeeAssignment>> GetByAdmissionIdAsync(
         int studentAdmissionId,
         int tenantId,
         int branchId,
@@ -58,13 +58,34 @@ public class StudentFeeAssignmentRepository : GenericRepository<StudentFeeAssign
             .Include(x => x.FeeStructure)
                 .ThenInclude(x => x.Items)
             .Include(x => x.Charges)
+            .Where(x =>
+                x.StudentAdmissionId == studentAdmissionId &&
+                x.TenantId == tenantId &&
+                x.BranchId == branchId)
+            .OrderByDescending(x => x.IsActive)
+            .ThenByDescending(x => x.Id)
+            .ToListAsync(cancellationToken);
+    }
+    public async Task<StudentFeeAssignment?> GetByAdmissionAndStructureIdAsync(
+    int studentAdmissionId,
+    int feeStructureId,
+    int tenantId,
+    int branchId,
+    CancellationToken cancellationToken = default)
+    {
+        return await _table
+            .Include(x => x.Student)
+            .Include(x => x.StudentAdmission)
+            .Include(x => x.FeeStructure)
+                .ThenInclude(x => x.Items)
+            .Include(x => x.Charges)
             .FirstOrDefaultAsync(
                 x => x.StudentAdmissionId == studentAdmissionId &&
+                     x.FeeStructureId == feeStructureId &&
                      x.TenantId == tenantId &&
                      x.BranchId == branchId,
                 cancellationToken);
     }
-
     public async Task<bool> IsFirstAdmissionForStudentAsync(
         int studentId,
         int studentAdmissionId,

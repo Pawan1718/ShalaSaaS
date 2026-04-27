@@ -1,6 +1,7 @@
 ﻿@page "/tenant/students/{Id:int}/admission"
 @page "/tenant/students/{Id:int}/admission/{AdmissionId:int}/edit"
 
+
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
@@ -26,59 +27,48 @@
 
 <PageTitle>@(IsEditMode ? "Edit Admission" : "Add Admission")</PageTitle>
 
-@if (_loading)
-{
-    <MudPaper Class="pa-6">
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-            <MudText Typo="Typo.body1">Loading admission form...</MudText>
-        </MudStack>
-    </MudPaper>
-}
-else if (_student is null)
-{
-    <MudPaper Class="pa-6">
-        <MudStack AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Default" />
-            <MudText Typo="Typo.h6">Student not found</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBackToStudents">
-                Back to Students
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-}
-else
-{
-    <MudStack Spacing="3">
-
-        <MudPaper Class="page-header pa-4">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                <div>
-                    <MudText Typo="Typo.h4" Class="fw-bold">
-                        @(IsEditMode ? "Edit Admission" : "Add Admission")
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @(IsEditMode
-                            ? $"Update academic admission for {_student.FullName}"
-                            : $"Create academic admission for {_student.FullName}")
-                    </MudText>
-                </div>
-
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               StartIcon="@Icons.Material.Filled.ArrowBack"
-                               OnClick="GoBackToDetails">
-                        Back
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+<AppPageShell>
+    @if (_loading)
+    {
+        <AppLoader Text="Loading admission form..." />
+    }
+    else if (_student is null)
+    {
+        <AppCard Class="pa-6">
+            <AppEmptyState Title="Student not found"
+                           Message="The selected student could not be loaded."
+                           Icon="@Icons.Material.Filled.PersonOff">
+                <Actions>
+                    <AppButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="GoBackToStudents">
+                        Back to Students
+                    </AppButton>
+                </Actions>
+            </AppEmptyState>
+        </AppCard>
+    }
+    else
+    {
+        <AppPageHeader Title="@(IsEditMode ? "Edit Admission" : "Add Admission")"
+                       Subtitle="@(IsEditMode
+                                                              ? $"Update academic admission for {_student.FullName}"
+                                                              : $"Create academic admission for {_student.FullName}")">
+            <Actions>
+                <AppButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="GoBackToDetails">
+                    Back
+                </AppButton>
+            </Actions>
+        </AppPageHeader>
 
         <MudGrid Spacing="3">
             <MudItem xs="12" md="4">
-                <MudPaper Class="pa-4 detail-card h-100">
-                    <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Student Summary</MudText>
+                <AppCard Class="h-100">
+                    <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">
+                        Student Summary
+                    </MudText>
 
                     <MudStack Spacing="2">
                         <DetailRow Label="Student" Value="@_student.FullName" />
@@ -88,15 +78,18 @@ else
                         <DetailRow Label="Mobile" Value="@(_student.Mobile ?? "-")" />
                         <DetailRow Label="Status" Value="@(_student.Status ?? "-")" />
                     </MudStack>
-                </MudPaper>
+                </AppCard>
             </MudItem>
 
             <MudItem xs="12" md="8">
-                <EditForm Model="@(IsEditMode? _updateModel : _createModel)" OnSubmit="HandleSubmitAsync">
+                <EditForm Model="@(IsEditMode? _updateModel : _createModel)"
+                          OnSubmit="HandleSubmitAsync">
                     <DataAnnotationsValidator />
 
-                    <MudPaper Class="pa-4 detail-card">
-                        <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">Admission Details</MudText>
+                    <AppCard>
+                        <MudText Typo="Typo.h6" Class="mb-3 fw-semibold">
+                            Admission Details
+                        </MudText>
 
                         @if (!string.IsNullOrWhiteSpace(_formError))
                         {
@@ -105,102 +98,106 @@ else
                             </MudAlert>
                         }
 
-                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Class="mb-3">
-                            Roll number will be generated automatically.
+                        <MudAlert Severity="Severity.Info"
+                                  Dense="true"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-3">
+                            @_rollNoHelperText
                         </MudAlert>
 
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="6">
-                                <MudSelect T="int?"
-                                           Label="Academic Year"
-                                           Variant="Variant.Outlined"
-                                           Margin="Margin.Dense"
-                                           @bind-Value="_selectedAcademicYearId"
-                                           Required="true">
-                                    @foreach (var item in _academicYears)
-                                    {
-                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                <AppFilterSelect TItem="LookupItemResponse"
+                                                 TValue="int?"
+                                                 Label="Academic Year"
+                                                 Placeholder="Select academic year"
+                                                 Items="@_academicYears"
+                                                 Value="@_selectedAcademicYearId"
+                                                 ValueChanged="@(v => _selectedAcademicYearId = v)"
+                                                 ValueSelector="@(x => (int?)x.Id)"
+                                                 TextSelector="@(x => x.Name)"
+                                                 Clearable="true" />
                             </MudItem>
 
                             <MudItem xs="12" md="6">
                                 <MudDatePicker Label="Admission Date"
                                                Variant="Variant.Outlined"
                                                Margin="Margin.Dense"
-                                               Date="_admissionDate"
+                                               Date="@_admissionDate"
                                                DateChanged="OnAdmissionDateChanged"
                                                Editable="true" />
                             </MudItem>
 
                             <MudItem xs="12" md="6">
-                                <MudSelect T="int?"
-                                           Label="Class"
-                                           Variant="Variant.Outlined"
-                                           Margin="Margin.Dense"
-                                           Value="_selectedClassId"
-                                           ValueChanged="OnClassChanged"
-                                           Required="true">
-                                    @foreach (var item in _classes)
-                                    {
-                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                <AppFilterSelect TItem="LookupItemResponse"
+                                                 TValue="int?"
+                                                 Label="Class"
+                                                 Placeholder="Select class"
+                                                 Items="@_classes"
+                                                 Value="@_selectedClassId"
+                                                 ValueChanged="OnClassChanged"
+                                                 ValueSelector="@(x => (int?)x.Id)"
+                                                 TextSelector="@(x => x.Name)"
+                                                 Clearable="true" />
                             </MudItem>
 
                             <MudItem xs="12" md="6">
-                                <MudSelect T="int?"
-                                           Label="Section"
-                                           Variant="Variant.Outlined"
-                                           Margin="Margin.Dense"
-                                           @bind-Value="_selectedSectionId"
-                                           Disabled="@(!_selectedClassId.HasValue)">
-                                    <MudSelectItem T="int?" Value="@((int?)null)">No Section</MudSelectItem>
-                                    @foreach (var item in _sections)
-                                    {
-                                        <MudSelectItem T="int?" Value="@item.Id">@item.Name</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                <AppFilterSelect TItem="LookupItemResponse"
+                                                 TValue="int?"
+                                                 Label="Section"
+                                                 Placeholder="Select section"
+                                                 Items="@_sections"
+                                                 Value="@_selectedSectionId"
+                                                 ValueChanged="@(v => _selectedSectionId = v)"
+                                                 ValueSelector="@(x => (int?)x.Id)"
+                                                 TextSelector="@(x => x.Name)"
+                                                 Disabled="@(!_selectedClassId.HasValue)"
+                                                 Clearable="true" />
                             </MudItem>
 
                             <MudItem xs="12" md="6">
-                                <MudTextField T="string"
+                                <AppTextField T="string"
                                               Label="Roll No"
-                                              Variant="Variant.Outlined"
-                                              Margin="Margin.Dense"
-                                              @bind-Value="_rollNo"
-                                              Disabled="false"
-                                              HelperText="This field is auto-generated." />
+                                              Value="@_rollNo"
+                                              ValueChanged="@(v => _rollNo = v)"
+                                              Disabled="@_rollNoDisabled"
+                                              HelperText="@_rollNoFieldHelperText" />
                             </MudItem>
                         </MudGrid>
 
                         <MudDivider Class="my-4" />
 
                         <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-                            <MudButton Variant="Variant.Text"
+                            <AppButton Variant="Variant.Text"
                                        Color="Color.Default"
                                        ButtonType="ButtonType.Button"
                                        OnClick="GoBackToDetails">
                                 Cancel
-                            </MudButton>
+                            </AppButton>
 
-                            <MudButton Variant="Variant.Filled"
+                            <AppButton Variant="Variant.Filled"
                                        Color="Color.Primary"
                                        ButtonType="ButtonType.Submit"
-                                       Disabled="_saving"
+                                       Disabled="@_saving"
                                        StartIcon="@Icons.Material.Filled.Save">
+                                @if (_saving)
+                                {
+                                    <MudProgressCircular Indeterminate="true"
+                                                         Size="Size.Small"
+                                                         Class="me-2" />
+                                }
+
                                 @(_saving
                                     ? (IsEditMode ? "Updating..." : "Saving...")
                                     : (IsEditMode ? "Update Admission" : "Save Admission"))
-                            </MudButton>
+                            </AppButton>
                         </MudStack>
-                    </MudPaper>
+                    </AppCard>
                 </EditForm>
             </MudItem>
         </MudGrid>
-
-    </MudStack>
-}
+    }
+</AppPageShell>
 
 @code {
     [Parameter] public int Id { get; set; }

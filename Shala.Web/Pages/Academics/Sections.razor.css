@@ -1,0 +1,13 @@
+﻿.fw-600 {
+    font-weight: 600;
+}
+
+.section-status-filter {
+    min-width: 180px;
+}
+
+@media (max-width: 768px) {
+    .section-status-filter {
+        min-width: 100%;
+    }
+}

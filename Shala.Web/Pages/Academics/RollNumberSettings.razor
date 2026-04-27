@@ -1,9 +1,9 @@
 ﻿@page "/students/setup/roll-number-settings"
 @layout Shala.Web.Components.Layouts.TenantMainLayout
 
-@using Microsoft.AspNetCore.Components.Web
 @using MudBlazor
 @using Shala.Shared.Requests.Students
+@using Shala.Web.Components.Common
 @using Shala.Web.Repositories.AcademicRepo
 @using Shala.Web.Services.State
 
@@ -13,258 +13,229 @@
 
 <PageTitle>Roll Number Settings</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="roll-settings-shell">
-    <MudStack Spacing="3">
+<AppPageShell>
+    <AppPageHeader Title="Roll Number Settings"
+                   Subtitle="Configure how roll numbers are generated for student admissions across academic year, class, and section.">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.Restore"
+                       OnClick="ResetDefaults"
+                       Disabled="@(_loading || _saving)">
+                Reset Default
+            </AppButton>
 
-        <MudPaper Elevation="0" Class="roll-settings-hero">
-            <MudStack Row="true"
-                      Justify="Justify.SpaceBetween"
-                      AlignItems="AlignItems.Center"
-                      Wrap="Wrap.Wrap"
-                      Spacing="3">
-                <div>
-                    <MudText Typo="Typo.h4" Class="page-title">Roll Number Settings</MudText>
-                    <MudText Typo="Typo.body2" Class="page-subtitle">
-                        Configure how roll numbers are generated for student admissions across academic year, class, and section.
-                    </MudText>
-                </div>
+            <AppButton StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SaveAsync"
+                       Disabled="@(_loading || _saving)">
+                @(_saving ? "Saving..." : "Save Settings")
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
 
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               StartIcon="@Icons.Material.Filled.Restore"
-                               OnClick="ResetDefaults"
-                               Disabled="_loading || _saving">
-                        Reset Default
-                    </MudButton>
+    @if (_loading)
+    {
+        <AppLoader Text="Loading roll number settings..." />
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="7">
+                <MudStack Spacing="3">
 
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Save"
-                               OnClick="SaveAsync"
-                               Disabled="_loading || _saving">
-                        @(_saving ? "Saving..." : "Save Settings")
-                    </MudButton>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
+                    <AppCard>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Class="section-title">Generation Mode</MudText>
+                        </MudStack>
 
-        @if (_loading)
-        {
-            <MudPaper Elevation="0" Class="state-card">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                    <MudText Typo="Typo.body1">Loading roll number settings...</MudText>
-                </MudStack>
-            </MudPaper>
-        }
-        else
-        {
-            <MudGrid Spacing="3">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12">
+                                <MudSwitch T="bool"
+                                           Color="Color.Primary"
+                                           @bind-Value="_model.AutoGenerate"
+                                           Label="Auto generate roll number" />
+                            </MudItem>
 
-                <MudItem xs="12" lg="7">
-                    <MudStack Spacing="3">
+                            <MudItem xs="12">
+                                <MudSwitch T="bool"
+                                           Color="Color.Primary"
+                                           @bind-Value="_model.AllowManualOverride"
+                                           Disabled="@(!_model.AutoGenerate)"
+                                           Label="Allow manual override" />
+                            </MudItem>
+                        </MudGrid>
 
-                        <MudPaper Elevation="0" Class="settings-card">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-                                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
-                                <MudText Typo="Typo.h6" Class="section-title">Generation Mode</MudText>
-                            </MudStack>
+                        <MudAlert Severity="@ModeSeverity"
+                                  Dense="true"
+                                  Variant="Variant.Outlined"
+                                  Class="mt-3">
+                            @ModeDescription
+                        </MudAlert>
+                    </AppCard>
 
-                            <MudGrid Spacing="2">
-                                <MudItem xs="12">
-                                    <MudSwitch T="bool"
-                                               Color="Color.Primary"
-                                               @bind-Value="_model.AutoGenerate"
-                                               Label="Auto generate roll number" />
-                                </MudItem>
+                    <AppCard>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.RestartAlt" Color="Color.Info" />
+                            <MudText Typo="Typo.h6" Class="section-title">Reset Scope</MudText>
+                        </MudStack>
 
-                                <MudItem xs="12">
-                                    <MudSwitch T="bool"
-                                               Color="Color.Primary"
-                                               @bind-Value="_model.AllowManualOverride"
-                                               Disabled="@(!_model.AutoGenerate)"
-                                               Label="Allow manual override" />
-                                </MudItem>
-                            </MudGrid>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12">
+                                <MudSwitch T="bool"
+                                           Color="Color.Info"
+                                           @bind-Value="_model.ResetPerAcademicYear"
+                                           Label="Reset per academic year" />
+                            </MudItem>
 
-                            <MudAlert Severity="@ModeSeverity"
+                            <MudItem xs="12">
+                                <MudSwitch T="bool"
+                                           Color="Color.Info"
+                                           @bind-Value="_model.ResetPerClass"
+                                           Label="Reset per class" />
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudSwitch T="bool"
+                                           Color="Color.Info"
+                                           @bind-Value="_model.ResetPerSection"
+                                           Label="Reset per section" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudAlert Severity="Severity.Info"
+                                  Dense="true"
+                                  Variant="Variant.Outlined"
+                                  Class="mt-3">
+                            @ResetSummary
+                        </MudAlert>
+                    </AppCard>
+
+                    <AppCard>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Tag" Color="Color.Success" />
+                            <MudText Typo="Typo.h6" Class="section-title">Numbering Rules</MudText>
+                        </MudStack>
+
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField T="int"
+                                                 Label="Start From"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense"
+                                                 Min="1"
+                                                 Immediate="true"
+                                                 @bind-Value="_model.StartFrom" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <MudNumericField T="int"
+                                                 Label="Number Padding"
+                                                 Variant="Variant.Outlined"
+                                                 Margin="Margin.Dense"
+                                                 Min="1"
+                                                 Max="10"
+                                                 Immediate="true"
+                                                 @bind-Value="_model.NumberPadding" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <AppTextField T="string"
+                                              Label="Prefix"
+                                              @bind-Value="_model.Prefix" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <AppTextField T="string"
+                                              Label="Format"
+                                              @bind-Value="_model.Format"
+                                              HelperText="Allowed placeholders: {prefix}, {number}, {class}, {section}, {year}" />
+                            </MudItem>
+                        </MudGrid>
+
+                        @if (!string.IsNullOrWhiteSpace(FormatValidationMessage))
+                        {
+                            <MudAlert Severity="Severity.Warning"
                                       Dense="true"
                                       Variant="Variant.Outlined"
                                       Class="mt-3">
-                                @ModeDescription
+                                @FormatValidationMessage
                             </MudAlert>
-                        </MudPaper>
+                        }
+                    </AppCard>
+                </MudStack>
+            </MudItem>
 
-                        <MudPaper Elevation="0" Class="settings-card">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-                                <MudIcon Icon="@Icons.Material.Filled.RestartAlt" Color="Color.Info" />
-                                <MudText Typo="Typo.h6" Class="section-title">Reset Scope</MudText>
-                            </MudStack>
+            <MudItem xs="12" lg="5">
+                <MudStack Spacing="3">
 
-                            <MudGrid Spacing="2">
-                                <MudItem xs="12">
-                                    <MudSwitch T="bool"
-                                               Color="Color.Info"
-                                               @bind-Value="_model.ResetPerAcademicYear"
-                                               Label="Reset per academic year" />
-                                </MudItem>
+                    <AppCard>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Warning" />
+                            <MudText Typo="Typo.h6" Class="section-title">Live Preview</MudText>
+                        </MudStack>
 
-                                <MudItem xs="12">
-                                    <MudSwitch T="bool"
-                                               Color="Color.Info"
-                                               @bind-Value="_model.ResetPerClass"
-                                               Label="Reset per class" />
-                                </MudItem>
+                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                            This preview reflects the current configuration and sample values.
+                        </MudAlert>
 
-                                <MudItem xs="12">
-                                    <MudSwitch T="bool"
-                                               Color="Color.Info"
-                                               @bind-Value="_model.ResetPerSection"
-                                               Label="Reset per section" />
-                                </MudItem>
-                            </MudGrid>
+                        <div class="preview-box mt-3">
+                            <MudText Typo="Typo.caption" Class="preview-label">Generated Roll Number</MudText>
+                            <MudText Typo="Typo.h4" Class="preview-value">@PreviewRollNo</MudText>
+                        </div>
 
-                            <MudAlert Severity="Severity.Info"
-                                      Dense="true"
-                                      Variant="Variant.Outlined"
-                                      Class="mt-3">
-                                @ResetSummary
-                            </MudAlert>
-                        </MudPaper>
+                        <MudGrid Spacing="2" Class="mt-1">
+                            <MudItem xs="6">
+                                <AppStatCard Title="Mode"
+                                             Value="@ModeShort"
+                                             Icon="@Icons.Material.Filled.Settings"
+                                             Color="Color.Primary" />
+                            </MudItem>
 
-                        <MudPaper Elevation="0" Class="settings-card">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-                                <MudIcon Icon="@Icons.Material.Filled.Tag" Color="Color.Success" />
-                                <MudText Typo="Typo.h6" Class="section-title">Numbering Rules</MudText>
-                            </MudStack>
+                            <MudItem xs="6">
+                                <AppStatCard Title="Padding"
+                                             Value="@Math.Max(_model.NumberPadding, 1).ToString()"
+                                             Icon="@Icons.Material.Filled.FormatListNumbered"
+                                             Color="Color.Info" />
+                            </MudItem>
 
-                            <MudGrid Spacing="2">
-                                <MudItem xs="12" sm="6">
-                                    <MudNumericField T="int"
-                                                     Label="Start From"
-                                                     Variant="Variant.Outlined"
-                                                     Margin="Margin.Dense"
-                                                     Min="1"
-                                                     Immediate="true"
-                                                     @bind-Value="_model.StartFrom" />
-                                </MudItem>
+                            <MudItem xs="12">
+                                <AppCard Class="reset-summary-card">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Reset Summary</MudText>
+                                    <MudText Typo="Typo.body1" Class="mini-stat-value">@ResetShort</MudText>
+                                </AppCard>
+                            </MudItem>
+                        </MudGrid>
+                    </AppCard>
 
-                                <MudItem xs="12" sm="6">
-                                    <MudNumericField T="int"
-                                                     Label="Number Padding"
-                                                     Variant="Variant.Outlined"
-                                                     Margin="Margin.Dense"
-                                                     Min="1"
-                                                     Max="10"
-                                                     Immediate="true"
-                                                     @bind-Value="_model.NumberPadding" />
-                                </MudItem>
+                    <AppCard>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.Code" Color="Color.Secondary" />
+                            <MudText Typo="Typo.h6" Class="section-title">Available Placeholders</MudText>
+                        </MudStack>
 
-                                <MudItem xs="12" sm="6">
-                                    <MudTextField T="string"
-                                                  Label="Prefix"
-                                                  Variant="Variant.Outlined"
-                                                  Margin="Margin.Dense"
-                                                  Immediate="true"
-                                                  @bind-Value="_model.Prefix" />
-                                </MudItem>
+                        <MudChipSet T="string" Class="placeholder-set">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{prefix}</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{number}</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{class}</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{section}</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{year}</MudChip>
+                        </MudChipSet>
 
-                                <MudItem xs="12" sm="6">
-                                    <MudTextField T="string"
-                                                  Label="Format"
-                                                  Variant="Variant.Outlined"
-                                                  Margin="Margin.Dense"
-                                                  Immediate="true"
-                                                  @bind-Value="_model.Format"
-                                                  HelperText="Allowed placeholders: {prefix}, {number}, {class}, {section}, {year}" />
-                                </MudItem>
-                            </MudGrid>
+                        <MudDivider Class="my-3" />
 
-                            @if (!string.IsNullOrWhiteSpace(FormatValidationMessage))
-                            {
-                                <MudAlert Severity="Severity.Warning"
-                                          Dense="true"
-                                          Variant="Variant.Outlined"
-                                          Class="mt-3">
-                                    @FormatValidationMessage
-                                </MudAlert>
-                            }
-                        </MudPaper>
-                    </MudStack>
-                </MudItem>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Example format:
+                        </MudText>
 
-                <MudItem xs="12" lg="5">
-                    <MudStack Spacing="3">
+                        <MudCodeHighlight Code="{prefix}-{class}-{section}-{number}" Language="text" />
+                    </AppCard>
 
-                        <MudPaper Elevation="0" Class="preview-card">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
-                                <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Warning" />
-                                <MudText Typo="Typo.h6" Class="section-title">Live Preview</MudText>
-                            </MudStack>
-
-                            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
-                                This preview reflects the current configuration and sample values.
-                            </MudAlert>
-
-                            <MudPaper Elevation="0" Class="preview-box mt-3">
-                                <MudText Typo="Typo.caption" Class="preview-label">Generated Roll Number</MudText>
-                                <MudText Typo="Typo.h4" Class="preview-value">@PreviewRollNo</MudText>
-                            </MudPaper>
-
-                            <MudGrid Spacing="2" Class="mt-1">
-                                <MudItem xs="6">
-                                    <MudPaper Elevation="0" Class="mini-stat">
-                                        <MudText Typo="Typo.caption">Mode</MudText>
-                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@ModeShort</MudText>
-                                    </MudPaper>
-                                </MudItem>
-
-                                <MudItem xs="6">
-                                    <MudPaper Elevation="0" Class="mini-stat">
-                                        <MudText Typo="Typo.caption">Padding</MudText>
-                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@Math.Max(_model.NumberPadding, 1)</MudText>
-                                    </MudPaper>
-                                </MudItem>
-
-                                <MudItem xs="12">
-                                    <MudPaper Elevation="0" Class="mini-stat">
-                                        <MudText Typo="Typo.caption">Reset Summary</MudText>
-                                        <MudText Typo="Typo.body1" Class="mini-stat-value">@ResetShort</MudText>
-                                    </MudPaper>
-                                </MudItem>
-                            </MudGrid>
-                        </MudPaper>
-
-                        <MudPaper Elevation="0" Class="preview-card">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-                                <MudIcon Icon="@Icons.Material.Filled.Code" Color="Color.Secondary" />
-                                <MudText Typo="Typo.h6" Class="section-title">Available Placeholders</MudText>
-                            </MudStack>
-
-                            <MudChipSet T="string" Class="placeholder-set">
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{prefix}</MudChip>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{number}</MudChip>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{class}</MudChip>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{section}</MudChip>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">{year}</MudChip>
-                            </MudChipSet>
-
-                            <MudDivider Class="my-3" />
-
-                            <MudText Typo="Typo.body2" Class="helper-line">
-                                Example format:
-                            </MudText>
-                            <MudCodeHighlight Code="{prefix}-{class}-{section}-{number}" Language="text" />
-                        </MudPaper>
-
-                    </MudStack>
-                </MudItem>
-
-            </MudGrid>
-        }
-    </MudStack>
-</MudContainer>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    }
+</AppPageShell>
 
 @code {
     private readonly RollNumberSettingFormModel _defaultModel = new();

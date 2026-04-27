@@ -1,4 +1,5 @@
 ﻿using Shala.Application.Common;
+using Shala.Application.Contracts;
 using Shala.Application.Features.TenantConfig;
 using Shala.Application.Repositories.Students;
 using Shala.Application.Repositories.TenantConfig;
@@ -11,6 +12,7 @@ using Shala.Shared.Requests.Academics;
 using Shala.Shared.Requests.Students;
 using Shala.Shared.Responses.Academics;
 using Shala.Shared.Responses.Students;
+using System.Data;
 
 namespace Shala.Application.Features.Students;
 
@@ -19,17 +21,20 @@ public class StudentAdmissionService : IStudentAdmissionService
     private readonly IStudentAdmissionRepository _studentAdmissionRepository;
     private readonly IRollNumberGeneratorService _rollNumberGeneratorService;
     private readonly IRollNumberSettingRepository _rollNumberSettingRepository;
+    private readonly IAdmissionNumberGenerator _admissionNumberGenerator;
     private readonly IUnitOfWork _unitOfWork;
 
     public StudentAdmissionService(
-     IStudentAdmissionRepository studentAdmissionRepository,
-     IRollNumberGeneratorService rollNumberGeneratorService,
-     IRollNumberSettingRepository rollNumberSettingRepository,
-     IUnitOfWork unitOfWork)
+        IStudentAdmissionRepository studentAdmissionRepository,
+        IRollNumberGeneratorService rollNumberGeneratorService,
+        IRollNumberSettingRepository rollNumberSettingRepository,
+        IAdmissionNumberGenerator admissionNumberGenerator,
+        IUnitOfWork unitOfWork)
     {
         _studentAdmissionRepository = studentAdmissionRepository;
         _rollNumberGeneratorService = rollNumberGeneratorService;
         _rollNumberSettingRepository = rollNumberSettingRepository;
+        _admissionNumberGenerator = admissionNumberGenerator;
         _unitOfWork = unitOfWork;
     }
 
@@ -79,6 +84,7 @@ public class StudentAdmissionService : IStudentAdmissionService
             if (section is null)
                 return ApiResponse<StudentAdmissionResponse>.Fail("Section not found for selected class.");
         }
+
         if (section is not null && section.Capacity.HasValue)
         {
             var currentCount = await _studentAdmissionRepository.GetSectionAdmissionCountAsync(
@@ -92,6 +98,7 @@ public class StudentAdmissionService : IStudentAdmissionService
             if (currentCount >= section.Capacity.Value)
                 return ApiResponse<StudentAdmissionResponse>.Fail("Selected section is already full.");
         }
+
         var duplicateAdmission = await _studentAdmissionRepository.AdmissionExistsAsync(
             request.StudentId,
             tenantId,
@@ -119,44 +126,55 @@ public class StudentAdmissionService : IStudentAdmissionService
             return ApiResponse<StudentAdmissionResponse>.Fail(ex.Message);
         }
 
-        var runningCount = await _studentAdmissionRepository.GetAdmissionCountAsync(
-            tenantId,
-            branchId,
-            request.AcademicYearId,
-            cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
 
-        var admission = new StudentAdmission
+        try
         {
-            StudentId = request.StudentId,
-            TenantId = tenantId,
-            BranchId = branchId,
-            AcademicYearId = request.AcademicYearId,
-            AcademicClassId = request.ClassId,
-            SectionId = request.SectionId,
-            AdmissionNo = $"ADM-{DateTime.UtcNow.Year}-{(runningCount + 1):D4}",
-            AdmissionDate = request.AdmissionDate,
-            RollNo = finalRollNo,
-            Status = AdmissionStatus.Active,
-            IsCurrent = true,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = actor
-        };
+            var admissionNo = await _admissionNumberGenerator.GenerateAsync(
+                tenantId,
+                branchId,
+                request.AcademicYearId,
+                cancellationToken);
 
-        await _studentAdmissionRepository.AddAdmissionAsync(admission, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            var admission = new StudentAdmission
+            {
+                StudentId = request.StudentId,
+                TenantId = tenantId,
+                BranchId = branchId,
+                AcademicYearId = request.AcademicYearId,
+                AcademicClassId = request.ClassId,
+                SectionId = request.SectionId,
+                AdmissionNo = admissionNo,
+                AdmissionDate = request.AdmissionDate,
+                RollNo = finalRollNo,
+                Status = AdmissionStatus.Active,
+                IsCurrent = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = actor
+            };
 
-        return ApiResponse<StudentAdmissionResponse>.Ok(new StudentAdmissionResponse
+            await _studentAdmissionRepository.AddAdmissionAsync(admission, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return ApiResponse<StudentAdmissionResponse>.Ok(new StudentAdmissionResponse
+            {
+                Id = admission.Id,
+                StudentId = admission.StudentId,
+                AdmissionNo = admission.AdmissionNo,
+                AcademicYear = academicYear.Name,
+                ClassName = academicClass.Name,
+                SectionName = section?.Name,
+                RollNo = admission.RollNo,
+                AdmissionDate = admission.AdmissionDate,
+                Status = admission.Status.ToString()
+            }, "Admission created successfully.");
+        }
+        catch
         {
-            Id = admission.Id,
-            StudentId = admission.StudentId,
-            AdmissionNo = admission.AdmissionNo,
-            AcademicYear = academicYear.Name,
-            ClassName = academicClass.Name,
-            SectionName = section?.Name,
-            RollNo = admission.RollNo,
-            AdmissionDate = admission.AdmissionDate,
-            Status = admission.Status.ToString()
-        }, "Admission created successfully.");
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<ApiResponse<StudentAdmissionResponse>> UpdateAsync(
@@ -206,6 +224,7 @@ public class StudentAdmissionService : IStudentAdmissionService
             if (section is null)
                 return ApiResponse<StudentAdmissionResponse>.Fail("Section not found for selected class.");
         }
+
         if (section is not null && section.Capacity.HasValue)
         {
             var currentCount = await _studentAdmissionRepository.GetSectionAdmissionCountAsync(
@@ -303,10 +322,10 @@ public class StudentAdmissionService : IStudentAdmissionService
     }
 
     public async Task<ApiResponse<SectionRollAssignmentDetailResponse>> GetAssignmentDetailAsync(
-    int tenantId,
-    int branchId,
-    int admissionId,
-    CancellationToken cancellationToken = default)
+        int tenantId,
+        int branchId,
+        int admissionId,
+        CancellationToken cancellationToken = default)
     {
         var admission = await _studentAdmissionRepository.GetAdmissionByIdAsync(
             admissionId,
@@ -383,8 +402,6 @@ public class StudentAdmissionService : IStudentAdmissionService
                 cancellationToken);
 
             var sameScope =
-                admission.AcademicYearId == admission.AcademicYearId &&
-                admission.AcademicClassId == admission.AcademicClassId &&
                 admission.SectionId == section.Id;
 
             if (sameScope && currentStrength > 0)
@@ -396,7 +413,10 @@ public class StudentAdmissionService : IStudentAdmissionService
                 : 0;
         }
 
-        var normalizedRollNo = string.IsNullOrWhiteSpace(request.RollNo) ? null : request.RollNo.Trim();
+        var normalizedRollNo = string.IsNullOrWhiteSpace(request.RollNo)
+            ? null
+            : request.RollNo.Trim();
+
         var rollNoAlreadyExists = false;
 
         if (!string.IsNullOrWhiteSpace(normalizedRollNo))
@@ -526,7 +546,9 @@ public class StudentAdmissionService : IStudentAdmissionService
             }
             else
             {
-                finalRollNo = string.IsNullOrWhiteSpace(request.RollNo) ? null : request.RollNo.Trim();
+                finalRollNo = string.IsNullOrWhiteSpace(request.RollNo)
+                    ? null
+                    : request.RollNo.Trim();
 
                 if (string.IsNullOrWhiteSpace(finalRollNo))
                     return ApiResponse<StudentAdmissionResponse>.Fail("Roll number is required in manual mode.");
@@ -592,12 +614,11 @@ public class StudentAdmissionService : IStudentAdmissionService
         return ApiResponse<StudentAdmissionResponse>.Ok(response, "Section and roll number assigned successfully.");
     }
 
-
     public async Task<ApiResponse<BulkSectionRollAssignmentPreviewResponse>> GetBulkAssignmentPreviewAsync(
-    int tenantId,
-    int branchId,
-    BulkSectionRollAssignmentRequest request,
-    CancellationToken cancellationToken = default)
+        int tenantId,
+        int branchId,
+        BulkSectionRollAssignmentRequest request,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -622,6 +643,8 @@ public class StudentAdmissionService : IStudentAdmissionService
         BulkSectionRollAssignmentRequest request,
         CancellationToken cancellationToken = default)
     {
+        await _unitOfWork.BeginTransactionAsync(cancellationToken, IsolationLevel.Serializable);
+
         try
         {
             var preview = await BuildBulkAssignmentPreviewAsync(
@@ -631,20 +654,35 @@ public class StudentAdmissionService : IStudentAdmissionService
                 cancellationToken);
 
             if (preview.Items.Count == 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return ApiResponse<List<StudentAdmissionResponse>>.Fail("No students selected.");
+            }
 
             var conflicting = preview.Items.Where(x => x.HasConflict).ToList();
             if (conflicting.Count > 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return ApiResponse<List<StudentAdmissionResponse>>.Fail("Preview contains conflicts. Please fix them before applying.");
+            }
 
             var admissionIds = preview.Items.Select(x => x.StudentAdmissionId).ToHashSet();
 
             var admissions = new List<StudentAdmission>();
+
             foreach (var id in admissionIds)
             {
-                var admission = await _studentAdmissionRepository.GetAdmissionByIdAsync(id, tenantId, branchId, cancellationToken);
+                var admission = await _studentAdmissionRepository.GetAdmissionByIdAsync(
+                    id,
+                    tenantId,
+                    branchId,
+                    cancellationToken);
+
                 if (admission is null)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                     return ApiResponse<List<StudentAdmissionResponse>>.Fail($"Admission not found for id {id}.");
+                }
 
                 admissions.Add(admission);
             }
@@ -654,6 +692,7 @@ public class StudentAdmissionService : IStudentAdmissionService
             foreach (var admission in admissions)
             {
                 var item = previewMap[admission.Id];
+
                 admission.SectionId = item.NewSectionId;
                 admission.RollNo = item.NewRollNo;
                 admission.UpdatedAt = DateTime.UtcNow;
@@ -663,10 +702,12 @@ public class StudentAdmissionService : IStudentAdmissionService
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
             var result = admissions.Select(admission =>
             {
                 var item = previewMap[admission.Id];
+
                 return new StudentAdmissionResponse
                 {
                     Id = admission.Id,
@@ -685,7 +726,13 @@ public class StudentAdmissionService : IStudentAdmissionService
         }
         catch (InvalidOperationException ex)
         {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             return ApiResponse<List<StudentAdmissionResponse>>.Fail(ex.Message);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
         }
     }
 
@@ -717,7 +764,6 @@ public class StudentAdmissionService : IStudentAdmissionService
         Section? section = null;
         var currentStrength = 0;
         int? capacity = null;
-        var availableSeats = 0;
 
         if (request.SectionId.HasValue)
         {
@@ -755,24 +801,29 @@ public class StudentAdmissionService : IStudentAdmissionService
             if (admission is null)
                 throw new InvalidOperationException($"Admission not found for id {row.StudentAdmissionId}.");
 
-            if (admission.AcademicYearId != request.AcademicYearId || admission.AcademicClassId != request.ClassId)
+            if (admission.AcademicYearId != request.AcademicYearId ||
+                admission.AcademicClassId != request.ClassId)
+            {
                 throw new InvalidOperationException($"Admission {admission.AdmissionNo} does not belong to selected academic year/class.");
+            }
 
             var studentName = BuildStudentName(admission.Student);
-
             selectedAdmissions.Add((admission, studentName, row.ManualRollNo));
         }
 
-        var movingIntoTargetSectionCount = selectedAdmissions.Count(x => x.Admission.SectionId != request.SectionId);
+        var movingIntoTargetSectionCount = request.SectionId.HasValue
+            ? selectedAdmissions.Count(x => x.Admission.SectionId != request.SectionId)
+            : 0;
 
         if (request.SectionId.HasValue && capacity.HasValue)
         {
             var projectedStrength = currentStrength + movingIntoTargetSectionCount;
+
             if (projectedStrength > capacity.Value)
                 throw new InvalidOperationException("Selected section capacity will be exceeded.");
         }
 
-        availableSeats = capacity.HasValue
+        var availableSeats = capacity.HasValue
             ? Math.Max(0, capacity.Value - currentStrength)
             : 0;
 
@@ -803,7 +854,9 @@ public class StudentAdmissionService : IStudentAdmissionService
             cancellationToken);
 
         var usedRolls = new HashSet<string>(
-            existingRolls.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()),
+            existingRolls
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var admission in ordered)
@@ -815,7 +868,7 @@ public class StudentAdmissionService : IStudentAdmissionService
             }
         }
 
-        var numericExisting = existingRolls
+        var numericExisting = usedRolls
             .Select(x => int.TryParse(x, out var n) ? (int?)n : null)
             .Where(x => x.HasValue)
             .Select(x => x!.Value)
@@ -871,8 +924,11 @@ public class StudentAdmissionService : IStudentAdmissionService
             }
             else
             {
-                while (usedRolls.Contains(nextNumber.ToString()) || localAssigned.Contains(nextNumber.ToString()))
+                while (usedRolls.Contains(nextNumber.ToString()) ||
+                       localAssigned.Contains(nextNumber.ToString()))
+                {
                     nextNumber++;
+                }
 
                 previewItem.NewRollNo = nextNumber.ToString();
                 localAssigned.Add(previewItem.NewRollNo);
@@ -892,27 +948,24 @@ public class StudentAdmissionService : IStudentAdmissionService
         };
     }
 
-
     private static string BuildStudentName(Student student)
     {
         var parts = new[]
         {
-        student.FirstName,
-        student.MiddleName,
-        student.LastName
-    };
+            student.FirstName,
+            student.MiddleName,
+            student.LastName
+        };
 
         return string.Join(" ", parts.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
 
-
-
     public async Task<ApiResponse<List<StudentAdmissionListItemResponse>>> GetAdmissionsByAcademicYearAndClassAsync(
-    int tenantId,
-    int branchId,
-    int academicYearId,
-    int classId,
-    CancellationToken cancellationToken = default)
+        int tenantId,
+        int branchId,
+        int academicYearId,
+        int classId,
+        CancellationToken cancellationToken = default)
     {
         var academicYear = await _studentAdmissionRepository.GetAcademicYearAsync(
             academicYearId,

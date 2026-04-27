@@ -180,21 +180,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
             admissionId,
             cancellationToken);
 
-        if (result is null)
-        {
-            return NotFound(new ApiResponse<StudentFeeAssignmentResponse?>
-            {
-                Success = false,
-                Message = "Student fee assignment not found.",
-                Data = null
-            });
-        }
-
-        return Ok(new ApiResponse<StudentFeeAssignmentResponse>
+        return Ok(new ApiResponse<List<StudentFeeAssignmentResponse>>
         {
             Success = true,
             Message = "Success",
-            Data = MapAssignment(result)
+            Data = result.Select(MapAssignment).ToList()
         });
     }
 

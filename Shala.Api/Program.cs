@@ -8,6 +8,7 @@ using Shala.Application.Features.Students;
 using Shala.Application.Repositories.Settings;
 using Shala.Infrastructure.Repositories.Settings;
 using Shala.Infrastructure.Seed;
+using Shala.Infrastructure.Services;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
@@ -37,6 +38,7 @@ public class Program
         builder.Services.AddSuppliesServices();
 
 
+        builder.Services.AddScoped<IAdmissionNumberGenerator, AdmissionNumberGenerator>();
 
         builder.Services.AddJwtAuthentication(
             builder.Configuration,
