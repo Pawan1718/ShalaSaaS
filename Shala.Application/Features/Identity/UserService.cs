@@ -115,12 +115,17 @@ public class UserService : IUserService
                 return Fail("Role assignment failed.", roleResult.Errors.Select(x => x.Description));
             }
 
+            var isTenantAdmin = roleName.Equals("TenantAdmin", StringComparison.OrdinalIgnoreCase);
+
             var branchAccesses = validBranchIds.Select(branchId => new UserBranchAccess
             {
+                TenantId = tenantId,
                 UserId = user.Id,
                 BranchId = branchId,
+                HasAllBranchesAccess = isTenantAdmin,
                 IsDefault = branchId == req.DefaultBranchId,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
             }).ToList();
 
             await _userBranchAccessRepository.AddRangeAsync(branchAccesses);

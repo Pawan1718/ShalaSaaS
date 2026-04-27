@@ -132,10 +132,13 @@ public class TenantProvisionService : ITenantProvisionService
 
             await _repository.AddUserBranchAccessAsync(new UserBranchAccess
             {
+                TenantId = tenant.Id,
                 UserId = adminUser.Id,
                 BranchId = mainBranch.Id,
+                HasAllBranchesAccess = true,
                 IsDefault = true,
-                IsActive = true
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow
             });
 
             await _unitOfWork.CommitTransactionAsync();
