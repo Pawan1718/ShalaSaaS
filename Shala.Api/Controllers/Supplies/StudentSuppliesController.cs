@@ -5,6 +5,7 @@ using Shala.Shared.Requests.Supplies;
 
 namespace Shala.Api.Controllers.Supplies;
 
+[ApiController]
 [Route("api/tenant/supplies")]
 public class StudentSuppliesController : TenantApiControllerBase
 {
@@ -24,9 +25,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromQuery] int? academicYearId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetDashboardAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             academicYearId,
             cancellationToken);
 
@@ -38,9 +41,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromBody] AddSupplyStockRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.AddStockAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             request,
             cancellationToken);
@@ -56,9 +61,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromBody] CreateStudentSupplyIssueRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.CreateIssueAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             request,
             cancellationToken);
@@ -74,9 +81,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromQuery] int? academicYearId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetRecentIssuesAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             academicYearId,
             cancellationToken);
 
@@ -88,9 +97,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetIssueDetailAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             id,
             cancellationToken);
 
@@ -106,9 +117,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromBody] CollectSupplyDueRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.CollectDueAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             id,
             request,
@@ -126,9 +139,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromQuery] int? academicYearId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetStudentHistoryAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             studentId,
             academicYearId,
             cancellationToken);
@@ -142,9 +157,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromQuery] int? studentId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetPendingDuesAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             academicYearId,
             studentId,
             cancellationToken);
@@ -156,9 +173,11 @@ public class StudentSuppliesController : TenantApiControllerBase
     public async Task<IActionResult> LowStock(
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetLowStockAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             cancellationToken);
 
         return Ok(data);
@@ -169,9 +188,11 @@ public class StudentSuppliesController : TenantApiControllerBase
         [FromQuery] SupplyReportRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetStockHistoryAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             request,
             cancellationToken);
 

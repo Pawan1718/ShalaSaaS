@@ -30,7 +30,7 @@ public class UsersController : ControllerBase
         var result = await _userService.GetUsersAsync(tenantId);
 
         if (!result.Success)
-            return BadRequest(result.Data);
+            return BadRequest(result);
 
         return Ok(result.Data);
     }
@@ -41,6 +41,49 @@ public class UsersController : ControllerBase
         var tenantId = _currentUser.GetRequiredTenantId();
 
         var result = await _userService.CreateUserAsync(tenantId, request);
+
+        if (!result.Success)
+            return BadRequest(result.Data);
+
+        return Ok(result.Data);
+    }
+
+    [HttpPut("{userId}")]
+    public async Task<IActionResult> UpdateUser(
+        string userId,
+        [FromBody] UpdateTenantUserRequest request)
+    {
+        var tenantId = _currentUser.GetRequiredTenantId();
+
+        var result = await _userService.UpdateUserAsync(tenantId, userId, request);
+
+        if (!result.Success)
+            return BadRequest(result.Data);
+
+        return Ok(result.Data);
+    }
+
+    [HttpPatch("{userId}/status")]
+    public async Task<IActionResult> UpdateUserStatus(
+        string userId,
+        [FromBody] UpdateTenantUserStatusRequest request)
+    {
+        var tenantId = _currentUser.GetRequiredTenantId();
+
+        var result = await _userService.UpdateUserStatusAsync(tenantId, userId, request);
+
+        if (!result.Success)
+            return BadRequest(result.Data);
+
+        return Ok(result.Data);
+    }
+
+    [HttpDelete("{userId}")]
+    public async Task<IActionResult> DeleteUser(string userId)
+    {
+        var tenantId = _currentUser.GetRequiredTenantId();
+
+        var result = await _userService.DeleteUserAsync(tenantId, userId);
 
         if (!result.Success)
             return BadRequest(result.Data);

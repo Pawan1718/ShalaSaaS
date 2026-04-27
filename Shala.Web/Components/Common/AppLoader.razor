@@ -3,6 +3,13 @@
 @if (IsVisible)
 {
     <AppCard>
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <MudText Typo="Typo.body2" Class="mb-3 text-muted">
+                @Message
+            </MudText>
+        }
+
         @for (int i = 0; i < Rows; i++)
         {
             <MudSkeleton Height="@RowHeight" Width="100%" Class="mb-2" />
@@ -14,4 +21,7 @@
     [Parameter] public bool IsVisible { get; set; } = true;
     [Parameter] public int Rows { get; set; } = 5;
     [Parameter] public string RowHeight { get; set; } = "42px";
+
+    // ✅ ADD THIS
+    [Parameter] public string? Message { get; set; }
 }

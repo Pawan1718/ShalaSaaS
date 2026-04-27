@@ -8,6 +8,7 @@ using Shala.Shared.Responses.Students;
 
 namespace Shala.Api.Controllers.Students;
 
+[ApiController]
 [Route("api/students/{studentId:int}/guardians")]
 public class StudentGuardiansController : TenantApiControllerBase
 {
@@ -28,9 +29,10 @@ public class StudentGuardiansController : TenantApiControllerBase
         [FromBody] CreateGuardianRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
         var result = await _studentGuardianService.AddAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             studentId,
             request,
@@ -49,9 +51,10 @@ public class StudentGuardiansController : TenantApiControllerBase
         [FromBody] CreateGuardianRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
         var result = await _studentGuardianService.UpdateAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             studentId,
             guardianId,
@@ -75,9 +78,10 @@ public class StudentGuardiansController : TenantApiControllerBase
         int guardianId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
         var result = await _studentGuardianService.RemoveAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             studentId,
             guardianId,
             cancellationToken);

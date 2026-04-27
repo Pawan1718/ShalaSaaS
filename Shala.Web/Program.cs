@@ -71,6 +71,8 @@ public class Program
         builder.Services.AddScoped<ITenantDashboardWebRepository, TenantDashboardWebRepository>();
         builder.Services.AddScoped<ITenantBranchRepository, TenantBranchRepository>();
 
+        builder.Services.AddScoped<ITenantUserRepository, TenantUserRepository>();
+
         var app = builder.Build();
 
         if (!app.Environment.IsDevelopment())

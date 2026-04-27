@@ -7,6 +7,7 @@ using Shala.Shared.Responses.Students;
 
 namespace Shala.Api.Controllers.Students;
 
+[ApiController]
 [Route("api/students/lookups")]
 public class StudentsLookupsController : TenantApiControllerBase
 {
@@ -48,9 +49,10 @@ public class StudentsLookupsController : TenantApiControllerBase
         [FromQuery] int classId,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
         var result = await _sectionService.GetLookupByClassAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             classId,
             cancellationToken);
 

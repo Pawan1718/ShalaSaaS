@@ -6,6 +6,7 @@ using Shala.Shared.Requests.Students;
 
 namespace Shala.Api.Controllers.TenantConfig;
 
+[ApiController]
 [Route("api/students/roll-number-settings")]
 public class RollNumberSettingsController : TenantApiControllerBase
 {

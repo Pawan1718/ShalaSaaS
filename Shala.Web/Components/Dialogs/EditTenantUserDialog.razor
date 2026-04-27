@@ -1,6 +1,7 @@
 ﻿@using MudBlazor
 @using Shala.Shared.Enums
 @using Shala.Shared.Requests.Tenant
+@using Shala.Shared.Responses.Platform
 @using Shala.Shared.Responses.Tenant
 @using Shala.Web.Repositories.TenantRepo
 @using Shala.Web.Services.State
@@ -16,16 +17,16 @@
         {
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:220px">
                 <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                <MudText Typo="Typo.body2">Loading branches...</MudText>
+                <MudText Typo="Typo.body2">Loading user...</MudText>
             </MudStack>
         }
         else
         {
             <MudGrid Spacing="2">
                 <MudItem xs="12">
-                    <MudText Typo="Typo.h6">Create User</MudText>
+                    <MudText Typo="Typo.h6">Edit User</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Assign role, default branch and branch access.
+                        Update role, default branch and branch access.
                     </MudText>
                 </MudItem>
 
@@ -40,11 +41,9 @@
 
                 <MudItem xs="12" md="6">
                     <MudTextField T="string"
-                                  @bind-Value="_model.Email"
+                                  Value="@User.Email"
                                   Label="Email"
-                                  Required="true"
-                                  Immediate="true"
-                                  InputType="InputType.Email"
+                                  Disabled="true"
                                   Variant="Variant.Outlined" />
                 </MudItem>
 
@@ -53,19 +52,6 @@
                                   @bind-Value="_model.MobileNumber"
                                   Label="Mobile"
                                   Immediate="true"
-                                  Variant="Variant.Outlined" />
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string"
-                                  @bind-Value="_model.Password"
-                                  Label="Password"
-                                  Required="true"
-                                  Immediate="true"
-                                  InputType="@PasswordInputType"
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@PasswordIcon"
-                                  OnAdornmentClick="TogglePassword"
                                   Variant="Variant.Outlined" />
                 </MudItem>
 
@@ -163,11 +149,11 @@
             @if (_isSaving)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                <span>Creating...</span>
+                <span>Saving...</span>
             }
             else
             {
-                <span>Create</span>
+                <span>Save</span>
             }
         </MudButton>
     </DialogActions>
@@ -176,25 +162,15 @@
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    private readonly CreateTenantUserRequest _model = new()
-    {
-        Role = AppRole.Teacher
-    };
+    [Parameter, EditorRequired]
+    public UserListItemResponse User { get; set; } = default!;
 
+    private UpdateTenantUserRequest _model = new();
     private List<TenantBranchOptionDto> _branches = new();
     private IReadOnlyCollection<int> _selectedBranchIds = new List<int>();
 
     private bool _isLoading = true;
     private bool _isSaving;
-    private bool _showPassword;
-
-    private InputType PasswordInputType => _showPassword
-        ? InputType.Text
-        : InputType.Password;
-
-    private string PasswordIcon => _showPassword
-        ? Icons.Material.Filled.VisibilityOff
-        : Icons.Material.Filled.Visibility;
 
     protected override async Task OnInitializedAsync()
     {
@@ -204,39 +180,36 @@
 
             _branches = await BranchRepo.GetMyBranchesAsync();
 
-            if (_branches.Count == 0)
+            var role = ParseRole(User.Roles?.FirstOrDefault());
+
+            _model = new UpdateTenantUserRequest
             {
-                Snackbar.Add("No branches available for current user.", Severity.Warning);
-                return;
+                FullName = User.FullName,
+                MobileNumber = User.MobileNumber,
+                Role = role,
+                DefaultBranchId = User.DefaultBranchId ?? 0,
+                HasAllBranchesAccess = role == AppRole.SchoolAdmin,
+                AllowedBranchIds = User.AllowedBranchIds?.ToList() ?? new List<int>()
+            };
+
+            if (_model.HasAllBranchesAccess)
+            {
+                _model.AllowedBranchIds = new List<int>();
+                _selectedBranchIds = new List<int>();
             }
-
-            if (_branches.Count == 1)
+            else
             {
-                var branchId = _branches[0].BranchId;
-
-                _model.DefaultBranchId = branchId;
-                _model.AllowedBranchIds = new List<int> { branchId };
-                _selectedBranchIds = new List<int> { branchId };
+                _selectedBranchIds = _model.AllowedBranchIds.ToList();
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load branches: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to load user: {ex.Message}", Severity.Error);
         }
         finally
         {
             _isLoading = false;
         }
-    }
-
-    private void TogglePassword()
-    {
-        _showPassword = !_showPassword;
-    }
-
-    private string GetBranchName(int branchId)
-    {
-        return _branches.FirstOrDefault(x => x.BranchId == branchId)?.BranchName ?? string.Empty;
     }
 
     private Task OnRoleChanged(AppRole value)
@@ -313,34 +286,25 @@
                 _model.AllowedBranchIds.Add(_model.DefaultBranchId);
             }
 
-            var res = await UserRepo.CreateUserAsync(_model);
+            var res = await UserRepo.UpdateUserAsync(User.Id, _model);
 
             if (res.IsSuccess)
             {
-                Snackbar.Add("User created successfully.", Severity.Success);
+                Snackbar.Add("User updated successfully.", Severity.Success);
                 MudDialog.Close(DialogResult.Ok(true));
                 return;
             }
 
             var body = await res.GetBodyPartAsync();
-
-            if (!string.IsNullOrWhiteSpace(body) &&
-                body.Contains("User created successfully", StringComparison.OrdinalIgnoreCase))
-            {
-                Snackbar.Add("User created successfully.", Severity.Success);
-                MudDialog.Close(DialogResult.Ok(true));
-                return;
-            }
-
             Snackbar.Add(
                 string.IsNullOrWhiteSpace(body) || body == "{}"
-                    ? "Failed to create user. Check inputs."
+                    ? "Failed to update user."
                     : body,
                 Severity.Error);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to create user: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to update user: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -353,24 +317,6 @@
         if (string.IsNullOrWhiteSpace(_model.FullName))
         {
             Snackbar.Add("Full name is required.", Severity.Warning);
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.Email))
-        {
-            Snackbar.Add("Email is required.", Severity.Warning);
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(_model.Password))
-        {
-            Snackbar.Add("Password is required.", Severity.Warning);
-            return false;
-        }
-
-        if (_model.Password.Length < 6)
-        {
-            Snackbar.Add("Password must be at least 6 characters.", Severity.Warning);
             return false;
         }
 
@@ -400,6 +346,18 @@
         }
 
         return true;
+    }
+
+    private string GetBranchName(int branchId)
+    {
+        return _branches.FirstOrDefault(x => x.BranchId == branchId)?.BranchName ?? string.Empty;
+    }
+
+    private static AppRole ParseRole(string? role)
+    {
+        return Enum.TryParse<AppRole>(role, true, out var parsed)
+            ? parsed
+            : AppRole.Staff;
     }
 
     private void Cancel() => MudDialog.Cancel();

@@ -1,32 +1,29 @@
 ﻿using Shala.Shared.Requests.Tenant;
+using Shala.Shared.Responses.Platform;
+using Shala.Web.Services.Http;
 
-namespace Shala.Application.Features.Identity;
+namespace Shala.Web.Repositories.TenantRepo;
 
-public interface IUserService
+public interface ITenantUserRepository
 {
-    Task<(bool Success, object Data)> GetUsersAsync(
-        int tenantId,
+    Task<ServerResponseHelper<List<UserListItemResponse>>> GetUsersAsync(
         CancellationToken cancellationToken = default);
 
-    Task<(bool Success, object Data)> CreateUserAsync(
-        int tenantId,
+    Task<ServerResponseHelper<object>> CreateUserAsync(
         CreateTenantUserRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<(bool Success, object Data)> UpdateUserAsync(
-        int tenantId,
+    Task<ServerResponseHelper<object>> UpdateUserAsync(
         string userId,
         UpdateTenantUserRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<(bool Success, object Data)> UpdateUserStatusAsync(
-        int tenantId,
+    Task<ServerResponseHelper<object>> UpdateUserStatusAsync(
         string userId,
         UpdateTenantUserStatusRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<(bool Success, object Data)> DeleteUserAsync(
-        int tenantId,
+    Task<ServerResponseHelper<object>> DeleteUserAsync(
         string userId,
         CancellationToken cancellationToken = default);
 }

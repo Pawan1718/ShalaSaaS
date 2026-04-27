@@ -2,7 +2,6 @@
 
 namespace Shala.Shared.Requests.Tenant
 {
-
     public class CreateTenantUserRequest
     {
         public string FullName { get; set; } = string.Empty;
@@ -13,8 +12,9 @@ namespace Shala.Shared.Requests.Tenant
         public AppRole Role { get; set; }
 
         public int DefaultBranchId { get; set; }
+
+        public bool HasAllBranchesAccess { get; set; }
+
         public List<int> AllowedBranchIds { get; set; } = new();
     }
-
 }
-

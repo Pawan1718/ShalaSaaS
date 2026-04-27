@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shala.Api.Controllers;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Academics;
 using Shala.Shared.Requests.Academics;
@@ -7,6 +6,7 @@ using Shala.Shared.Requests.Students;
 
 namespace Shala.Api.Controllers.Academics;
 
+[ApiController]
 [Route("api/students/sections")]
 public class SectionsController : TenantApiControllerBase
 {
@@ -24,14 +24,18 @@ public class SectionsController : TenantApiControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var result = await _service.GetAllAsync(TenantId, BranchId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
+        var result = await _service.GetAllAsync(TenantId, branchId, cancellationToken);
         return Ok(result);
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
-        var result = await _service.GetByIdAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
+        var result = await _service.GetByIdAsync(TenantId, branchId, id, cancellationToken);
 
         if (!result.Success)
             return NotFound(result);
@@ -44,7 +48,9 @@ public class SectionsController : TenantApiControllerBase
         [FromBody] CreateSectionRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _service.CreateAsync(TenantId, BranchId, request, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
+        var result = await _service.CreateAsync(TenantId, branchId, request, cancellationToken);
 
         if (!result.Success)
             return BadRequest(result);
@@ -58,9 +64,11 @@ public class SectionsController : TenantApiControllerBase
         [FromBody] UpdateSectionRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         request.Id = id;
 
-        var result = await _service.UpdateAsync(TenantId, BranchId, Actor, request, cancellationToken);
+        var result = await _service.UpdateAsync(TenantId, branchId, Actor, request, cancellationToken);
 
         if (!result.Success)
         {
@@ -76,7 +84,9 @@ public class SectionsController : TenantApiControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _service.DeleteAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
+        var result = await _service.DeleteAsync(TenantId, branchId, id, cancellationToken);
 
         if (!result.Success)
         {

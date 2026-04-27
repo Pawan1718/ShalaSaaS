@@ -5,6 +5,7 @@ using Shala.Shared.Requests.Supplies;
 
 namespace Shala.Api.Controllers.Supplies;
 
+[ApiController]
 [Route("api/tenant/supplies/items")]
 public class SupplyItemsController : TenantApiControllerBase
 {
@@ -24,9 +25,11 @@ public class SupplyItemsController : TenantApiControllerBase
         [FromQuery] bool activeOnly = false,
         CancellationToken cancellationToken = default)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var data = await _service.GetItemsAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             activeOnly,
             cancellationToken);
 
@@ -38,9 +41,11 @@ public class SupplyItemsController : TenantApiControllerBase
         [FromBody] CreateSupplyItemRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.CreateItemAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             request,
             cancellationToken);
@@ -57,9 +62,11 @@ public class SupplyItemsController : TenantApiControllerBase
         [FromBody] UpdateSupplyItemRequest request,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.UpdateItemAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             Actor,
             id,
             request,
@@ -76,9 +83,11 @@ public class SupplyItemsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
+        var safeBranchId = await GetSafeBranchIdAsync(BranchId, cancellationToken);
+
         var result = await _service.DeleteItemAsync(
             TenantId,
-            BranchId,
+            safeBranchId,
             id,
             cancellationToken);
 
