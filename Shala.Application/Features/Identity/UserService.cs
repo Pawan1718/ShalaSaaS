@@ -188,10 +188,10 @@ public class UserService : IUserService
                 DefaultBranchId = user.BranchId,
                 DefaultBranchName = user.Branch?.Name,
                 AllowedBranchIds = user.BranchAccesses
-                    .Where(x => x.IsActive)
-                    .Select(x => x.BranchId)
-                    .Distinct()
-                    .ToList(),
+    .Where(x => x.IsActive && x.BranchId.HasValue)
+    .Select(x => x.BranchId!.Value)
+    .Distinct()
+    .ToList(),
                 AllowedBranchNames = user.BranchAccesses
                     .Where(x => x.IsActive && x.Branch != null)
                     .Select(x => x.Branch.Name)

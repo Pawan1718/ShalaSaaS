@@ -275,17 +275,15 @@ public sealed class TenantDashboardRepository : ITenantDashboardRepository
         }
 
         return await _db.UserBranchAccesses
-            .AsNoTracking()
-            .Where(x =>
-                x.UserId == userId &&
-                x.IsActive &&
-                x.Branch.IsActive &&
-                x.Branch.TenantId == tenantId)
-            .OrderByDescending(x => x.Branch.IsMainBranch)
-            .ThenByDescending(x => x.IsDefault)
-            .ThenBy(x => x.Branch.Name)
-            .Select(x => x.BranchId)
-            .ToListAsync(cancellationToken);
+     .AsNoTracking()
+     .Where(x =>
+         x.TenantId == tenantId &&
+         x.UserId == userId &&
+         x.IsActive &&
+         x.BranchId.HasValue)
+     .Select(x => x.BranchId!.Value)
+     .Distinct()
+     .ToListAsync(cancellationToken);
     }
 
     private static bool IsTenantWideRole(string role)

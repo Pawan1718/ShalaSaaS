@@ -22,15 +22,16 @@ public class StudentDocumentChecklistController : TenantApiControllerBase
         _service = service;
     }
 
-    // ✅ FIXED (studentId → admissionId)
     [HttpGet("admission/{admissionId:int}")]
     public async Task<ApiResponse<StudentDocumentChecklistResponse>> GetByAdmission(
         int admissionId,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.GetByAdmissionAsync(
             TenantId,
-            BranchId,
+            branchId,
             admissionId,
             cancellationToken);
 
@@ -42,9 +43,11 @@ public class StudentDocumentChecklistController : TenantApiControllerBase
         [FromBody] SaveStudentDocumentChecklistRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.SaveAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             request,
             cancellationToken);
@@ -54,15 +57,16 @@ public class StudentDocumentChecklistController : TenantApiControllerBase
             "Student document checklist saved successfully.");
     }
 
-    // ✅ FIXED
     [HttpGet("admission/{admissionId:int}/validate")]
     public async Task<ApiResponse<StudentDocumentChecklistResponse>> Validate(
         int admissionId,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.ValidateAsync(
             TenantId,
-            BranchId,
+            branchId,
             admissionId,
             cancellationToken);
 

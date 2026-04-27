@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shala.Api.Controllers;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Fees;
 using Shala.Domain.Entities.Fees;
@@ -26,7 +25,9 @@ public class FeeStructuresController : TenantApiControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var data = await _service.GetAllAsync(TenantId, BranchId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var data = await _service.GetAllAsync(TenantId, branchId, cancellationToken);
 
         return Ok(new
         {
@@ -39,7 +40,9 @@ public class FeeStructuresController : TenantApiControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
-        var data = await _service.GetWithItemsAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var data = await _service.GetWithItemsAsync(TenantId, branchId, id, cancellationToken);
 
         if (data is null)
         {
@@ -64,6 +67,8 @@ public class FeeStructuresController : TenantApiControllerBase
         [FromBody] CreateFeeStructureRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new FeeStructure
         {
             AcademicYearId = request.AcademicYearId,
@@ -86,7 +91,12 @@ public class FeeStructuresController : TenantApiControllerBase
             }).ToList()
         };
 
-        var result = await _service.CreateAsync(TenantId, BranchId, Actor, entity, cancellationToken);
+        var result = await _service.CreateAsync(
+            TenantId,
+            branchId,
+            Actor,
+            entity,
+            cancellationToken);
 
         if (!result.Success)
         {
@@ -112,6 +122,8 @@ public class FeeStructuresController : TenantApiControllerBase
         [FromBody] UpdateFeeStructureRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new FeeStructure
         {
             Id = id,
@@ -135,7 +147,12 @@ public class FeeStructuresController : TenantApiControllerBase
             }).ToList()
         };
 
-        var result = await _service.UpdateAsync(TenantId, BranchId, Actor, entity, cancellationToken);
+        var result = await _service.UpdateAsync(
+            TenantId,
+            branchId,
+            Actor,
+            entity,
+            cancellationToken);
 
         if (!result.Success)
         {
@@ -158,7 +175,13 @@ public class FeeStructuresController : TenantApiControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _service.DeleteAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.DeleteAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         if (!result.Success)
         {

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shala.Api.Controllers;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Students;
 using Shala.Shared.Common;
@@ -27,9 +26,11 @@ public class StudentsController : TenantApiControllerBase
         [FromBody] StudentListRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _studentService.GetPagedAsync(
             TenantId,
-            BranchId,
+            branchId,
             request,
             cancellationToken);
 
@@ -41,9 +42,11 @@ public class StudentsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _studentService.GetByIdAsync(
             TenantId,
-            BranchId,
+            branchId,
             id,
             cancellationToken);
 
@@ -58,9 +61,11 @@ public class StudentsController : TenantApiControllerBase
         [FromBody] CreateStudentRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _studentService.CreateAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             request,
             cancellationToken);
@@ -77,9 +82,11 @@ public class StudentsController : TenantApiControllerBase
         [FromBody] UpdateStudentRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _studentService.UpdateAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             id,
             request,
@@ -95,8 +102,4 @@ public class StudentsController : TenantApiControllerBase
 
         return Ok(result);
     }
-
-
-
-
 }

@@ -26,10 +26,10 @@ public sealed class TenantDashboardController : TenantApiControllerBase
         [FromBody] TenantDashboardRequest request,
         CancellationToken cancellationToken)
     {
-        var userId = CurrentUser.UserId;
+        var userId = CurrentUser.GetRequiredUserId();
 
-        if (string.IsNullOrWhiteSpace(userId))
-            return Unauthorized(ApiResponse<object>.Fail("User claim is missing."));
+        // Validate selected/default branch before dashboard loads.
+        _ = await GetSafeBranchIdAsync(null, cancellationToken);
 
         var result = await _dashboardService.GetAsync(
             TenantId,

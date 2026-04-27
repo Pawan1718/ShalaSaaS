@@ -90,6 +90,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.ToTable("UserBranchAccesses");
             entity.HasKey(x => x.Id);
 
+            entity.Property(x => x.UserId)
+                .IsRequired()
+                .HasMaxLength(450);
+
             entity.HasOne(x => x.User)
                 .WithMany(x => x.BranchAccesses)
                 .HasForeignKey(x => x.UserId)
@@ -98,10 +102,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(x => x.Branch)
                 .WithMany(x => x.UserBranchAccesses)
                 .HasForeignKey(x => x.BranchId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
 
-            entity.HasIndex(x => new { x.UserId, x.BranchId }).IsUnique();
-            entity.HasIndex(x => x.BranchId);
+            entity.HasIndex(x => new { x.TenantId, x.UserId, x.BranchId })
+                .IsUnique()
+                .HasFilter("[BranchId] IS NOT NULL");
+
+            entity.HasIndex(x => new { x.TenantId, x.UserId, x.IsActive });
+
+            entity.HasIndex(x => new { x.TenantId, x.UserId, x.HasAllBranchesAccess });
+
+            entity.HasIndex(x => new { x.TenantId, x.UserId })
+                .IsUnique()
+                .HasFilter("[HasAllBranchesAccess] = 1");
         });
     }
 

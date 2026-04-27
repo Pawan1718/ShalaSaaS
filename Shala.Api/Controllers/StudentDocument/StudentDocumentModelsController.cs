@@ -25,14 +25,26 @@ public class StudentDocumentModelsController : TenantApiControllerBase
     [HttpGet]
     public async Task<ApiResponse<List<DocumentModelResponse>>> GetAll(CancellationToken cancellationToken)
     {
-        var result = await _service.GetAllAsync(TenantId, BranchId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.GetAllAsync(
+            TenantId,
+            branchId,
+            cancellationToken);
+
         return ApiResponse<List<DocumentModelResponse>>.Ok(result);
     }
 
     [HttpGet("active")]
     public async Task<ApiResponse<List<DocumentModelResponse>>> GetActive(CancellationToken cancellationToken)
     {
-        var result = await _service.GetActiveAsync(TenantId, BranchId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.GetActiveAsync(
+            TenantId,
+            branchId,
+            cancellationToken);
+
         return ApiResponse<List<DocumentModelResponse>>.Ok(result);
     }
 
@@ -41,7 +53,14 @@ public class StudentDocumentModelsController : TenantApiControllerBase
         [FromBody] CreateDocumentModelRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _service.CreateAsync(TenantId, BranchId, Actor, request, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.CreateAsync(
+            TenantId,
+            branchId,
+            Actor,
+            request,
+            cancellationToken);
 
         return ApiResponse<DocumentModelResponse>.Ok(
             result,
@@ -54,9 +73,16 @@ public class StudentDocumentModelsController : TenantApiControllerBase
         [FromBody] UpdateDocumentModelRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         request.Id = id;
 
-        var result = await _service.UpdateAsync(TenantId, BranchId, Actor, request, cancellationToken);
+        var result = await _service.UpdateAsync(
+            TenantId,
+            branchId,
+            Actor,
+            request,
+            cancellationToken);
 
         return ApiResponse<DocumentModelResponse>.Ok(
             result,

@@ -27,9 +27,16 @@ public sealed class FeeLedgerController : TenantApiControllerBase
         [FromBody] FeeLedgerDashboardRequest request,
         CancellationToken cancellationToken)
     {
+        if (request is null)
+        {
+            return BadRequest(ApiResponse<FeeLedgerDashboardResponse>.Fail("Request is required."));
+        }
+
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _feeLedgerService.GetDashboardAsync(
             TenantId,
-            BranchId,
+            branchId,
             request,
             cancellationToken);
 

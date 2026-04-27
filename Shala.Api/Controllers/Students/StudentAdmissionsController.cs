@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shala.Api.Controllers;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Students;
 using Shala.Shared.Common;
@@ -29,9 +28,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         [FromBody] CreateStudentAdmissionRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.CreateAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             request,
             cancellationToken);
@@ -48,9 +49,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         [FromBody] UpdateStudentAdmissionRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.UpdateAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             id,
             request,
@@ -72,9 +75,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.DeleteAsync(
             TenantId,
-            BranchId,
+            branchId,
             id,
             cancellationToken);
 
@@ -89,15 +94,16 @@ public class StudentAdmissionsController : TenantApiControllerBase
         return Ok(result);
     }
 
-
     [HttpGet("{id:int}/assignment-detail")]
     public async Task<ActionResult<ApiResponse<SectionRollAssignmentDetailResponse>>> GetAssignmentDetail(
-    int id,
-    CancellationToken cancellationToken)
+        int id,
+        CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.GetAssignmentDetailAsync(
             TenantId,
-            BranchId,
+            branchId,
             id,
             cancellationToken);
 
@@ -120,9 +126,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         [FromQuery] string? rollNo,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.GetAssignmentPreviewAsync(
             TenantId,
-            BranchId,
+            branchId,
             new SectionRollAssignmentPreviewRequest
             {
                 StudentAdmissionId = id,
@@ -148,9 +156,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         [FromBody] AssignSectionRollRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.AssignSectionAndRollNoAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             request,
             cancellationToken);
@@ -166,16 +176,16 @@ public class StudentAdmissionsController : TenantApiControllerBase
         return Ok(result);
     }
 
-
-
     [HttpPost("bulk-assignment-preview")]
     public async Task<ActionResult<ApiResponse<BulkSectionRollAssignmentPreviewResponse>>> GetBulkAssignmentPreview(
-    [FromBody] BulkSectionRollAssignmentRequest request,
-    CancellationToken cancellationToken)
+        [FromBody] BulkSectionRollAssignmentRequest request,
+        CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.GetBulkAssignmentPreviewAsync(
             TenantId,
-            BranchId,
+            branchId,
             request,
             cancellationToken);
 
@@ -190,9 +200,11 @@ public class StudentAdmissionsController : TenantApiControllerBase
         [FromBody] BulkSectionRollAssignmentRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.ApplyBulkAssignmentAsync(
             TenantId,
-            BranchId,
+            branchId,
             Actor,
             request,
             cancellationToken);
@@ -203,17 +215,17 @@ public class StudentAdmissionsController : TenantApiControllerBase
         return Ok(result);
     }
 
-
-
     [HttpGet("by-academic-year-class")]
     public async Task<ActionResult<ApiResponse<List<StudentAdmissionListItemResponse>>>> GetByAcademicYearAndClass(
-     [FromQuery] int academicYearId,
-     [FromQuery] int classId,
-     CancellationToken cancellationToken)
+        [FromQuery] int academicYearId,
+        [FromQuery] int classId,
+        CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.GetAdmissionsByAcademicYearAndClassAsync(
             TenantId,
-            BranchId,
+            branchId,
             academicYearId,
             classId,
             cancellationToken);
@@ -222,6 +234,5 @@ public class StudentAdmissionsController : TenantApiControllerBase
             return BadRequest(result);
 
         return Ok(result);
-    
-}
+    }
 }

@@ -26,7 +26,14 @@ public class FeeReceiptsController : TenantApiControllerBase
         int studentId,
         CancellationToken cancellationToken)
     {
-        var result = await _service.GetByStudentIdAsync(TenantId, BranchId, studentId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.GetByStudentIdAsync(
+            TenantId,
+            branchId,
+            studentId,
+            cancellationToken);
+
         return Ok(result.Select(MapReceipt).ToList());
     }
 
@@ -35,7 +42,13 @@ public class FeeReceiptsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var result = await _service.GetByIdAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.GetByIdAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         if (result is null)
             return NotFound(new { message = "Fee receipt not found." });
@@ -48,6 +61,8 @@ public class FeeReceiptsController : TenantApiControllerBase
         [FromBody] CreateFeeReceiptRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new FeeReceipt
         {
             StudentId = request.StudentId,
@@ -63,7 +78,11 @@ public class FeeReceiptsController : TenantApiControllerBase
             }).ToList()
         };
 
-        var result = await _service.CreateAsync(TenantId, BranchId, entity, cancellationToken);
+        var result = await _service.CreateAsync(
+            TenantId,
+            branchId,
+            entity,
+            cancellationToken);
 
         if (!result.Success)
             return BadRequest(new { message = result.Message });
@@ -77,9 +96,11 @@ public class FeeReceiptsController : TenantApiControllerBase
         [FromBody] CancelFeeReceiptRequest? request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _service.CancelReceiptAsync(
             TenantId,
-            BranchId,
+            branchId,
             id,
             request?.Reason,
             cancellationToken);

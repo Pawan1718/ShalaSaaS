@@ -30,6 +30,8 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         [FromBody] CreateStudentFeeAssignmentRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new StudentFeeAssignment
         {
             StudentId = request.StudentId,
@@ -40,7 +42,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
             IsActive = request.IsActive
         };
 
-        var result = await _assignmentService.AssignAsync(TenantId, BranchId, entity, cancellationToken);
+        var result = await _assignmentService.AssignAsync(
+            TenantId,
+            branchId,
+            entity,
+            cancellationToken);
 
         if (!result.Success)
         {
@@ -76,6 +82,8 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         [FromBody] UpdateStudentFeeAssignmentRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         if (id != request.Id)
         {
             return BadRequest(new ApiResponse<StudentFeeAssignmentResponse?>
@@ -97,7 +105,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
             IsActive = request.IsActive
         };
 
-        var result = await _assignmentService.UpdateAsync(TenantId, BranchId, entity, cancellationToken);
+        var result = await _assignmentService.UpdateAsync(
+            TenantId,
+            branchId,
+            entity,
+            cancellationToken);
 
         if (!result.Success)
         {
@@ -109,7 +121,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
             });
         }
 
-        var updated = await _assignmentService.GetByIdAsync(TenantId, BranchId, id, cancellationToken);
+        var updated = await _assignmentService.GetByIdAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         if (updated is null)
         {
@@ -134,7 +150,13 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var result = await _assignmentService.DeleteAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _assignmentService.DeleteAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         if (!result.Success)
         {
@@ -159,7 +181,13 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var result = await _assignmentService.CanModifyAssignmentAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _assignmentService.CanModifyAssignmentAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         return Ok(new ApiResponse<bool>
         {
@@ -174,9 +202,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         int admissionId,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _assignmentService.GetByAdmissionIdAsync(
             TenantId,
-            BranchId,
+            branchId,
             admissionId,
             cancellationToken);
 
@@ -193,9 +223,11 @@ public class StudentFeeAssignmentsController : TenantApiControllerBase
         int assignmentId,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var result = await _chargeGenerationService.GenerateAsync(
             TenantId,
-            BranchId,
+            branchId,
             assignmentId,
             cancellationToken);
 

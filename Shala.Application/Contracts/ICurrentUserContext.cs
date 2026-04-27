@@ -12,6 +12,9 @@ public interface ICurrentUserContext
     int? TenantId { get; }
     int? BranchId { get; }
 
+    bool IsPlatformAdmin { get; }
+
     int GetRequiredTenantId();
     int GetRequiredBranchId();
+    string GetRequiredUserId();
 }

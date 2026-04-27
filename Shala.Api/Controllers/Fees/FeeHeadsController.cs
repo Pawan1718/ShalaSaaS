@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Shala.Api.Controllers;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Fees;
 using Shala.Domain.Entities.Fees;
@@ -25,7 +24,9 @@ public class FeeHeadsController : TenantApiControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var data = await _service.GetAllAsync(TenantId, BranchId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var data = await _service.GetAllAsync(TenantId, branchId, cancellationToken);
 
         var result = data.Select(MapResponse).ToList();
 
@@ -40,7 +41,9 @@ public class FeeHeadsController : TenantApiControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
-        var data = await _service.GetByIdAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var data = await _service.GetByIdAsync(TenantId, branchId, id, cancellationToken);
 
         if (data is null)
         {
@@ -65,6 +68,8 @@ public class FeeHeadsController : TenantApiControllerBase
         [FromBody] CreateFeeHeadRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new FeeHead
         {
             Name = request.Name,
@@ -74,7 +79,7 @@ public class FeeHeadsController : TenantApiControllerBase
             IsActive = request.IsActive
         };
 
-        var result = await _service.CreateAsync(TenantId, BranchId, Actor, entity, cancellationToken);
+        var result = await _service.CreateAsync(TenantId, branchId, Actor, entity, cancellationToken);
 
         if (!result.Success)
         {
@@ -86,13 +91,11 @@ public class FeeHeadsController : TenantApiControllerBase
             });
         }
 
-        var response = MapResponse(result.Data!);
-
         return Ok(new
         {
             success = true,
             message = result.Message,
-            data = response
+            data = MapResponse(result.Data!)
         });
     }
 
@@ -102,6 +105,8 @@ public class FeeHeadsController : TenantApiControllerBase
         [FromBody] UpdateFeeHeadRequest request,
         CancellationToken cancellationToken)
     {
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
         var entity = new FeeHead
         {
             Id = id,
@@ -112,7 +117,7 @@ public class FeeHeadsController : TenantApiControllerBase
             IsActive = request.IsActive
         };
 
-        var result = await _service.UpdateAsync(TenantId, BranchId, Actor, entity, cancellationToken);
+        var result = await _service.UpdateAsync(TenantId, branchId, Actor, entity, cancellationToken);
 
         if (!result.Success)
         {
@@ -135,7 +140,9 @@ public class FeeHeadsController : TenantApiControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        var result = await _service.DeleteAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.DeleteAsync(TenantId, branchId, id, cancellationToken);
 
         if (!result.Success)
         {

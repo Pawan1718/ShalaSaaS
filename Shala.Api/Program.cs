@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.RateLimiting;
 using Shala.Api.Extensions;
-using Shala.Api.Middlewares;
 using Shala.Api.Services;
 using Shala.Application.Contracts;
 using Shala.Application.Features.Settings;
-using Shala.Application.Features.Students;
 using Shala.Application.Repositories.Settings;
 using Shala.Infrastructure.Repositories.Settings;
 using Shala.Infrastructure.Seed;
@@ -12,7 +10,7 @@ using Shala.Infrastructure.Services;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
-public class Program
+public partial class Program
 {
     public static async Task Main(string[] args)
     {
@@ -37,7 +35,6 @@ public class Program
         builder.Services.AddFeeServices();
         builder.Services.AddSuppliesServices();
 
-
         builder.Services.AddScoped<IAdmissionNumberGenerator, AdmissionNumberGenerator>();
 
         builder.Services.AddJwtAuthentication(
@@ -61,7 +58,6 @@ public class Program
                 }, token);
             };
 
-            // Platform login: LoginId/Email + IP
             options.AddPolicy("platform-login", httpContext =>
             {
                 var ip = GetClientIp(httpContext);
@@ -88,35 +84,14 @@ public class Program
                     });
             });
 
-            // Tenant login: Tenant + Branch + LoginId + IP
             options.AddPolicy("tenant-login", httpContext =>
             {
                 var ip = GetClientIp(httpContext);
                 var body = ReadRawBody(httpContext);
 
-                var tenantKey = Normalize(
-                    GetJsonValue(body, "TenantId") ??
-                    GetJsonValue(body, "TenantCode") ??
-                    GetJsonValue(body, "TenantName") ??
-                    GetJsonValue(body, "SchoolCode") ??
-                    GetJsonValue(body, "SchoolName") ??
-                    GetJsonValue(body, "Tenant"));
-
-                var branchKey = Normalize(
-                    GetJsonValue(body, "BranchId") ??
-                    GetJsonValue(body, "BranchCode") ??
-                    GetJsonValue(body, "BranchName") ??
-                    GetJsonValue(body, "Branch"));
-
-                var loginKey = Normalize(
-                    GetJsonValue(body, "Email") ??
-                    GetJsonValue(body, "UserName") ??
-                    GetJsonValue(body, "LoginId") ??
-                    GetJsonValue(body, "Identifier") ??
-                    GetJsonValue(body, "MobileNumber") ??
-                    GetJsonValue(body, "PhoneNumber") ??
-                    GetJsonValue(body, "Mobile") ??
-                    GetJsonValue(body, "UserId"));
+                var tenantKey = Normalize(GetJsonValue(body, "TenantId"));
+                var branchKey = Normalize(GetJsonValue(body, "BranchId"));
+                var loginKey = Normalize(GetJsonValue(body, "UserId"));
 
                 var key =
                     $"tenant-login|tenant:{tenantKey}|branch:{branchKey}|login:{loginKey}|ip:{ip}";
@@ -139,10 +114,6 @@ public class Program
         {
             using var scope = app.Services.CreateScope();
             await SeedData.InitializeAsync(scope.ServiceProvider);
-        }
-
-        if (app.Environment.IsDevelopment())
-        {
             app.MapOpenApi();
         }
         else
@@ -150,9 +121,42 @@ public class Program
             app.UseHsts();
         }
 
-        app.UseHttpsRedirection();
+        // ✅ GLOBAL EXCEPTION HANDLER
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var exceptionFeature =
+                    context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
 
-        app.UseMiddleware<ExceptionMiddleware>();
+                var exception = exceptionFeature?.Error;
+
+                context.Response.ContentType = "application/json";
+
+                if (exception is UnauthorizedAccessException)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        success = false,
+                        message = exception.Message
+                    });
+
+                    return;
+                }
+
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    success = false,
+                    message = "An unexpected error occurred."
+                });
+            });
+        });
+
+        app.UseHttpsRedirection();
 
         app.UseRateLimiter();
 
@@ -188,9 +192,7 @@ public class Program
 
         context.Request.EnableBuffering();
 
-        using var reader = new StreamReader(
-            context.Request.Body,
-            leaveOpen: true);
+        using var reader = new StreamReader(context.Request.Body, leaveOpen: true);
 
         var body = reader.ReadToEndAsync().GetAwaiter().GetResult();
 
@@ -217,10 +219,7 @@ public class Program
                     return prop.Value.ToString();
             }
         }
-        catch
-        {
-            return null;
-        }
+        catch { }
 
         return null;
     }

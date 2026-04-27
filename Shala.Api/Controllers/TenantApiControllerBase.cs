@@ -8,19 +8,36 @@ namespace Shala.Api.Controllers
     [Authorize]
     public abstract class TenantApiControllerBase : ControllerBase
     {
-        protected readonly ICurrentUserContext CurrentUser;
-        protected readonly IAccessScopeValidator AccessScopeValidator;
+        protected ICurrentUserContext CurrentUser { get; }
+        protected IAccessScopeValidator AccessScopeValidator { get; }
 
         protected TenantApiControllerBase(
             ICurrentUserContext currentUser,
             IAccessScopeValidator accessScopeValidator)
         {
-            CurrentUser = currentUser;
-            AccessScopeValidator = accessScopeValidator;
+            CurrentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+            AccessScopeValidator = accessScopeValidator ?? throw new ArgumentNullException(nameof(accessScopeValidator));
         }
 
         protected int TenantId => CurrentUser.GetRequiredTenantId();
-        protected int BranchId => CurrentUser.GetRequiredBranchId();
+
+        protected int BranchId => CurrentUser.GetRequiredBranchId(); // legacy only
+
         protected string Actor => CurrentUser.Email ?? CurrentUser.UserId ?? "system";
+
+        protected async Task<int> GetSafeBranchIdAsync(
+            int? branchId,
+            CancellationToken cancellationToken = default)
+        {
+            return await AccessScopeValidator
+                .ValidateBranchAccessAsync(branchId, cancellationToken);
+        }
+
+        protected async Task<List<int>> GetSafeBranchIdsAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return await AccessScopeValidator
+                .GetAllowedBranchIdsAsync(cancellationToken);
+        }
     }
 }

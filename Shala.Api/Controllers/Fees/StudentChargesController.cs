@@ -24,9 +24,16 @@ public class StudentChargesController : TenantApiControllerBase
         int studentId,
         CancellationToken cancellationToken)
     {
-        var data = await _service.GetByStudentIdAsync(TenantId, BranchId, studentId, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var data = await _service.GetByStudentIdAsync(
+            TenantId,
+            branchId,
+            studentId,
+            cancellationToken);
 
         var result = data.Select(MapCharge).ToList();
+
         return Ok(result);
     }
 
@@ -35,7 +42,13 @@ public class StudentChargesController : TenantApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var result = await _service.MarkCancelledAsync(TenantId, BranchId, id, cancellationToken);
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
+
+        var result = await _service.MarkCancelledAsync(
+            TenantId,
+            branchId,
+            id,
+            cancellationToken);
 
         if (!result.Success)
             return BadRequest(new { message = result.Message });

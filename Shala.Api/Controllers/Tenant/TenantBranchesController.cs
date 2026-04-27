@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Shala.Api.Services;
+using Shala.Application.Contracts;
 using Shala.Infrastructure.Data;
 using Shala.Shared.Responses.Tenant;
 
@@ -13,32 +13,26 @@ public class TenantBranchesController : TenantApiControllerBase
 
     public TenantBranchesController(
         AppDbContext context,
-        Shala.Application.Contracts.ICurrentUserContext currentUser,
-        Shala.Application.Contracts.IAccessScopeValidator accessScopeValidator)
+        ICurrentUserContext currentUser,
+        IAccessScopeValidator accessScopeValidator)
         : base(currentUser, accessScopeValidator)
     {
         _context = context;
     }
 
     [HttpGet("my")]
-    public async Task<ActionResult<List<TenantBranchOptionDto>>> GetMyBranches(CancellationToken cancellationToken)
+    public async Task<ActionResult<List<TenantBranchOptionDto>>> GetMyBranches(
+        CancellationToken cancellationToken)
     {
         var tenantId = TenantId;
-        var userId = CurrentUser.UserId;
-        var role = CurrentUser.Role ?? string.Empty;
+        var userId = CurrentUser.GetRequiredUserId();
 
-        if (string.IsNullOrWhiteSpace(userId))
-            return Unauthorized();
+        var hasAllBranchesAccess = await AccessScopeValidator
+            .HasAllBranchesAccessAsync(cancellationToken);
 
-        var isTenantAdmin =
-            role.Equals("TenantAdmin", StringComparison.OrdinalIgnoreCase) ||
-            role.Equals("TenantOwner", StringComparison.OrdinalIgnoreCase) ||
-            role.Equals("Owner", StringComparison.OrdinalIgnoreCase) ||
-            role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
-
-        if (isTenantAdmin)
+        if (CurrentUser.IsPlatformAdmin || hasAllBranchesAccess)
         {
-            var adminBranches = await _context.Branches
+            var allBranches = await _context.Branches
                 .AsNoTracking()
                 .Where(x => x.TenantId == tenantId && x.IsActive)
                 .OrderByDescending(x => x.IsMainBranch)
@@ -49,31 +43,35 @@ public class TenantBranchesController : TenantApiControllerBase
                     BranchName = x.Name,
                     BranchCode = x.Code,
                     IsMainBranch = x.IsMainBranch,
-                    IsDefault = x.IsMainBranch
+                    IsDefault = x.Id == CurrentUser.BranchId || x.IsMainBranch
                 })
                 .ToListAsync(cancellationToken);
 
-            return Ok(adminBranches);
+            return Ok(allBranches);
         }
 
         var branches = await _context.UserBranchAccesses
             .AsNoTracking()
             .Where(x =>
+                x.TenantId == tenantId &&
                 x.UserId == userId &&
                 x.IsActive &&
+                x.BranchId.HasValue &&
+                x.Branch != null &&
                 x.Branch.IsActive &&
                 x.Branch.TenantId == tenantId)
-            .OrderByDescending(x => x.Branch.IsMainBranch)
+            .OrderByDescending(x => x.Branch!.IsMainBranch)
             .ThenByDescending(x => x.IsDefault)
-            .ThenBy(x => x.Branch.Name)
+            .ThenBy(x => x.Branch!.Name)
             .Select(x => new TenantBranchOptionDto
             {
-                BranchId = x.Branch.Id,
-                BranchName = x.Branch.Name,
+                BranchId = x.BranchId!.Value,
+                BranchName = x.Branch!.Name,
                 BranchCode = x.Branch.Code,
                 IsMainBranch = x.Branch.IsMainBranch,
-                IsDefault = x.IsDefault
+                IsDefault = x.IsDefault || x.BranchId == CurrentUser.BranchId
             })
+            .Distinct()
             .ToListAsync(cancellationToken);
 
         return Ok(branches);

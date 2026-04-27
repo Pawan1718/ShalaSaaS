@@ -27,9 +27,15 @@ public sealed class FeeDashboardController : TenantApiControllerBase
         [FromBody] FeeDashboardRequest request,
         CancellationToken cancellationToken)
     {
+        if (request is null)
+        {
+            return BadRequest(ApiResponse<FeeDashboardResponse>.Fail("Request is required."));
+        }
+
+        var branchId = await GetSafeBranchIdAsync(null, cancellationToken);
         var result = await _feeDashboardService.GetDashboardAsync(
             TenantId,
-            BranchId,
+            branchId,
             request,
             cancellationToken);
 
