@@ -8,9 +8,11 @@
 @using Shala.Web.Components.Common
 @using Shala.Web.Repositories
 @using Shala.Web.Repositories.PlatformRepo
+@using Shala.Web.Repositories.TenantRepo
 
+@inject ITenantUserRepository UserRepo
 @inject ITenantRepository TenantRepository
-
+@inject ITenantBranchRepository BranchRepo
 <MudDialog>
     <DialogContent>
         <MudText Typo="Typo.h6" Class="mb-3">@TenantName - Users</MudText>

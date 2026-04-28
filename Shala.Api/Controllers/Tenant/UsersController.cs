@@ -63,7 +63,7 @@ public class UsersController : ControllerBase
         return Ok(result.Data);
     }
 
-    [HttpPatch("{userId}/status")]
+    [HttpPut("{userId}/status")]
     public async Task<IActionResult> UpdateUserStatus(
         string userId,
         [FromBody] UpdateTenantUserStatusRequest request)

@@ -6,8 +6,11 @@
 @using Shala.Web.Components.Dialogs
 @using Shala.Web.Repositories
 @using Shala.Web.Repositories.PlatformRepo
+@using Shala.Web.Repositories.TenantRepo
 
 @inject ITenantRepository TenantRepository
+@inject ITenantUserRepository UserRepo
+@inject ITenantBranchRepository BranchRepo
 @inject ISnackbar Snackbar
 
 <MudDialog>
