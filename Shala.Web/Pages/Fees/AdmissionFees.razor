@@ -1,0 +1,1197 @@
+﻿    
+@page "/tenant/students/{StudentId:int}/admissions/{AdmissionId:int}/fees"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Shared.Responses.Settings
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Fees
+@using Shala.Web.Models.Fees
+@using Shala.Web.Repositories.Fees
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.Settings
+@using Shala.Web.Services.State
+
+@inject IBranchDocumentProfileWebRepository ProfileRepo
+@inject IFeeWebRepository FeeWebRepository
+@inject IStudentRepository StudentRepository
+@inject ApiSession ApiSession
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<PageTitle>Admission Fees</PageTitle>
+
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="false">
+        <ChildContent>
+            <AppPageHeader Title="Admission Fees"
+                           Subtitle="Assignment, generation, collection, receipts, and cancellation workflow">
+                <Actions>
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="@((MouseEventArgs _) => GoBack())">
+                        Back
+                    </AppButton>
+                </Actions>
+            </AppPageHeader>
+
+            <AppToolbar>
+                <Filters>
+                    <MudChip T="string" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small">
+                        Student #@StudentId
+                    </MudChip>
+
+                    <MudChip T="string" Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small">
+                        Admission #@AdmissionId
+                    </MudChip>
+
+                    <MudChip T="string" Variant="Variant.Filled" Color="@GetWorkflowColor()" Size="Size.Small">
+                        @GetWorkflowText()
+                    </MudChip>
+                </Filters>
+
+                <Actions>
+                    <AppButton StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@((MouseEventArgs _) => OpenAssignDialogAsync())">
+                        Add Fee Plan
+                    </AppButton>
+
+                    <AppButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                               Disabled="@(!CanGenerateOrRegenerate || _busyGenerate)"
+                               OnClick="@((MouseEventArgs _) => GenerateOrRegenerateChargesAsync())">
+                        @GetGenerateButtonText()
+                    </AppButton>
+
+                    <AppButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Payments"
+                               Disabled="@(!CanCollectFee || _busyCollect)"
+                               OnClick="@((MouseEventArgs _) => OpenCollectFeeDialogAsync())">
+                        @(_busyCollect ? "Saving..." : "Collect Fee")
+                    </AppButton>
+                </Actions>
+            </AppToolbar>
+
+            <AppError Message="@GetGuidanceMessage()"
+                      Severity="@GetGuidanceSeverity()"
+                      Variant="Variant.Outlined"
+                      Dense="true"
+                      Class="mb-4" />
+
+            @if (HasPaidActiveCharges)
+            {
+                <AppError Message="Paid charges exist for this admission. Fee-impact assignment changes and regeneration may be blocked by backend."
+                          Severity="Severity.Info"
+                          Variant="Variant.Outlined"
+                          Dense="true"
+                          Class="mb-4" />
+            }
+
+            <FeeSummaryCards Summary="_dashboard.Summary" />
+
+            <MudGrid Spacing="3" Class="mt-1 mb-4">
+                <MudItem xs="12" md="12" lg="4">
+                    <AppCard Class="h-100">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                                        <MudIcon Icon="@Icons.Material.Filled.FolderSpecial" />
+                                    </MudAvatar>
+
+                                    <div>
+                                        <MudText Typo="Typo.subtitle1" Class="fw-semibold">Fee Plans</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Multiple structures linked to this admission
+                                        </MudText>
+                                    </div>
+                                </MudStack>
+                                @if (GetConflictingAvailableStructures().Any())
+                                {
+                                    <AppError Message="@GetConflictingStructureMessage()"
+                                              Severity="Severity.Info"
+                                              Variant="Variant.Outlined"
+                                              Dense="true" />
+                                }
+                                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                                    @_dashboard.Assignments.Count(x => x.IsActive) Active
+                                </MudChip>
+                            </MudStack>
+
+                            @if (!_dashboard.Assignments.Any())
+                            {
+                                <AppEmptyState Title="No plan assigned yet"
+                                               Message="Assign registration, tuition, transport, or other fee structures."
+                                               Icon="@Icons.Material.Filled.AccountBalanceWallet" />
+                            }
+                            else
+                            {
+                                <MudStack Spacing="2">
+                                    @foreach (var assignment in _dashboard.Assignments.OrderByDescending(x => x.IsActive).ThenBy(x => x.FeeStructureName))
+                                    {
+                                        var assignmentCharges = AdmissionCharges
+                                            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+                                            .ToList();
+
+                                        var total = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.NetAmount);
+
+                                        var paid = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.PaidAmount);
+
+                                        var balance = assignmentCharges
+                                            .Where(x => !x.IsCancelled)
+                                            .Sum(x => x.BalanceAmount);
+
+                                        var hasPaid = assignmentCharges.Any(x => !x.IsCancelled && x.PaidAmount > 0);
+                                        var hasCharges = assignmentCharges.Any();
+
+                                        <MudPaper Class="pa-3 rounded-4 border fee-plan-card" Elevation="0">
+                                            <MudStack Spacing="2">
+                                                <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Spacing="2">
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.subtitle2" Class="fw-semibold">
+                                                            @DisplayText(assignment.FeeStructureName)
+                                                        </MudText>
+
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            Assigned @FormatDate(assignment.CreatedAt)
+                                                        </MudText>
+                                                    </MudStack>
+
+                                                    <StatusChip IsActive="@assignment.IsActive"
+                                                                ActiveText="Active"
+                                                                InactiveText="Inactive"
+                                                                ActiveColor="Color.Success"
+                                                                InactiveColor="Color.Default" />
+                                                </MudStack>
+
+                                                <MudGrid Spacing="1">
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@total.ToString("N2")</MudText>
+                                                    </MudItem>
+
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Paid</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@paid.ToString("N2")</MudText>
+                                                    </MudItem>
+
+                                                    <MudItem xs="4">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Due</MudText>
+                                                        <MudText Typo="Typo.body2" Class="fw-semibold">@balance.ToString("N2")</MudText>
+                                                    </MudItem>
+                                                </MudGrid>
+
+                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+                                                    @if (assignment.DiscountAmount > 0)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success">
+                                                            Discount @assignment.DiscountAmount.ToString("N2")
+                                                        </MudChip>
+                                                    }
+
+                                                    @if (assignment.AdditionalChargeAmount > 0)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning">
+                                                            Additional @assignment.AdditionalChargeAmount.ToString("N2")
+                                                        </MudChip>
+                                                    }
+
+                                                    @if (hasCharges)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">
+                                                            @assignmentCharges.Count charge(s)
+                                                        </MudChip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning">
+                                                            Not Generated
+                                                        </MudChip>
+                                                    }
+                                                </MudStack>
+
+                                                <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd" Class="flex-wrap">
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               StartIcon="@Icons.Material.Filled.Edit"
+                                                               Disabled="@(_busyAssignmentAction || hasPaid)"
+                                                               OnClick="@(() => OpenEditAssignmentDialogAsync(assignment))">
+                                                        Edit
+                                                    </MudButton>
+
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="Color.Secondary"
+                                                               StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                                               Disabled="@(_busyGenerate || !assignment.IsActive || hasPaid)"
+                                                               OnClick="@(() => GenerateOrRegenerateChargesAsync(assignment))">
+                                                        @(hasCharges ? "Regenerate" : "Generate")
+                                                    </MudButton>
+
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="Color.Error"
+                                                               StartIcon="@Icons.Material.Filled.Block"
+                                                               Disabled="@(_busyAssignmentAction || hasPaid)"
+                                                               OnClick="@(() => DeactivateAssignmentAsync(assignment))">
+                                                        Deactivate
+                                                    </MudButton>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudPaper>
+                                    }
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+                <MudItem xs="12" md="6" lg="4">
+                    <AppCard Class="h-100">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudAvatar Color="Color.Success" Variant="Variant.Filled">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
+                                </MudAvatar>
+
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="fw-semibold">Collection Progress</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Based only on active charges
+                                    </MudText>
+                                </div>
+                            </MudStack>
+
+                            <MudProgressLinear Rounded="true"
+                                               Value="@GetCollectionProgress()"
+                                               Color="Color.Success" />
+
+                            <MudText Typo="Typo.h5">
+                                @GetCollectionProgress().ToString("0.##")%
+                            </MudText>
+
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @_dashboard.Summary.TotalPaid.ToString("N2") paid out of @_dashboard.Summary.TotalAmount.ToString("N2")
+                            </MudText>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+
+                <MudItem xs="12" lg="4">
+                    <AppCard Class="h-100">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudAvatar Color="Color.Warning" Variant="Variant.Filled">
+                                    <MudIcon Icon="@GetNextActionIcon()" />
+                                </MudAvatar>
+
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="fw-semibold">@GetNextActionTitle()</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Recommended next workflow step
+                                    </MudText>
+                                </div>
+                            </MudStack>
+
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @GetNextActionDescription()
+                            </MudText>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+            </MudGrid>
+
+            <MudTabs Rounded="true" PanelClass="pa-0">
+                <MudTabPanel Text="Charges" Icon="@Icons.Material.Filled.RequestQuote">
+                    <AppTableCard TItem="StudentChargeResponse"
+                                  Class="mt-4"
+                                  Title="Charges"
+                                  Subtitle="Active, paid, partial, overdue, and cancelled charges for this admission"
+                                  IsLoading="false"
+                                  IsEmpty="@(!AdmissionCharges.Any())"
+                                  EmptyTitle="No charges found"
+                                  EmptyMessage="Generate charges from assigned fee plan.">
+                        <Actions>
+                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                                @AdmissionCharges.Count charge(s)
+                            </MudChip>
+                        </Actions>
+
+                        <EmptyActions>
+                            <AppButton StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                       Disabled="@(!CanGenerateOrRegenerate || _busyGenerate)"
+                                       OnClick="@((MouseEventArgs _) => GenerateOrRegenerateChargesAsync())">
+                                Generate Charges
+                            </AppButton>
+                        </EmptyActions>
+
+                        <ChildContent>
+                            <StudentChargesTable Charges="AdmissionCharges"
+                                                 BusyChargeId="_busyChargeId"
+                                                 OnCancelCharge="CancelChargeAsync" />
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Receipts" Icon="@Icons.Material.Filled.Receipt">
+                    <AppTableCard TItem="FeeReceiptResponse"
+                                  Class="mt-4"
+                                  Title="Receipts"
+                                  Subtitle="View active and cancelled receipts for this admission"
+                                  IsLoading="false"
+                                  IsEmpty="@(!AdmissionReceipts.Any())"
+                                  EmptyTitle="No receipts found"
+                                  EmptyMessage="Collect fee to create the first receipt.">
+                        <Actions>
+                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success">
+                                @AdmissionReceipts.Count receipt(s)
+                            </MudChip>
+                        </Actions>
+
+                        <EmptyActions>
+                            <AppButton Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.Payments"
+                                       Disabled="@(!CanCollectFee || _busyCollect)"
+                                       OnClick="@((MouseEventArgs _) => OpenCollectFeeDialogAsync())">
+                                Collect Fee
+                            </AppButton>
+                        </EmptyActions>
+
+                        <ChildContent>
+                            <FeeReceiptsTable Receipts="AdmissionReceipts"
+                                              BusyReceiptId="_busyReceiptId"
+                                              OnViewReceipt="OpenReceiptFromListAsync"
+                                              OnCancelReceipt="CancelReceiptAsync" />
+                        </ChildContent>
+                    </AppTableCard>
+                </MudTabPanel>
+            </MudTabs>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
+
+@code {
+    [Parameter] public int StudentId { get; set; }
+    [Parameter] public int AdmissionId { get; set; }
+
+    private bool _loading = true;
+    private bool _busyGenerate;
+    private bool _busyCollect;
+    private bool _busyAssignmentAction;
+    private int? _busyReceiptId;
+    private int? _busyChargeId;
+    private string? _error;
+
+    private AdmissionFeeDashboardVm _dashboard = new();
+    private StudentDetailsResponse? _studentDetails;
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Students", "/tenant/students"),
+        new("Student Details", null, true),
+        new("Admission Fees", null, true)
+    ];
+
+    private List<StudentChargeResponse> AdmissionCharges => _dashboard.Charges
+        .Where(x => x.StudentAdmissionId == AdmissionId)
+        .OrderBy(x => x.DueDate)
+        .ThenBy(x => x.Id)
+        .ToList();
+
+    private List<FeeReceiptResponse> AdmissionReceipts => _dashboard.Receipts
+        .Where(x => x.StudentAdmissionId == AdmissionId)
+        .OrderByDescending(x => x.ReceiptDate)
+        .ThenByDescending(x => x.Id)
+        .ToList();
+
+    private List<StudentChargeResponse> ActiveCharges => AdmissionCharges.Where(x => !x.IsCancelled).ToList();
+
+    private bool HasAnyCharges => AdmissionCharges.Count > 0;
+    private bool HasActiveCharges => ActiveCharges.Count > 0;
+    private bool HasPaidActiveCharges => ActiveCharges.Any(x => x.PaidAmount > 0);
+    private bool CanCollectFee => ActiveCharges.Any(x => x.BalanceAmount > 0);
+    private bool CanGenerateOrRegenerate => _dashboard.Assignment is not null && _dashboard.Assignment.IsActive && !HasPaidActiveCharges;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            var structuresTask = FeeWebRepository.GetFeeStructuresAsync();
+            var chargesTask = FeeWebRepository.GetStudentChargesAsync(StudentId);
+            var receiptsTask = FeeWebRepository.GetStudentReceiptsAsync(StudentId);
+            var assignmentsTask = FeeWebRepository.GetAssignmentsAsync(AdmissionId);
+
+            await Task.WhenAll(structuresTask, chargesTask, receiptsTask, assignmentsTask);
+            _dashboard.AvailableStructures = (await structuresTask)
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.Name)
+                .ToList();
+
+            _dashboard.Charges = (await chargesTask)
+                .Where(x => x.StudentAdmissionId == AdmissionId)
+                .OrderBy(x => x.DueDate)
+                .ThenBy(x => x.Id)
+                .ToList();
+
+            _dashboard.Receipts = (await receiptsTask)
+                .Where(x => x.StudentAdmissionId == AdmissionId)
+                .OrderByDescending(x => x.ReceiptDate)
+                .ThenByDescending(x => x.Id)
+                .ToList();
+
+            _dashboard.Assignments = await assignmentsTask;
+            _dashboard.Summary = BuildSummary(_dashboard.Charges);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo($"/tenant/students/{StudentId}");
+    }
+
+    private async Task OpenAssignDialogAsync()
+    {
+        var assignedStructureIds = _dashboard.Assignments
+     .Where(x => x.IsActive)
+     .Select(x => x.FeeStructureId)
+     .ToHashSet();
+
+        var assignedFeeHeadIds = _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .SelectMany(a =>
+                _dashboard.AvailableStructures
+                    .FirstOrDefault(s => s.Id == a.FeeStructureId)?
+                    .Items ?? new List<FeeStructureItemResponse>())
+            .Where(i => i.IsActive)
+            .Select(i => i.FeeHeadId)
+            .ToHashSet();
+
+        var availableStructures = _dashboard.AvailableStructures
+            .Where(x => !assignedStructureIds.Contains(x.Id))
+            .Where(x => !x.Items.Any(i => i.IsActive && assignedFeeHeadIds.Contains(i.FeeHeadId)))
+            .ToList();
+
+
+        if (!availableStructures.Any())
+        {
+            Snackbar.Add("No compatible fee structures available. Existing assigned fee heads would conflict.", Severity.Warning); return;
+        }
+
+        if (!_dashboard.AvailableStructures.Any())
+        {
+            Snackbar.Add("No active fee structures available.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await DialogService.ShowAsync<AssignFeeStructureDialog>(
+            "Assign Fee Structure",
+            new DialogParameters
+            {
+                [nameof(AssignFeeStructureDialog.FeeStructures)] = availableStructures,
+                [nameof(AssignFeeStructureDialog.IsEditMode)] = false
+            });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not AssignFeeStructureVm model)
+            return;
+
+        try
+        {
+            _busyAssignmentAction = true;
+
+            var request = new CreateStudentFeeAssignmentRequest
+            {
+                StudentId = StudentId,
+                StudentAdmissionId = AdmissionId,
+                FeeStructureId = model.FeeStructureId,
+                DiscountAmount = model.DiscountAmount,
+                AdditionalChargeAmount = model.AdditionalChargeAmount,
+                IsActive = true
+            };
+
+            var assignment = await FeeWebRepository.AssignFeeStructureAsync(request);
+            Snackbar.Add("Fee structure assigned successfully.", Severity.Success);
+
+            if (model.AutoGenerateCharges)
+            {
+                await FeeWebRepository.GenerateChargesAsync(assignment.Id);
+                Snackbar.Add("Charges generated successfully.", Severity.Success);
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task OpenEditAssignmentDialogAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
+    {
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
+        {
+            Snackbar.Add("Assignment not found.", Severity.Warning);
+            return;
+        }
+
+        var assignmentCharges = AdmissionCharges
+            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+            .ToList();
+
+        var hasPaidForAssignment = assignmentCharges.Any(x => !x.IsCancelled && x.PaidAmount > 0);
+
+        var initialModel = new AssignFeeStructureVm
+        {
+            FeeStructureId = assignment.FeeStructureId,
+            DiscountAmount = assignment.DiscountAmount,
+            AdditionalChargeAmount = assignment.AdditionalChargeAmount,
+            AutoGenerateCharges = false
+        };
+
+        var dialog = await DialogService.ShowAsync<AssignFeeStructureDialog>(
+            "Update Fee Assignment",
+            new DialogParameters
+            {
+                [nameof(AssignFeeStructureDialog.FeeStructures)] = _dashboard.AvailableStructures,
+                [nameof(AssignFeeStructureDialog.InitialModel)] = initialModel,
+                [nameof(AssignFeeStructureDialog.IsEditMode)] = true
+            });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not AssignFeeStructureVm model)
+            return;
+
+        var structureChanged = model.FeeStructureId != assignment.FeeStructureId;
+        var discountChanged = model.DiscountAmount != assignment.DiscountAmount;
+        var additionalChanged = model.AdditionalChargeAmount != assignment.AdditionalChargeAmount;
+
+        if (structureChanged || discountChanged || additionalChanged || model.AutoGenerateCharges)
+        {
+            var proposedStructureName = _dashboard.AvailableStructures
+                .FirstOrDefault(x => x.Id == model.FeeStructureId)?.Name;
+
+            var reviewDialog = await DialogService.ShowAsync<AssignmentImpactDialog>(
+                "Review Assignment Change",
+                new DialogParameters
+                {
+                    [nameof(AssignmentImpactDialog.Model)] = model,
+                    [nameof(AssignmentImpactDialog.CurrentStructureName)] = assignment.FeeStructureName,
+                    [nameof(AssignmentImpactDialog.ProposedStructureName)] = proposedStructureName,
+                    [nameof(AssignmentImpactDialog.CurrentDiscount)] = assignment.DiscountAmount,
+                    [nameof(AssignmentImpactDialog.CurrentAdditional)] = assignment.AdditionalChargeAmount,
+                    [nameof(AssignmentImpactDialog.HasPaidCharges)] = hasPaidForAssignment,
+                    [nameof(AssignmentImpactDialog.HasActiveCharges)] = assignmentCharges.Any(x => !x.IsCancelled)
+                });
+
+            var reviewResult = await reviewDialog.Result;
+
+            if (reviewResult.Canceled)
+                return;
+        }
+
+        try
+        {
+            _busyAssignmentAction = true;
+
+            var request = new UpdateStudentFeeAssignmentRequest
+            {
+                Id = assignment.Id,
+                StudentId = StudentId,
+                StudentAdmissionId = AdmissionId,
+                FeeStructureId = model.FeeStructureId,
+                DiscountAmount = model.DiscountAmount,
+                AdditionalChargeAmount = model.AdditionalChargeAmount,
+                IsActive = assignment.IsActive
+            };
+
+            await FeeWebRepository.UpdateAssignmentAsync(assignment.Id, request);
+            Snackbar.Add("Assignment updated successfully.", Severity.Success);
+
+            if (model.AutoGenerateCharges)
+            {
+                await FeeWebRepository.GenerateChargesAsync(assignment.Id);
+                Snackbar.Add("Charges regenerated successfully.", Severity.Success);
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task DeactivateAssignmentAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
+    {
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
+            return;
+
+        var dialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Deactivate Assignment",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Deactivate Assignment",
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason before deactivating '{assignment.FeeStructureName}'. Backend may cancel unpaid active charges."
+            });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            _busyAssignmentAction = true;
+            await FeeWebRepository.DeleteAssignmentAsync(assignment.Id);
+            Snackbar.Add("Assignment deactivated successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyAssignmentAction = false;
+        }
+    }
+
+    private async Task GenerateOrRegenerateChargesAsync(StudentFeeAssignmentResponse? selectedAssignment = null)
+    {
+        var assignment = selectedAssignment ?? _dashboard.Assignment;
+
+        if (assignment is null)
+        {
+            Snackbar.Add("No assignment found.", Severity.Warning);
+            return;
+        }
+
+        var assignmentCharges = AdmissionCharges
+            .Where(x => x.StudentFeeAssignmentId == assignment.Id)
+            .ToList();
+
+        var activeAssignmentCharges = assignmentCharges
+            .Where(x => !x.IsCancelled)
+            .ToList();
+
+        var hasPaidForAssignment = activeAssignmentCharges.Any(x => x.PaidAmount > 0);
+
+        if (!assignment.IsActive || hasPaidForAssignment)
+        {
+            Snackbar.Add("Charges cannot be generated or regenerated while paid active charges exist for this plan.", Severity.Warning);
+            return;
+        }
+
+        if (activeAssignmentCharges.Any())
+        {
+            var confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Regenerate charges for '{assignment.FeeStructureName}'? Existing unpaid active charges for this plan will be cancelled and recreated.");
+
+            if (!confirmed)
+                return;
+        }
+
+        try
+        {
+            _busyGenerate = true;
+            await FeeWebRepository.GenerateChargesAsync(assignment.Id);
+            Snackbar.Add(activeAssignmentCharges.Any() ? "Charges regenerated successfully." : "Charges generated successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyGenerate = false;
+        }
+    }
+
+    private async Task OpenCollectFeeDialogAsync()
+    {
+        if (!CanCollectFee)
+        {
+            Snackbar.Add("No pending balance available for collection.", Severity.Warning);
+            return;
+        }
+
+        var dialog = await DialogService.ShowAsync<CollectFeeDialog>(
+            "Collect Fee",
+            new DialogParameters
+            {
+                [nameof(CollectFeeDialog.StudentId)] = StudentId,
+                [nameof(CollectFeeDialog.StudentAdmissionId)] = AdmissionId,
+                [nameof(CollectFeeDialog.Charges)] = AdmissionCharges
+            });
+
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not CreateFeeReceiptRequest request)
+            return;
+
+        try
+        {
+            _busyCollect = true;
+
+            var response = await FeeWebRepository.CollectFeeAsync(request);
+            Snackbar.Add("Fee collected successfully.", Severity.Success);
+
+            await LoadAsync();
+            await OpenReceiptActionDialogAsync(response.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyCollect = false;
+        }
+    }
+
+    private async Task CancelReceiptAsync(FeeReceiptResponse receipt)
+    {
+        if (receipt.IsCancelled)
+            return;
+
+        var reasonDialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Cancel Receipt",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Cancel Receipt",
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason for cancelling receipt {receipt.ReceiptNo}."
+            });
+
+        var reasonResult = await reasonDialog.Result;
+
+        if (reasonResult.Canceled || reasonResult.Data is not string reason)
+            return;
+
+        try
+        {
+            _busyReceiptId = receipt.Id;
+            await FeeWebRepository.CancelReceiptAsync(receipt.Id, reason);
+            Snackbar.Add("Receipt cancelled successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyReceiptId = null;
+        }
+    }
+
+    private async Task CancelChargeAsync(StudentChargeResponse charge)
+    {
+        if (charge.IsCancelled)
+            return;
+
+        var reasonDialog = await DialogService.ShowAsync<CancelReasonDialog>(
+            "Cancel Charge",
+            new DialogParameters
+            {
+                [nameof(CancelReasonDialog.Title)] = "Cancel Charge",
+                [nameof(CancelReasonDialog.Description)] = $"Enter a reason for cancelling charge '{charge.ChargeLabel}'."
+            });
+
+        var reasonResult = await reasonDialog.Result;
+
+        if (reasonResult.Canceled)
+            return;
+
+        try
+        {
+            _busyChargeId = charge.Id;
+            await FeeWebRepository.CancelChargeAsync(charge.Id);
+            Snackbar.Add("Charge cancelled successfully.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busyChargeId = null;
+        }
+    }
+
+    private async Task OpenReceiptFromListAsync(FeeReceiptResponse receipt)
+    {
+        await OpenReceiptActionDialogAsync(receipt.Id);
+    }
+
+    private async Task OpenReceiptActionDialogAsync(int receiptId)
+    {
+        try
+        {
+            var receipt = await FeeWebRepository.GetReceiptByIdAsync(receiptId)
+                         ?? _dashboard.Receipts.FirstOrDefault(x => x.Id == receiptId);
+
+            if (receipt is null)
+            {
+                Snackbar.Add("Receipt preview could not be loaded.", Severity.Warning);
+                return;
+            }
+
+            await EnsureStudentDetailsLoadedAsync();
+
+            var profile = await ProfileRepo.GetAsync();
+            var currentAdmission = _studentDetails?.Admissions?.FirstOrDefault(x => x.Id == AdmissionId);
+
+            var allocations = receipt.Allocations?
+                .Where(x => x.AllocatedAmount != 0)
+                .ToList() ?? new List<FeeReceiptAllocationResponse>();
+
+            var lines = allocations
+                .Select(allocation =>
+                {
+                    var charge = AdmissionCharges.FirstOrDefault(c => c.Id == allocation.StudentChargeId);
+
+                    return new FeeReceiptPrintLineVm
+                    {
+                        Label = !string.IsNullOrWhiteSpace(allocation.ChargeLabel)
+                            ? allocation.ChargeLabel!
+                            : charge?.ChargeLabel ?? $"Charge #{allocation.StudentChargeId}",
+                        FeeHeadName = !string.IsNullOrWhiteSpace(allocation.FeeHeadName)
+                            ? allocation.FeeHeadName
+                            : charge?.ChargeLabel ?? "-",
+                        DueDate = allocation.DueDate ?? charge?.DueDate,
+                        Amount = allocation.AllocatedAmount
+                    };
+                })
+                .ToList();
+
+            var computedTotal = lines.Sum(x => x.Amount);
+            var finalTotal = receipt.TotalAmount > 0 ? receipt.TotalAmount : computedTotal;
+
+            var printModel = new FeeReceiptPrintVm
+            {
+                ReceiptId = receipt.Id,
+                ReceiptNo = receipt.ReceiptNo ?? "-",
+                ReceiptDate = receipt.ReceiptDate,
+                ReceiptTitle = string.IsNullOrWhiteSpace(profile?.ReceiptTitle) ? "Fee Receipt" : profile!.ReceiptTitle!,
+                ReceiptFooterNote = profile?.ReceiptFooterNote,
+                StudentName = _studentDetails?.FullName ?? "-",
+                AdmissionNo = currentAdmission?.AdmissionNo ?? _studentDetails?.AdmissionNo ?? "-",
+                ClassName = currentAdmission?.ClassName ?? "-",
+                SectionName = currentAdmission?.SectionName ?? "-",
+                PaymentMode = GetPaymentModeText(receipt.PaymentMode),
+                TransactionReference = receipt.TransactionReference,
+                Remarks = receipt.IsCancelled
+                    ? $"{receipt.Remarks}{(string.IsNullOrWhiteSpace(receipt.CancelReason) ? string.Empty : $" | Cancelled: {receipt.CancelReason}")}"
+                    : receipt.Remarks,
+                ShowStudentDetailsInReceipt = true,
+                ShowFeeHeadInReceipt = false,
+                ShowAmountInWords = false,
+                AllowPrintReceipt = profile?.AllowPrintReceipt ?? true,
+                AllowDownloadReceipt = profile?.AllowDownloadReceipt ?? true,
+                TotalAmount = finalTotal,
+                AmountInWords = string.Empty,
+                IsCancelled = receipt.IsCancelled,
+                Lines = lines
+            };
+
+            printModel.GetType().GetProperty("IsCancelled")?.SetValue(printModel, receipt.IsCancelled);
+
+            var receiptDialog = await DialogService.ShowAsync<FeeReceiptActionDialog>(
+                "Fee Receipt",
+                new DialogParameters
+                {
+                    [nameof(FeeReceiptActionDialog.Model)] = printModel,
+                    [nameof(FeeReceiptActionDialog.Profile)] = profile,
+                    [nameof(FeeReceiptActionDialog.AllowCancel)] = !receipt.IsCancelled
+                },
+                new DialogOptions
+                {
+                    MaxWidth = MaxWidth.ExtraLarge,
+                    FullWidth = true,
+                    CloseButton = true
+                });
+
+            var receiptDialogResult = await receiptDialog.Result;
+
+            if (!receiptDialogResult.Canceled &&
+                receiptDialogResult.Data is string action &&
+                action == "cancel")
+            {
+                await CancelReceiptAsync(receipt);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task EnsureStudentDetailsLoadedAsync()
+    {
+        if (_studentDetails is not null)
+            return;
+
+        var tenantId = ApiSession.TenantId;
+
+        if (!tenantId.HasValue || tenantId.Value <= 0)
+            return;
+
+        var response = await StudentRepository.GetByIdAsync(StudentId, tenantId.Value);
+
+        if (response?.Success == true && response.Data is not null)
+            _studentDetails = response.Data;
+    }
+
+    private Color GetWorkflowColor()
+    {
+        if (_dashboard.Assignment is null)
+            return Color.Warning;
+
+        if (!HasAnyCharges)
+            return Color.Info;
+
+        if (CanCollectFee)
+            return Color.Success;
+
+        return Color.Primary;
+    }
+
+    private string GetWorkflowText()
+    {
+        if (_dashboard.Assignment is null)
+            return "Pending Assignment";
+
+        if (!HasAnyCharges)
+            return "Ready to Generate";
+
+        if (CanCollectFee)
+            return "Ready to Collect";
+
+        return "Review / Settled";
+    }
+
+    private string GetGenerateButtonText()
+    {
+        return HasActiveCharges ? "Regenerate Charges" : "Generate Charges";
+    }
+
+    private Severity GetGuidanceSeverity()
+    {
+        if (_dashboard.Assignment is null)
+            return Severity.Warning;
+
+        if (!HasAnyCharges)
+            return Severity.Info;
+
+        if (HasPaidActiveCharges)
+            return Severity.Normal;
+
+        if (CanCollectFee)
+            return Severity.Success;
+
+        return Severity.Normal;
+    }
+
+    private string GetGuidanceMessage()
+    {
+        if (_dashboard.Assignment is null)
+            return "Assign a fee structure first. This links a fee plan to the current admission.";
+
+        if (!HasAnyCharges)
+            return "The fee plan is assigned. Generate charges now to create installments for collection.";
+
+        if (HasPaidActiveCharges)
+            return "Paid charges exist. Backend will protect against unsafe regeneration and destructive assignment changes.";
+
+        if (CanCollectFee)
+            return "Pending balance exists. You can collect fee or safely cancel an unpaid charge.";
+
+        return "No pending collection remains. You can review charges and receipts anytime.";
+    }
+
+    private string GetNextActionTitle()
+    {
+        if (_dashboard.Assignment is null)
+            return "Assign the fee plan";
+
+        if (!HasAnyCharges)
+            return "Generate installments";
+
+        if (CanCollectFee)
+            return "Collect pending fee";
+
+        return "Review records";
+    }
+
+    private string GetNextActionDescription()
+    {
+        if (_dashboard.Assignment is null)
+            return "Choose a structure so this admission can move into billing.";
+
+        if (!HasAnyCharges)
+            return "Create installment rows from the assigned fee plan.";
+
+        if (CanCollectFee)
+            return "Record a payment against the pending balance and issue a receipt.";
+
+        return "All active items are settled or cancelled. Review receipts and charges.";
+    }
+
+    private string GetNextActionIcon()
+    {
+        if (_dashboard.Assignment is null)
+            return Icons.Material.Filled.AccountBalanceWallet;
+
+        if (!HasAnyCharges)
+            return Icons.Material.Filled.AutoFixHigh;
+
+        if (CanCollectFee)
+            return Icons.Material.Filled.Payments;
+
+        return Icons.Material.Filled.DoneAll;
+    }
+
+    private double GetCollectionProgress()
+    {
+        if (_dashboard.Summary.TotalAmount <= 0)
+            return 0;
+
+        var value = (_dashboard.Summary.TotalPaid / _dashboard.Summary.TotalAmount) * 100m;
+        return (double)Math.Min(100m, Math.Max(0m, value));
+    }
+
+    private static FeeSummaryVm BuildSummary(List<StudentChargeResponse> charges)
+    {
+        var activeCharges = charges.Where(x => !x.IsCancelled).ToList();
+
+        return new FeeSummaryVm
+        {
+            TotalAmount = activeCharges.Sum(x => x.Amount),
+            TotalDiscount = activeCharges.Sum(x => x.DiscountAmount),
+            TotalPaid = activeCharges.Sum(x => x.PaidAmount),
+            TotalBalance = activeCharges.Sum(x => x.BalanceAmount),
+            TotalInstallments = activeCharges.Count,
+            PaidInstallments = activeCharges.Count(x => x.BalanceAmount <= 0),
+            PartialInstallments = activeCharges.Count(x => x.PaidAmount > 0 && x.BalanceAmount > 0),
+            PendingInstallments = activeCharges.Count(x => x.PaidAmount <= 0 && x.BalanceAmount > 0)
+        };
+    }
+
+    private static string DisplayText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatDate(DateTime value)
+    {
+        return value == default ? "-" : value.ToString("dd MMM yyyy");
+    }
+
+    private static string GetPaymentModeText(int paymentMode) => paymentMode switch
+    {
+        1 => "Cash",
+        2 => "UPI",
+        3 => "Bank Transfer",
+        4 => "Cheque",
+        5 => "Card",
+        _ => "Other"
+    };
+
+    private HashSet<int> GetAssignedFeeHeadIds()
+    {
+        return _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .SelectMany(a =>
+                _dashboard.AvailableStructures
+                    .FirstOrDefault(s => s.Id == a.FeeStructureId)?
+                    .Items ?? new List<FeeStructureItemResponse>())
+            .Where(i => i.IsActive)
+            .Select(i => i.FeeHeadId)
+            .ToHashSet();
+    }
+
+    private List<FeeStructureResponse> GetConflictingAvailableStructures()
+    {
+        var assignedStructureIds = _dashboard.Assignments
+            .Where(x => x.IsActive)
+            .Select(x => x.FeeStructureId)
+            .ToHashSet();
+
+        var assignedFeeHeadIds = GetAssignedFeeHeadIds();
+
+        return _dashboard.AvailableStructures
+            .Where(x => x.IsActive)
+            .Where(x => !assignedStructureIds.Contains(x.Id))
+            .Where(x => x.Items.Any(i => i.IsActive && assignedFeeHeadIds.Contains(i.FeeHeadId)))
+            .ToList();
+    }
+
+    private string GetConflictingStructureMessage()
+    {
+        var conflicts = GetConflictingAvailableStructures();
+
+        if (!conflicts.Any())
+            return string.Empty;
+
+        var names = conflicts
+            .Take(3)
+            .Select(x => x.Name)
+            .ToList();
+
+        var suffix = conflicts.Count > 3 ? $" +{conflicts.Count - 3} more" : string.Empty;
+
+        return $"Some fee structures are hidden because their fee heads are already assigned: {string.Join(", ", names)}{suffix}.";
+    }
+}

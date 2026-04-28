@@ -1,0 +1,10 @@
+﻿.document-config-search {
+    min-width: 280px;
+}
+
+@media (max-width: 768px) {
+    .document-config-search {
+        width: 100%;
+        min-width: 100%;
+    }
+}

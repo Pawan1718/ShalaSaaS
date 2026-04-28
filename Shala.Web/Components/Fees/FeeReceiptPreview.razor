@@ -1,0 +1,151 @@
+﻿@using MudBlazor
+@using Shala.Web.Models.Fees
+
+@if (Model is null)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined">
+        Receipt preview is not available.
+    </MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 pa-md-5" Elevation="0" Style="border:1px solid #e5e7eb; border-radius:18px; background:#fff;">
+        <MudStack Spacing="3">
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Wrap="Wrap.Wrap">
+                <div>
+                    <MudText Typo="Typo.h5">@Model.ReceiptTitle</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Receipt No: @Model.ReceiptNo</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Receipt Date: @Model.ReceiptDate.ToString("dd MMM yyyy")</MudText>
+                </div>
+
+                <MudChip T="string" Variant="Variant.Filled" Color="Color.Primary">
+                    Total: ₹ @Model.TotalAmount.ToString("N2")
+                </MudChip>
+            </MudStack>
+
+            @if (Model.ShowStudentDetailsInReceipt)
+            {
+                <MudPaper Class="pa-3" Outlined="true">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Student</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.StudentName)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Admission No</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.AdmissionNo)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Class</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.ClassName)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Section</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.SectionName)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Roll No</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.RollNo)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Guardian</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.GuardianName)</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Phone</MudText>
+                            <MudText Typo="Typo.body1">@DisplayText(Model.Phone)</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+
+            <MudPaper Class="pa-3" Outlined="true">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Payment Mode</MudText>
+                        <MudText Typo="Typo.body1">@DisplayText(Model.PaymentMode)</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Transaction Ref</MudText>
+                        <MudText Typo="Typo.body1">@DisplayText(Model.TransactionReference)</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Remarks</MudText>
+                        <MudText Typo="Typo.body1">@DisplayText(Model.Remarks)</MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudTable T="FeeReceiptPrintLineVm"
+                      Items="Model.Lines"
+                      Dense="true"
+                      Hover="false"
+                      Striped="true"
+                      Elevation="0">
+                <HeaderContent>
+                    <MudTh>Particular</MudTh>
+                    @if (Model.ShowFeeHeadInReceipt)
+                    {
+                        <MudTh>Fee Head</MudTh>
+                    }
+                    <MudTh>Due Date</MudTh>
+                    <MudTh Align="right">Amount</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="Particular">@context.Label</MudTd>
+                    @if (Model.ShowFeeHeadInReceipt)
+                    {
+                        <MudTd DataLabel="Fee Head">@DisplayText(context.FeeHeadName)</MudTd>
+                    }
+                    <MudTd DataLabel="Due Date">@FormatDate(context.DueDate)</MudTd>
+                    <MudTd DataLabel="Amount" Align="right">₹ @context.Amount.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudDivider />
+
+            <MudStack Spacing="1" AlignItems="AlignItems.End">
+                <MudText Typo="Typo.h6">Total: ₹ @Model.TotalAmount.ToString("N2")</MudText>
+
+                @if (Model.ShowAmountInWords && !string.IsNullOrWhiteSpace(Model.AmountInWords))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @Model.AmountInWords
+                    </MudText>
+                }
+            </MudStack>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ReceiptFooterNote))
+            {
+                <MudDivider />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @Model.ReceiptFooterNote
+                </MudText>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public FeeReceiptPrintVm? Model { get; set; }
+
+    private static string DisplayText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatDate(DateTime? value)
+    {
+        return value is null || value == default ? "-" : value.Value.ToString("dd MMM yyyy");
+    }
+}

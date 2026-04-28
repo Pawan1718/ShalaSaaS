@@ -1,0 +1,338 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.StudentRepo
+@using Shala.Web.Services.State
+
+@inject IStudentAdmissionRepository StudentAdmissionRepository
+@inject IAcademicLookupRepository StudentLookupRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        Assign Section & Roll Number
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else if (_detail is not null)
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudPaper Class="pa-3 mb-2" Outlined="true">
+                        <MudText Typo="Typo.h6">Student Summary</MudText>
+                        <MudGrid Spacing="2" Class="mt-1">
+                            <MudItem xs="12" md="6">
+                                <MudText><b>Student:</b> @_detail.StudentName</MudText>
+                                <MudText><b>Admission No:</b> @_detail.AdmissionNo</MudText>
+                                <MudText><b>Academic Year:</b> @_detail.AcademicYearName</MudText>
+                                <MudText><b>Class:</b> @_detail.ClassName</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudText><b>Current Section:</b> @(string.IsNullOrWhiteSpace(_detail.CurrentSectionName) ? "-" : _detail.CurrentSectionName)</MudText>
+                                <MudText><b>Current Roll No:</b> @(string.IsNullOrWhiteSpace(_detail.CurrentRollNo) ? "-" : _detail.CurrentRollNo)</MudText>
+                                <MudText><b>Admission Date:</b> @_detail.AdmissionDate.ToString("dd MMM yyyy")</MudText>
+                                <MudText><b>Status:</b> @_detail.Status</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int?"
+                               Label="Section"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Value="_model.SectionId"
+                               ValueChanged="OnSectionChanged">
+                        <MudSelectItem T="int?" Value="@((int?)null)">No Section</MudSelectItem>
+                        @foreach (var item in _sections)
+                        {
+                            <MudSelectItem T="int?" Value="@(item.Id)">@item.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.subtitle2">Roll Number Mode</MudText>
+
+                        <MudRadioGroup T="bool"
+                                       Value="_model.AutoGenerateRollNo"
+                                       ValueChanged="OnModeChanged"
+                                       Class="mt-2">
+                            <MudRadio T="bool" Value="true" Disabled="@(!_detail.AutoGenerateEnabled)">
+                                Auto Generate
+                            </MudRadio>
+                            <MudRadio T="bool" Value="false" Disabled="@(!_detail.AllowManualOverride)">
+                                Manual Entry
+                            </MudRadio>
+                        </MudRadioGroup>
+
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 d-block">
+                            @GetModeHelperText()
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Roll No"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Value="_model.RollNo"
+                                  ValueChanged="OnRollNoChanged"
+                                  Immediate="true"
+                                  Disabled="_model.AutoGenerateRollNo" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudText Typo="Typo.subtitle2">Preview</MudText>
+
+                        <MudText Class="mt-2"><b>Section Strength:</b> @_preview?.CurrentStrength</MudText>
+                        <MudText><b>Capacity:</b> @(_preview?.Capacity?.ToString() ?? "-")</MudText>
+                        <MudText><b>Available Seats:</b> @(_preview?.Capacity.HasValue == true ? _preview?.AvailableSeats : null ?? "-")</MudText>
+                        <MudText><b>Next Suggested Roll No:</b> @(string.IsNullOrWhiteSpace(_preview?.NextSuggestedRollNo) ? "-" : _preview?.NextSuggestedRollNo)</MudText>
+
+                        @if (_preview?.RollNoAlreadyExists == true)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                Roll number already exists in selected section.
+                            </MudAlert>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_preview?.Message))
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                @_preview.Message
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text"
+                   OnClick="Cancel"
+                   Disabled="_saving">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Secondary"
+                   OnClick="AutoFillAsync"
+                   Disabled="@(_loading || _saving || _detail is null || !_detail.AutoGenerateEnabled)">
+            Auto Fill
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SaveAsync"
+                   Disabled="@(_loading || _saving || _detail is null)">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int StudentAdmissionId { get; set; }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private SectionRollAssignmentDetailResponse? _detail;
+    private SectionRollAssignmentPreviewResponse? _preview;
+
+    private AssignSectionRollRequest _model = new();
+    private List<LookupItemResponse> _sections = new();
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            await Session.InitializeAsync();
+
+            if (!Session.TenantId.HasValue || !Session.BranchId.HasValue)
+            {
+                _error = "Tenant or branch context not found.";
+                return;
+            }
+
+            var detailResponse = await StudentAdmissionRepository.GetAssignmentDetailAsync(StudentAdmissionId);
+
+            if (detailResponse?.Success != true || detailResponse.Data is null)
+            {
+                _error = detailResponse?.Message ?? "Failed to load assignment detail.";
+                return;
+            }
+
+            _detail = detailResponse.Data;
+
+            _model = new AssignSectionRollRequest
+            {
+                StudentAdmissionId = _detail.StudentAdmissionId,
+                AcademicYearId = _detail.AcademicYearId,
+                ClassId = _detail.ClassId,
+                SectionId = _detail.CurrentSectionId,
+                RollNo = _detail.CurrentRollNo,
+                AutoGenerateRollNo = _detail.AutoGenerateEnabled
+            };
+
+            var sectionResponse = await StudentLookupRepository.GetSectionsByClassAsync(
+                Session.TenantId.Value,
+                Session.BranchId.Value,
+                _detail.ClassId);
+
+            _sections = sectionResponse?.Success == true && sectionResponse.Data is not null
+                ? sectionResponse.Data
+                : new List<LookupItemResponse>();
+
+            await LoadPreviewAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadPreviewAsync()
+    {
+        if (_detail is null)
+            return;
+
+        try
+        {
+            var previewResponse = await StudentAdmissionRepository.GetAssignmentPreviewAsync(
+                _detail.StudentAdmissionId,
+                _model.SectionId,
+                _model.AutoGenerateRollNo,
+                _model.RollNo);
+
+            if (previewResponse?.Success == true)
+                _preview = previewResponse.Data;
+            else
+                _preview = null;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OnSectionChanged(int? sectionId)
+    {
+        _model.SectionId = sectionId;
+        await LoadPreviewAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnModeChanged(bool autoGenerate)
+    {
+        _model.AutoGenerateRollNo = autoGenerate;
+
+        if (autoGenerate)
+            _model.RollNo = null;
+
+        await LoadPreviewAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnRollNoChanged(string? rollNo)
+    {
+        _model.RollNo = rollNo;
+        await LoadPreviewAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AutoFillAsync()
+    {
+        _model.AutoGenerateRollNo = true;
+        _model.RollNo = null;
+        await LoadPreviewAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_detail is null || _saving)
+            return;
+
+        try
+        {
+            _saving = true;
+
+            if (!_model.AutoGenerateRollNo && string.IsNullOrWhiteSpace(_model.RollNo))
+            {
+                Snackbar.Add("Please enter roll number in manual mode.", Severity.Warning);
+                return;
+            }
+
+            var response = await StudentAdmissionRepository.AssignSectionRollAsync(_model);
+
+            if (response?.Success == true)
+            {
+                Snackbar.Add(response.Message ?? "Saved successfully.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(response?.Message ?? "Failed to save.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string GetModeHelperText()
+    {
+        if (_detail is null)
+            return string.Empty;
+
+        if (_detail.AutoGenerateEnabled && _detail.AllowManualOverride)
+            return "You can auto-generate roll number or switch to manual entry.";
+
+        if (_detail.AutoGenerateEnabled)
+            return "Roll number will be generated automatically.";
+
+        if (_detail.AllowManualOverride)
+            return "Auto generation is disabled. Please enter roll number manually.";
+
+        return "Roll number settings are restricted.";
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

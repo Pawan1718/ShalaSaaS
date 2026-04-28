@@ -1,0 +1,725 @@
+﻿ @page "/tenant/academics/section-roll-assignment"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Enums
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.StudentRepo
+@using Shala.Web.Services.State
+
+@inject IStudentAdmissionRepository StudentAdmissionRepository
+@inject IAcademicLookupRepository AcademicLookupRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<PageTitle>Section & Roll Assignment</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <div>
+                <MudText Typo="Typo.h5">Section & Roll Assignment</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Bulk assign section and roll numbers class-wise with preview.
+                </MudText>
+            </div>
+
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">
+                Step @_currentStep of 3
+            </MudChip>
+        </MudStack>
+
+        <MudStepper ActiveIndex="_currentStep - 1" Class="mt-4">
+            <MudStep Title="Select Class" />
+            <MudStep Title="Select Students" />
+            <MudStep Title="Assign & Preview" />
+        </MudStepper>
+    </MudPaper>
+
+    @if (_currentStep == 1)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Step 1 · Select Academic Year and Class</MudText>
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <MudSelect T="int?"
+                               Label="Academic Year"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               @bind-Value="_academicYearId">
+                        @foreach (var item in _academicYears)
+                        {
+                            <MudSelectItem T="int?" Value="@(item.Id)">@item.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudSelect T="int?"
+                               Label="Class"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Value="_classId"
+                               ValueChanged="OnClassChanged">
+                        @foreach (var item in _classes)
+                        {
+                            <MudSelectItem T="int?" Value="@(item.Id)">@item.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="4" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="LoadAdmissionsAndGoNextAsync"
+                               Disabled="@(!_academicYearId.HasValue || !_classId.HasValue || _loadingAdmissions)">
+                        Load Students
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (_loadingAdmissions)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" />
+            }
+        </MudPaper>
+    }
+
+    @if (_currentStep == 2)
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-3">
+                <div>
+                    <MudText Typo="Typo.h6">Step 2 · Select Students</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Select students for bulk assignment.
+                    </MudText>
+                </div>
+
+                <MudStack Row="true" Spacing="1">
+                    <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined">
+                        Total: @_rows.Count
+                    </MudChip>
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled">
+                        Selected: @_selectedRows.Count
+                    </MudChip>
+                </MudStack>
+            </MudStack>
+
+            <MudGrid Spacing="2" Class="mb-3">
+                <MudItem xs="12" md="4">
+                    <MudTextField T="string"
+                                  Label="Search Student"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  @bind-Value="_searchText"
+                                  Immediate="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="4" Class="d-flex align-center">
+                    <MudCheckBox T="bool"
+                                 @bind-Value="_onlyMissing"
+                                 Label="Only missing section/roll" />
+                </MudItem>
+
+                <MudItem xs="12" md="4" Class="d-flex justify-end align-center">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               OnClick="BackToStep1">
+                        Back
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@(_selectedRows.Count == 0)"
+                               OnClick="GoToStep3">
+                        Next
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (_rows.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No admissions found for selected filters.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="FilteredRows.ToList()" Dense="true" Hover="true" Bordered="true" Striped="true" FixedHeader="true" Height="520px">
+                    <HeaderContent>
+                        <MudTh>
+                            <MudCheckBox T="bool"
+                                         Value="@IsAllVisibleSelected"
+                                         ValueChanged="ToggleSelectAllVisible" />
+                        </MudTh>
+                        <MudTh>Student</MudTh>
+                        <MudTh>Admission No</MudTh>
+                        <MudTh>Section</MudTh>
+                        <MudTh>Roll No</MudTh>
+                        <MudTh>Admission Date</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd>
+                            <MudCheckBox T="bool"
+                                         Value="@IsSelected(context.StudentAdmissionId)"
+                                         ValueChanged="@((bool value) => ToggleSelection(context, value))" />
+                        </MudTd>
+                        <MudTd>@context.StudentName</MudTd>
+                        <MudTd>@context.AdmissionNo</MudTd>
+                        <MudTd>@(string.IsNullOrWhiteSpace(context.CurrentSectionName) ? "-" : context.CurrentSectionName)</MudTd>
+                        <MudTd>@(string.IsNullOrWhiteSpace(context.CurrentRollNo) ? "-" : context.CurrentRollNo)</MudTd>
+                        <MudTd>@context.AdmissionDate.ToString("dd MMM yyyy")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+
+    @if (_currentStep == 3)
+    {
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4 h-100">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <div>
+                            <MudText Typo="Typo.h6">Step 3 · Assignment Controls</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Configure section and roll assignment rules.
+                            </MudText>
+                        </div>
+
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Secondary"
+                                       OnClick="BackToStep2">
+                                Back
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       OnClick="PreviewAsync"
+                                       Disabled="@(_selectedRows.Count == 0 || _previewLoading)">
+                                Preview
+                            </MudButton>
+
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="ApplyAsync"
+                                       Disabled="@(_applyLoading || _preview is null || _preview.Items.Any(x => x.HasConflict))">
+                                Apply
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="int?"
+                                       Label="Target Section"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       @bind-Value="_targetSectionId">
+                                <MudSelectItem T="int?" Value="@((int?)null)">No Section</MudSelectItem>
+                                @foreach (var item in _sections)
+                                {
+                                    <MudSelectItem T="int?" Value="@(item.Id)">@item.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="SectionRollAssignmentMode"
+                                       Label="Assignment Mode"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       Value="_mode"
+                                       ValueChanged="OnModeChanged">
+                                <MudSelectItem T="SectionRollAssignmentMode" Value="SectionRollAssignmentMode.Manual">Manual</MudSelectItem>
+                                <MudSelectItem T="SectionRollAssignmentMode" Value="SectionRollAssignmentMode.AutoSequential">Auto Sequential</MudSelectItem>
+                                <MudSelectItem T="SectionRollAssignmentMode" Value="SectionRollAssignmentMode.Alphabetical">Alphabetical</MudSelectItem>
+                                <MudSelectItem T="SectionRollAssignmentMode" Value="SectionRollAssignmentMode.AdmissionDate">Admission Date</MudSelectItem>
+                                <MudSelectItem T="SectionRollAssignmentMode" Value="SectionRollAssignmentMode.AdmissionNo">Admission No</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudNumericField T="int?"
+                                             Label="Start From Roll No"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             @bind-Value="_startFromRollNo"
+                                             Min="1"
+                                             Disabled="@(_mode == SectionRollAssignmentMode.Manual)" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="6" Class="d-flex align-center">
+                            <MudCheckBox T="bool"
+                                         @bind-Value="_descending"
+                                         Label="Descending order" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1">Selected Students</MudText>
+                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled">
+                            @_selectedRows.Count selected
+                        </MudChip>
+                    </MudStack>
+
+                    <MudTable Items="SelectedRows.ToList()" Dense="true" Hover="true" Bordered="true" Striped="true" FixedHeader="true" Height="420px">
+                        <HeaderContent>
+                            <MudTh>Student</MudTh>
+                            <MudTh>Admission No</MudTh>
+                            <MudTh>Current Section</MudTh>
+                            <MudTh>Current Roll</MudTh>
+                            @if (_mode == SectionRollAssignmentMode.Manual)
+                            {
+                                <MudTh>Manual Roll</MudTh>
+                            }
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd>@context.StudentName</MudTd>
+                            <MudTd>@context.AdmissionNo</MudTd>
+                            <MudTd>@(string.IsNullOrWhiteSpace(context.CurrentSectionName) ? "-" : context.CurrentSectionName)</MudTd>
+                            <MudTd>@(string.IsNullOrWhiteSpace(context.CurrentRollNo) ? "-" : context.CurrentRollNo)</MudTd>
+                            @if (_mode == SectionRollAssignmentMode.Manual)
+                            {
+                                <MudTd>
+                                    <MudTextField T="string"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Value="@context.ManualRollNo"
+                                                  ValueChanged="@((string? value) => context.ManualRollNo = value)"
+                                                  Placeholder="Enter roll no" />
+                                </MudTd>
+                            }
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4 h-100">
+                    <MudText Typo="Typo.h6" Class="mb-3">Live Preview</MudText>
+
+                    @if (_previewLoading)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+                    }
+
+                    <MudGrid Spacing="2" Class="mb-3">
+                        <MudItem xs="6">
+                            <MudPaper Outlined="true" Class="pa-3">
+                                <MudText Typo="Typo.caption">Selected</MudText>
+                                <MudText Typo="Typo.h6">@(_preview?.TotalStudents ?? _selectedRows.Count)</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="6">
+                            <MudPaper Outlined="true" Class="pa-3">
+                                <MudText Typo="Typo.caption">Current Strength</MudText>
+                                <MudText Typo="Typo.h6">@(_preview?.CurrentStrength ?? 0)</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="6">
+                            <MudPaper Outlined="true" Class="pa-3">
+                                <MudText Typo="Typo.caption">Capacity</MudText>
+                                <MudText Typo="Typo.h6">@(_preview?.Capacity?.ToString() ?? "-")</MudText>
+                            </MudPaper>
+                        </MudItem>
+
+                        <MudItem xs="6">
+                            <MudPaper Outlined="true" Class="pa-3">
+                                <MudText Typo="Typo.caption">Available Seats</MudText>
+                                <MudText Typo="Typo.h6">@(_preview?.Capacity.HasValue == true ? _preview.AvailableSeats.ToString() : "-")</MudText>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_preview is null)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            Click Preview to see section capacity, generated roll numbers, and conflicts.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        var conflictCount = _preview.Items.Count(x => x.HasConflict);
+
+                        <MudStack Row="true" Spacing="1" Class="mb-3">
+                            <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined">
+                                OK: @_preview.Items.Count(x => !x.HasConflict)
+                            </MudChip>
+                            <MudChip T="string" Color="Color.Error" Variant="Variant.Outlined">
+                                Conflict: @conflictCount
+                            </MudChip>
+                        </MudStack>
+
+                        <MudTable Items="_preview.Items" Dense="true" Hover="true" Bordered="true" Striped="true" FixedHeader="true" Height="470px">
+                            <HeaderContent>
+                                <MudTh>Student</MudTh>
+                                <MudTh>New Section</MudTh>
+                                <MudTh>New Roll</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.StudentName</MudTd>
+                                <MudTd>@(string.IsNullOrWhiteSpace(context.NewSectionName) ? "-" : context.NewSectionName)</MudTd>
+                                <MudTd>@(string.IsNullOrWhiteSpace(context.NewRollNo) ? "-" : context.NewRollNo)</MudTd>
+                                <MudTd>
+                                    @if (context.HasConflict)
+                                    {
+                                        <MudChip T="string" Color="Color.Error" Size="Size.Small">
+                                            @context.Message
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                                            OK
+                                        </MudChip>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private int _currentStep = 1;
+
+    private int? _academicYearId;
+    private int? _classId;
+    private int? _targetSectionId;
+    private bool _onlyMissing = true;
+    private bool _descending;
+    private int? _startFromRollNo;
+    private string? _searchText;
+
+    private SectionRollAssignmentMode _mode = SectionRollAssignmentMode.AutoSequential;
+
+    private bool _loadingAdmissions;
+    private bool _previewLoading;
+    private bool _applyLoading;
+
+    private List<LookupItemResponse> _academicYears = new();
+    private List<LookupItemResponse> _classes = new();
+    private List<LookupItemResponse> _sections = new();
+
+    private List<SectionRollAssignmentRowModel> _rows = new();
+    private HashSet<int> _selectedRows = new();
+
+    private BulkSectionRollAssignmentPreviewResponse? _preview;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookupDataAsync();
+    }
+
+    private async Task LoadLookupDataAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (!Session.TenantId.HasValue || !Session.BranchId.HasValue)
+            {
+                Snackbar.Add("Tenant or branch context not found.", Severity.Error);
+                return;
+            }
+
+            var yearResponse = await AcademicLookupRepository.GetAcademicYearsAsync(
+                Session.TenantId.Value,
+                Session.BranchId.Value);
+                _academicYears = yearResponse?.Success == true && yearResponse.Data is not null
+                ? yearResponse.Data
+                : new List<LookupItemResponse>();
+
+var classResponse = await AcademicLookupRepository.GetClassesAsync(
+    Session.TenantId.Value,
+    Session.BranchId.Value);
+    _classes = classResponse?.Success == true && classResponse.Data is not null
+                ? classResponse.Data
+                : new List<LookupItemResponse>();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task OnClassChanged(int? classId)
+    {
+        _classId = classId;
+        _targetSectionId = null;
+        _sections.Clear();
+        _preview = null;
+        _rows.Clear();
+        _selectedRows.Clear();
+
+        if (!Session.TenantId.HasValue || !Session.BranchId.HasValue || !_classId.HasValue)
+            return;
+
+        var sectionResponse = await AcademicLookupRepository.GetSectionsByClassAsync(
+            Session.TenantId.Value,
+            Session.BranchId.Value,
+            _classId.Value);
+
+        _sections = sectionResponse?.Success == true && sectionResponse.Data is not null
+            ? sectionResponse.Data
+            : new List<LookupItemResponse>();
+    }
+
+    private async Task LoadAdmissionsAndGoNextAsync()
+    {
+        await LoadAdmissionsAsync();
+
+        if (_rows.Count > 0)
+            _currentStep = 2;
+    }
+
+    private async Task LoadAdmissionsAsync()
+    {
+        if (!_academicYearId.HasValue || !_classId.HasValue)
+        {
+            Snackbar.Add("Please select academic year and class.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            _loadingAdmissions = true;
+            _preview = null;
+            _rows.Clear();
+            _selectedRows.Clear();
+
+            var response = await StudentAdmissionRepository.GetAdmissionsByAcademicYearAndClassAsync(
+                _academicYearId.Value,
+                _classId.Value);
+
+            if (response?.Success != true || response.Data is null)
+            {
+                Snackbar.Add(response?.Message ?? "Failed to load admissions.", Severity.Error);
+                return;
+            }
+
+            _rows = response.Data.Select(x => new SectionRollAssignmentRowModel
+            {
+                StudentAdmissionId = x.Id,
+                StudentId = x.StudentId,
+                StudentName = x.StudentName,
+                AdmissionNo = x.AdmissionNo,
+                AdmissionDate = x.AdmissionDate,
+                CurrentSectionName = x.SectionName,
+                CurrentRollNo = x.RollNo,
+                ManualRollNo = x.RollNo
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loadingAdmissions = false;
+        }
+    }
+
+    private IEnumerable<SectionRollAssignmentRowModel> FilteredRows =>
+        _rows.Where(x =>
+            (string.IsNullOrWhiteSpace(_searchText)
+             || x.StudentName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+             || x.AdmissionNo.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+            &&
+            (!_onlyMissing || string.IsNullOrWhiteSpace(x.CurrentSectionName) || string.IsNullOrWhiteSpace(x.CurrentRollNo)));
+
+    private IEnumerable<SectionRollAssignmentRowModel> SelectedRows =>
+        _rows.Where(x => _selectedRows.Contains(x.StudentAdmissionId));
+
+    private bool IsSelected(int id) => _selectedRows.Contains(id);
+
+    private void ToggleSelection(SectionRollAssignmentRowModel row, bool selected)
+    {
+        if (selected)
+            _selectedRows.Add(row.StudentAdmissionId);
+        else
+            _selectedRows.Remove(row.StudentAdmissionId);
+    }
+
+    private bool IsAllVisibleSelected =>
+        FilteredRows.Any() && FilteredRows.All(x => _selectedRows.Contains(x.StudentAdmissionId));
+
+    private void ToggleSelectAllVisible(bool value)
+    {
+        foreach (var row in FilteredRows)
+        {
+            if (value)
+                _selectedRows.Add(row.StudentAdmissionId);
+            else
+                _selectedRows.Remove(row.StudentAdmissionId);
+        }
+    }
+
+    private void BackToStep1()
+    {
+        _currentStep = 1;
+    }
+
+    private void GoToStep3()
+    {
+        _preview = null;
+        _currentStep = 3;
+    }
+
+    private void BackToStep2()
+    {
+        _currentStep = 2;
+    }
+
+    private Task OnModeChanged(SectionRollAssignmentMode mode)
+    {
+        _mode = mode;
+        _preview = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task PreviewAsync()
+    {
+        if (!_academicYearId.HasValue || !_classId.HasValue)
+        {
+            Snackbar.Add("Please select academic year and class.", Severity.Warning);
+            return;
+        }
+
+        var selected = _rows.Where(x => _selectedRows.Contains(x.StudentAdmissionId)).ToList();
+        if (selected.Count == 0)
+        {
+            Snackbar.Add("Please select at least one student.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            _previewLoading = true;
+
+            var request = new BulkSectionRollAssignmentRequest
+            {
+                AcademicYearId = _academicYearId.Value,
+                ClassId = _classId.Value,
+                SectionId = _targetSectionId,
+                Mode = _mode,
+                StartFromRollNo = _startFromRollNo,
+                Descending = _descending,
+                Students = selected.Select(x => new BulkSectionRollAssignmentStudentItemRequest
+                {
+                    StudentAdmissionId = x.StudentAdmissionId,
+                    ManualRollNo = x.ManualRollNo
+                }).ToList()
+            };
+
+            var response = await StudentAdmissionRepository.GetBulkAssignmentPreviewAsync(request);
+
+            if (response?.Success == true && response.Data is not null)
+            {
+                _preview = response.Data;
+            }
+            else
+            {
+                _preview = null;
+                Snackbar.Add(response?.Message ?? "Failed to build preview.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _previewLoading = false;
+        }
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (_preview is null)
+        {
+            Snackbar.Add("Please generate preview first.", Severity.Warning);
+            return;
+        }
+
+        if (_preview.Items.Any(x => x.HasConflict))
+        {
+            Snackbar.Add("Preview has conflicts. Please fix them before applying.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            _applyLoading = true;
+
+            var selected = _rows.Where(x => _selectedRows.Contains(x.StudentAdmissionId)).ToList();
+
+            var request = new BulkSectionRollAssignmentRequest
+            {
+                AcademicYearId = _academicYearId!.Value,
+                ClassId = _classId!.Value,
+                SectionId = _targetSectionId,
+                Mode = _mode,
+                StartFromRollNo = _startFromRollNo,
+                Descending = _descending,
+                Students = selected.Select(x => new BulkSectionRollAssignmentStudentItemRequest
+                {
+                    StudentAdmissionId = x.StudentAdmissionId,
+                    ManualRollNo = x.ManualRollNo
+                }).ToList()
+            };
+
+            var response = await StudentAdmissionRepository.ApplyBulkAssignmentAsync(request);
+
+            if (response?.Success == true)
+            {
+                Snackbar.Add(response.Message ?? "Assignment applied successfully.", Severity.Success);
+                await LoadAdmissionsAsync();
+                _preview = null;
+                _currentStep = 2;
+            }
+            else
+            {
+                Snackbar.Add(response?.Message ?? "Failed to apply assignment.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _applyLoading = false;
+        }
+    }
+
+    private class SectionRollAssignmentRowModel
+    {
+        public int StudentAdmissionId { get; set; }
+        public int StudentId { get; set; }
+        public string StudentName { get; set; } = string.Empty;
+        public string AdmissionNo { get; set; } = string.Empty;
+        public DateTime AdmissionDate { get; set; }
+        public string? CurrentSectionName { get; set; }
+        public string? CurrentRollNo { get; set; }
+        public string? ManualRollNo { get; set; }
+    }
+}

@@ -1,0 +1,35 @@
+﻿@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+<AppCard>
+    <MudText Typo="Typo.h6">Alerts</MudText>
+
+    @if (Data?.Alerts?.Count == 0)
+    {
+        <AppEmptyState Title="No Alerts" />
+    }
+    else if (Data?.Alerts != null)
+    {
+        foreach (var a in Data.Alerts)
+        {
+            <MudStack Row="true" Spacing="1" Class="mb-2">
+                <MudIcon Icon="@GetIcon(a.Type)" />
+                <div>
+                    <MudText Typo="Typo.body2">@a.Title</MudText>
+                    <MudText Typo="Typo.caption">@a.Description</MudText>
+                </div>
+            </MudStack>
+        }
+    }
+</AppCard>
+
+@code {
+    [Parameter] public TenantDashboardResponse? Data { get; set; }
+
+    private string GetIcon(string type) => type?.ToLower() switch
+    {
+        "fees" => Icons.Material.Filled.CurrencyRupee,
+        "documents" => Icons.Material.Filled.Description,
+        "supplies" => Icons.Material.Filled.Inventory2,
+        _ => Icons.Material.Filled.Notifications
+    };
+}

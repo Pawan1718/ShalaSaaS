@@ -1,0 +1,27 @@
+﻿@page "/not-found"
+@using MudBlazor
+
+@inject NavigationManager Nav
+
+<MudContainer Class="d-flex flex-column align-center justify-center" Style="height:80vh;">
+    
+    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline"
+             Size="Size.Large"
+             Color="Color.Error"
+             Class="mb-4" />
+
+    <MudText Typo="Typo.h4" Class="mb-2">
+        404 - Page Not Found
+    </MudText>
+
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Sorry, the content you are looking for does not exist.
+    </MudText>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               OnClick="@(()=> Nav.NavigateTo("/"))">
+        Go to Dashboard
+    </MudButton>
+
+</MudContainer>

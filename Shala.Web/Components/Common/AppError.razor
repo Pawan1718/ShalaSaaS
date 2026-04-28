@@ -1,0 +1,19 @@
+﻿@using MudBlazor
+
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <MudAlert Severity="@Severity"
+              Variant="@Variant"
+              Dense="@Dense"
+              Class="@Class">
+        @Message
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public Severity Severity { get; set; } = Severity.Error;
+    [Parameter] public Variant Variant { get; set; } = Variant.Filled;
+    [Parameter] public bool Dense { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

@@ -1,0 +1,139 @@
+@page "/tenant/dashboard"
+@implements IDisposable
+
+@using MudBlazor
+@using Shala.Shared.Requests.Tenant
+@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dashboard
+@using Shala.Web.Repositories.TenantRepo
+@using Shala.Web.Services.State
+
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@inject ITenantDashboardWebRepository DashboardRepository
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ApiSession Session
+<AppPageShell>
+
+    <AppPageHeader Title="@DashboardHeading"
+                   Subtitle="@DashboardSubtitle">
+        <Actions>
+            <AppButton OnClick="@GoToAddStudent">
+                New Admission
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
+
+    <AppDataState Loading="@_isLoading"
+                  Error="@_error"
+                  Empty="@(_dashboard is null)">
+
+        <ChildContent>
+
+            <DashboardKpiGrid Data="_dashboard" />
+
+            <MudGrid Class="mt-3" Spacing="3">
+                <MudItem xs="12" md="8">
+                    <DashboardChart Data="_dashboard" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <DashboardAlerts Data="_dashboard" />
+                </MudItem>
+            </MudGrid>
+
+            <div class="mt-4">
+                <DashboardRecentAdmissions Data="_dashboard" />
+            </div>
+            <DashboardQuickActions />
+
+        </ChildContent>
+
+    </AppDataState>
+
+</AppPageShell>
+
+
+
+@code {
+    private TenantDashboardResponse? _dashboard;
+    private bool _isLoading;
+    private string? _error;
+
+    private string DashboardHeading =>
+        Session.IsAllBranchesSelected
+            ? "All Branches Dashboard"
+            : "Branch Dashboard";
+
+    private string DashboardSubtitle =>
+        Session.IsAllBranchesSelected
+            ? "Aggregated overview across all selected branches."
+            : $"Branch-specific overview for {Session.SelectedBranchName ?? "selected branch"}.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Session.OnBranchChanged += HandleBranchChanged;
+        await LoadDashboardAsync();
+    }
+
+    private void HandleBranchChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDashboardAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var request = new TenantDashboardRequest
+            {
+                IsAllBranches = Session.IsAllBranchesSelected,
+                BranchId = Session.IsAllBranchesSelected
+                    ? null
+                    : Session.SelectedBranchId
+            };
+
+            var response = await DashboardRepository.GetAsync(request);
+
+            if (!response.IsSuccess || response.ServerResponse is null)
+            {
+                _dashboard = null;
+                _error = response.Message ?? "Unable to load dashboard.";
+                return;
+            }
+
+            _dashboard = response.ServerResponse;
+        }
+        catch (Exception ex)
+        {
+            _dashboard = null;
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void GoToAddStudent()
+    {
+        Navigation.NavigateTo("/tenant/students/create");
+    }
+
+    public void Dispose()
+    {
+        Session.OnBranchChanged -= HandleBranchChanged;
+    }
+}

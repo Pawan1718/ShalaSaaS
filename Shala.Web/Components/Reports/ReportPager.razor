@@ -1,0 +1,39 @@
+@using MudBlazor
+@using Shala.Shared.Common
+
+@if (TotalCount > 0)
+{
+    <MudPaper Class="pa-3 mt-2" Elevation="0">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap" Spacing="2">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Showing @StartRecord - @EndRecord of @TotalCount
+            </MudText>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(PageNumber <= 1)" OnClick="PreviousAsync">
+                    Previous
+                </MudButton>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary">
+                    Page @PageNumber of @TotalPages
+                </MudChip>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(PageNumber >= TotalPages || PageSize == -1)" OnClick="NextAsync">
+                    Next
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int PageNumber { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public EventCallback<int> PageChanged { get; set; }
+
+    private int TotalPages => PageSize == -1 ? 1 : Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+    private int StartRecord => TotalCount == 0 ? 0 : PageSize == -1 ? 1 : ((PageNumber - 1) * PageSize) + 1;
+    private int EndRecord => PageSize == -1 ? TotalCount : Math.Min(TotalCount, PageNumber * PageSize);
+
+    private Task PreviousAsync() => PageChanged.InvokeAsync(Math.Max(1, PageNumber - 1));
+    private Task NextAsync() => PageChanged.InvokeAsync(Math.Min(TotalPages, PageNumber + 1));
+}

@@ -1,0 +1,44 @@
+﻿<MudMenu Icon="@Icons.Material.Filled.MoreVert"
+         Dense="true"
+         AnchorOrigin="Origin.BottomRight"
+         TransformOrigin="Origin.TopRight">
+    @if (OnView.HasDelegate)
+    {
+        <MudMenuItem Icon="@Icons.Material.Filled.Visibility" OnClick="@OnView">
+            View
+        </MudMenuItem>
+    }
+
+    @if (OnEdit.HasDelegate)
+    {
+        <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="@OnEdit">
+            Edit
+        </MudMenuItem>
+    }
+
+    @if (CustomActions is not null)
+    {
+        @CustomActions
+    }
+
+    @if (OnDelete.HasDelegate)
+    {
+        <MudDivider />
+        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                     Color="Color.Error"
+                     Disabled="@DisableDelete"
+                     OnClick="@OnDelete">
+            Delete
+        </MudMenuItem>
+    }
+</MudMenu>
+
+@code {
+    [Parameter] public EventCallback OnView { get; set; }
+    [Parameter] public EventCallback OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    [Parameter] public bool DisableDelete { get; set; }
+
+    [Parameter] public RenderFragment? CustomActions { get; set; }
+}

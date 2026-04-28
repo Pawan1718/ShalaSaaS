@@ -1,0 +1,40 @@
+﻿@using MudBlazor
+
+@if (Loading)
+{
+    <AppLoader Rows="@LoaderRows" />
+}
+else if (!string.IsNullOrWhiteSpace(Error))
+{
+    <AppError Message="@Error" />
+}
+else if (Empty)
+{
+    <AppEmptyState Title="@EmptyTitle"
+                   Message="@EmptyMessage"
+                   Icon="@EmptyIcon"
+                   IconColor="@EmptyIconColor">
+        <Actions>
+            @EmptyActions
+        </Actions>
+    </AppEmptyState>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool Empty { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public int LoaderRows { get; set; } = 6;
+
+    [Parameter] public string EmptyTitle { get; set; } = "No data found";
+    [Parameter] public string? EmptyMessage { get; set; }
+    [Parameter] public string EmptyIcon { get; set; } = Icons.Material.Filled.Info;
+    [Parameter] public Color EmptyIconColor { get; set; } = Color.Primary;
+
+    [Parameter] public RenderFragment? EmptyActions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,20 @@
+﻿@using MudBlazor
+
+<MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <div>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Title</MudText>
+            <MudText Typo="Typo.h5">@Value</MudText>
+        </div>
+        <MudAvatar Color="@Color" Variant="Variant.Filled">
+            <MudIcon Icon="@Icon" />
+        </MudAvatar>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.Info;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+}

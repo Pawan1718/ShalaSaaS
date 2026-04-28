@@ -1,0 +1,412 @@
+﻿@page "/tenant/settings/branch-document-profile"
+@layout Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Settings
+@using Shala.Shared.Responses.Settings
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Settings
+
+@inject IBranchDocumentProfileWebRepository Repo
+@inject ISnackbar Snackbar
+
+<PageTitle>Branch Document Profile</PageTitle>
+
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppPageHeader Title="Branch Document Profile"
+                   Subtitle="Manage receipt branding, visibility, and document behavior for this branch">
+        <Actions>
+            <StatusChip IsActive="@_model.IsActive"
+                        ActiveText="Active"
+                        InactiveText="Inactive"
+                        ActiveColor="Color.Success"
+                        InactiveColor="Color.Default" />
+        </Actions>
+    </AppPageHeader>
+
+    <AppDataState Loading="@_loading"
+                  Error="@_formError"
+                  Empty="false">
+        <ChildContent>
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="7">
+                    <AppCard>
+                        <MudStack Spacing="3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="fw-semibold">Branding</MudText>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Display Name"
+                                                  HelperText="School or branch name shown on receipt"
+                                                  @bind-Value="_model.DisplayName" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Primary Color"
+                                                  HelperText="Example: #082A4D"
+                                                  @bind-Value="_model.PrimaryColorHex" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <AppTextField Label="Logo Url"
+                                                  HelperText="Public URL or uploaded file URL"
+                                                  @bind-Value="_model.LogoUrl" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <AppTextField Label="Address"
+                                                  @bind-Value="_model.AddressLine" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Phone"
+                                                  @bind-Value="_model.Phone" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Email"
+                                                  @bind-Value="_model.Email" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+
+                <MudItem xs="12" md="5">
+                    <AppCard Class="h-100">
+                        <MudStack Spacing="3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Preview" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="fw-semibold">Receipt Preview</MudText>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <div class="receipt-preview" style="@GetPreviewStyle()">
+                                @if (_model.ShowLogo && !string.IsNullOrWhiteSpace(_model.LogoUrl))
+                                {
+                                    <img src="@_model.LogoUrl" alt="Logo" class="receipt-preview-logo" />
+                                }
+
+                                <MudText Typo="Typo.h6" Align="Align.Center">@GetDisplayName()</MudText>
+
+                                @if (_model.ShowAddress && !string.IsNullOrWhiteSpace(_model.AddressLine))
+                                {
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary">
+                                        @_model.AddressLine
+                                    </MudText>
+                                }
+
+                                @if (_model.ShowContactInfo)
+                                {
+                                    <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary">
+                                        @GetContactLine()
+                                    </MudText>
+                                }
+
+                                <MudDivider Class="my-3" />
+
+                                <MudText Typo="Typo.subtitle1" Align="Align.Center" Class="fw-semibold">
+                                    @GetReceiptTitle()
+                                </MudText>
+
+                                @if (_model.ShowStudentDetails)
+                                {
+                                    <MudStack Spacing="1" Class="mt-3">
+                                        <DetailRow Label="Student" Value="Sample Student" />
+                                        <DetailRow Label="Admission No" Value="ADM-001" />
+                                        <DetailRow Label="Class" Value="Class 1 - A" />
+                                    </MudStack>
+                                }
+
+                                @if (_model.ShowFeeBreakup)
+                                {
+                                    <MudDivider Class="my-3" />
+                                    <DetailRow Label="Fee Amount" Value="₹10,000.00" />
+                                    <DetailRow Label="Paid" Value="₹5,000.00" />
+                                    <DetailRow Label="Balance" Value="₹5,000.00" />
+                                }
+
+                                @if (_model.ShowAmountInWords)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3">
+                                        Amount in words: Five Thousand only
+                                    </MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(_model.ReceiptFooterNote))
+                                {
+                                    <MudDivider Class="my-3" />
+                                    <MudText Typo="Typo.caption" Align="Align.Center">
+                                        @_model.ReceiptFooterNote
+                                    </MudText>
+                                }
+
+                                @if (_model.ShowSignature)
+                                {
+                                    <MudText Typo="Typo.caption" Align="Align.Right" Class="mt-5">
+                                        @GetSignatureLabel()
+                                    </MudText>
+                                }
+                            </div>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <AppCard>
+                        <MudStack Spacing="3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="fw-semibold">Receipt & Document Behavior</MudText>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Receipt Title"
+                                                  HelperText="Title shown at the top of receipts"
+                                                  @bind-Value="_model.ReceiptTitle" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="6">
+                                    <AppTextField Label="Signature Label"
+                                                  HelperText="Example: Authorized Signatory"
+                                                  @bind-Value="_model.SignatureLabel" />
+                                </MudItem>
+
+                                <MudItem xs="12">
+                                    <AppTextField Label="Receipt Footer Note"
+                                                  HelperText="Footer note or message shown on receipt"
+                                                  Lines="2"
+                                                  @bind-Value="_model.ReceiptFooterNote" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowLogo" Color="Color.Primary" Label="Show Logo" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowAddress" Color="Color.Primary" Label="Show Address" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowContactInfo" Color="Color.Primary" Label="Show Contact Info" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowStudentDetails" Color="Color.Primary" Label="Show Student Details" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowFeeBreakup" Color="Color.Primary" Label="Show Fee Breakup" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowAmountInWords" Color="Color.Primary" Label="Show Amount In Words" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.ShowSignature" Color="Color.Primary" Label="Show Signature" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.AllowPrintReceipt" Color="Color.Primary" Label="Allow Print Receipt" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.AllowDownloadReceipt" Color="Color.Primary" Label="Allow Download Receipt" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.AutoPrintAfterSave" Color="Color.Primary" Label="Auto Print After Save" />
+                                </MudItem>
+
+                                <MudItem xs="12" md="4">
+                                    <MudSwitch T="bool" @bind-Value="_model.IsActive" Color="Color.Primary" Label="Module Active" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudStack>
+                    </AppCard>
+                </MudItem>
+            </MudGrid>
+
+            <AppCard Class="mt-4 sticky-save-bar">
+                <MudStack Row="true"
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center"
+                          Wrap="Wrap.Wrap"
+                          Spacing="2">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        These settings will be used globally for document and receipt rendering in this branch.
+                    </MudText>
+
+                    <MudStack Row="true" Spacing="2">
+                        <AppButton Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="@_saving"
+                                   OnClick="@((MouseEventArgs _) => ReloadAsync())">
+                            Reload
+                        </AppButton>
+
+                        <AppButton StartIcon="@Icons.Material.Filled.Save"
+                                   Disabled="@_saving"
+                                   OnClick="@((MouseEventArgs _) => SaveAsync())">
+                            @(_saving ? "Saving..." : "Save")
+                        </AppButton>
+                    </MudStack>
+                </MudStack>
+            </AppCard>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
+
+@code {
+    private SaveBranchDocumentProfileRequest _model = new();
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _formError;
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Settings", "/tenant/settings"),
+        new("Branch Document Profile", null, true)
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _formError = null;
+
+        try
+        {
+            var data = await Repo.GetAsync();
+
+            _model = data is null
+                ? CreateDefaultModel()
+                : new SaveBranchDocumentProfileRequest
+                {
+                    DisplayName = data.DisplayName,
+                    LogoUrl = data.LogoUrl,
+                    AddressLine = data.AddressLine,
+                    Phone = data.Phone,
+                    Email = data.Email,
+                    PrimaryColorHex = data.PrimaryColorHex,
+                    ReceiptTitle = data.ReceiptTitle,
+                    ReceiptFooterNote = data.ReceiptFooterNote,
+                    SignatureLabel = data.SignatureLabel,
+                    ShowLogo = data.ShowLogo,
+                    ShowAddress = data.ShowAddress,
+                    ShowContactInfo = data.ShowContactInfo,
+                    ShowStudentDetails = data.ShowStudentDetails,
+                    ShowFeeBreakup = data.ShowFeeBreakup,
+                    ShowAmountInWords = data.ShowAmountInWords,
+                    ShowSignature = data.ShowSignature,
+                    AllowPrintReceipt = data.AllowPrintReceipt,
+                    AllowDownloadReceipt = data.AllowDownloadReceipt,
+                    AutoPrintAfterSave = data.AutoPrintAfterSave,
+                    IsActive = data.IsActive
+                };
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _formError = null;
+        _saving = true;
+
+        try
+        {
+            await Repo.SaveAsync(_model);
+            Snackbar.Add("Branch document profile saved successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static SaveBranchDocumentProfileRequest CreateDefaultModel()
+    {
+        return new SaveBranchDocumentProfileRequest
+        {
+            DisplayName = "School Name",
+            PrimaryColorHex = "#082A4D",
+            ReceiptTitle = "Registration Receipt",
+            ReceiptFooterNote = "This is a computer-generated receipt.",
+            SignatureLabel = "Authorized Signatory",
+            ShowLogo = true,
+            ShowAddress = true,
+            ShowContactInfo = true,
+            ShowStudentDetails = true,
+            ShowFeeBreakup = true,
+            ShowAmountInWords = true,
+            ShowSignature = true,
+            AllowPrintReceipt = true,
+            AllowDownloadReceipt = true,
+            AutoPrintAfterSave = false,
+            IsActive = true
+        };
+    }
+
+    private string GetDisplayName()
+        => string.IsNullOrWhiteSpace(_model.DisplayName) ? "School Name" : _model.DisplayName!;
+
+    private string GetReceiptTitle()
+        => string.IsNullOrWhiteSpace(_model.ReceiptTitle) ? "Registration Receipt" : _model.ReceiptTitle!;
+
+    private string GetSignatureLabel()
+        => string.IsNullOrWhiteSpace(_model.SignatureLabel) ? "Authorized Signatory" : _model.SignatureLabel!;
+
+    private string GetContactLine()
+    {
+        var parts = new[] { _model.Phone, _model.Email }
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+        return string.Join(" • ", parts);
+    }
+
+    private string GetPreviewStyle()
+    {
+        var color = string.IsNullOrWhiteSpace(_model.PrimaryColorHex)
+            ? "#082A4D"
+            : _model.PrimaryColorHex;
+
+        return $"border-top: 4px solid {color};";
+    }
+}

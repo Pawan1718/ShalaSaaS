@@ -1,0 +1,169 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests.StudentDocument
+@using Shala.Shared.Responses.StudentDocument
+@using Shala.Web.Repositories.StudentDocuments
+
+@inject IDocumentModelWebRepository DocumentRepo
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.h6">
+                @(IsEdit ? "Edit Checklist Document" : "Add Checklist Document")
+            </MudText>
+
+            <MudTextField T="string"
+                          Label="Document Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Required="true"
+                          @bind-Value="_name" />
+
+            <MudTextField T="string"
+                          Label="Code"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Placeholder="Example: BIRTH_CERT"
+                          @bind-Value="_code" />
+
+            <MudTextField T="string"
+                          Label="Description"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Lines="3"
+                          @bind-Value="_description" />
+
+            <MudNumericField T="int"
+                             Label="Display Order"
+                             Variant="Variant.Outlined"
+                             Margin="Margin.Dense"
+                             Min="0"
+                             @bind-Value="_displayOrder" />
+
+            <MudSwitch T="bool"
+                       Color="Color.Warning"
+                       Label="Required document"
+                       @bind-Value="_isRequired" />
+
+            <MudSwitch T="bool"
+                       Color="Color.Success"
+                       Label="Active"
+                       @bind-Value="_isActive" />
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">
+                    @_error
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_saving">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_saving"
+                   OnClick="SaveAsync">
+            @(_saving ? "Saving..." : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public DocumentModelResponse? Model { get; set; }
+
+    private bool IsEdit => Model?.Id > 0;
+
+    private string _name = string.Empty;
+    private string _code = string.Empty;
+    private string? _description;
+    private int _displayOrder;
+    private bool _isRequired = true;
+    private bool _isActive = true;
+    private bool _saving;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        if (Model is null)
+            return;
+
+        _name = Model.Name;
+        _code = Model.Code;
+        _description = Model.Description;
+        _displayOrder = Model.DisplayOrder;
+        _isRequired = Model.IsRequired;
+        _isActive = Model.IsActive;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _error = "Document name is required.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            if (IsEdit)
+            {
+                var request = new UpdateDocumentModelRequest
+                {
+                    Name = _name.Trim(),
+                    Code = string.IsNullOrWhiteSpace(_code) ? string.Empty : _code.Trim(),
+                    Description = string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                    IsRequired = _isRequired,
+                    IsActive = _isActive,
+                    DisplayOrder = _displayOrder
+                };
+
+                request.Id = Model!.Id;
+                await DocumentRepo.UpdateAsync(request);
+                Snackbar.Add("Checklist document updated successfully.", Severity.Success);
+            }
+            else
+            {
+                var request = new CreateDocumentModelRequest
+                {
+                    Name = _name.Trim(),
+                    Code = string.IsNullOrWhiteSpace(_code) ? string.Empty : _code.Trim(),
+                    Description = string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                    IsRequired = _isRequired,
+                    IsActive = _isActive,
+                    DisplayOrder = _displayOrder
+                };
+
+                await DocumentRepo.CreateAsync(request);
+                Snackbar.Add("Checklist document added successfully.", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

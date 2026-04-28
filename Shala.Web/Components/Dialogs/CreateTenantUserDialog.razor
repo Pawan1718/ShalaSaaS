@@ -1,0 +1,406 @@
+﻿@using MudBlazor
+@using Shala.Shared.Enums
+@using Shala.Shared.Requests.Tenant
+@using Shala.Shared.Responses.Tenant
+@using Shala.Web.Repositories.TenantRepo
+@using Shala.Web.Services.State
+
+@inject TenantUserRepository UserRepo
+@inject ITenantBranchRepository BranchRepo
+@inject ISnackbar Snackbar
+@inject ApiSession Session
+
+<MudDialog>
+    <DialogContent>
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:220px">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Typo="Typo.body2">Loading branches...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6">Create User</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Assign role, default branch and branch access.
+                    </MudText>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  @bind-Value="_model.FullName"
+                                  Label="Full Name"
+                                  Required="true"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  @bind-Value="_model.Email"
+                                  Label="Email"
+                                  Required="true"
+                                  Immediate="true"
+                                  InputType="InputType.Email"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  @bind-Value="_model.MobileNumber"
+                                  Label="Mobile"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  @bind-Value="_model.Password"
+                                  Label="Password"
+                                  Required="true"
+                                  Immediate="true"
+                                  InputType="@PasswordInputType"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@PasswordIcon"
+                                  OnAdornmentClick="TogglePassword"
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="AppRole"
+                               Value="_model.Role"
+                               ValueChanged="OnRoleChanged"
+                               Label="Role"
+                               Required="true"
+                               Variant="Variant.Outlined">
+                        <MudSelectItem T="AppRole" Value="@AppRole.Teacher">Teacher</MudSelectItem>
+                        <MudSelectItem T="AppRole" Value="@AppRole.Staff">Staff</MudSelectItem>
+                        <MudSelectItem T="AppRole" Value="@AppRole.BranchAdmin">Branch Admin</MudSelectItem>
+                        <MudSelectItem T="AppRole" Value="@AppRole.Accountant">Accountant</MudSelectItem>
+                        <MudSelectItem T="AppRole" Value="@AppRole.SchoolAdmin">School Admin</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="int"
+                               @bind-Value="_model.DefaultBranchId"
+                               Label="Default Branch"
+                               Required="true"
+                               Clearable="true"
+                               ToStringFunc="GetBranchName"
+                               Variant="Variant.Outlined">
+                        @foreach (var b in _branches)
+                        {
+                            <MudSelectItem T="int" Value="@b.BranchId">
+                                @b.BranchName
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudStack Spacing="2">
+                            <MudSwitch T="bool"
+                                       Checked="_model.HasAllBranchesAccess"
+                                       CheckedChanged="OnAllBranchesChanged"
+                                       Disabled="_model.Role == AppRole.SchoolAdmin"
+                                       Color="Color.Primary"
+                                       Label="Allow all branches" />
+
+                            @if (_model.Role == AppRole.SchoolAdmin)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true">
+                                    School Admin automatically gets all branch access.
+                                </MudAlert>
+                            }
+
+                            @if (!_model.HasAllBranchesAccess)
+                            {
+                                <MudSelect T="int"
+                                           Label="Allowed Branches"
+                                           MultiSelection="true"
+                                           Clearable="true"
+                                           ToStringFunc="GetBranchName"
+                                           SelectedValues="_selectedBranchIds"
+                                           SelectedValuesChanged="OnSelectedBranchesChanged"
+                                           Variant="Variant.Outlined">
+                                    @foreach (var b in _branches)
+                                    {
+                                        <MudSelectItem T="int" Value="@b.BranchId">
+                                            @b.BranchName
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    This user will get access to all available branches.
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel"
+                   Variant="Variant.Text"
+                   Disabled="_isSaving">
+            Cancel
+        </MudButton>
+
+        <MudButton OnClick="Submit"
+                   Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Disabled="_isLoading || _isSaving || !_branches.Any()">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private readonly CreateTenantUserRequest _model = new()
+    {
+        Role = AppRole.Teacher
+    };
+
+    private List<TenantBranchOptionDto> _branches = new();
+    private IReadOnlyCollection<int> _selectedBranchIds = new List<int>();
+
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _showPassword;
+
+    private InputType PasswordInputType => _showPassword
+        ? InputType.Text
+        : InputType.Password;
+
+    private string PasswordIcon => _showPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            _branches = await BranchRepo.GetMyBranchesAsync();
+
+            if (_branches.Count == 0)
+            {
+                Snackbar.Add("No branches available for current user.", Severity.Warning);
+                return;
+            }
+
+            if (_branches.Count == 1)
+            {
+                var branchId = _branches[0].BranchId;
+
+                _model.DefaultBranchId = branchId;
+                _model.AllowedBranchIds = new List<int> { branchId };
+                _selectedBranchIds = new List<int> { branchId };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load branches: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void TogglePassword()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private string GetBranchName(int branchId)
+    {
+        return _branches.FirstOrDefault(x => x.BranchId == branchId)?.BranchName ?? string.Empty;
+    }
+
+    private Task OnRoleChanged(AppRole value)
+    {
+        _model.Role = value;
+
+        if (value == AppRole.SchoolAdmin)
+        {
+            _model.HasAllBranchesAccess = true;
+            _model.AllowedBranchIds = new List<int>();
+            _selectedBranchIds = new List<int>();
+        }
+        else
+        {
+            _model.HasAllBranchesAccess = false;
+
+            if (_model.DefaultBranchId > 0)
+            {
+                _model.AllowedBranchIds = new List<int> { _model.DefaultBranchId };
+                _selectedBranchIds = new List<int> { _model.DefaultBranchId };
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnAllBranchesChanged(bool value)
+    {
+        _model.HasAllBranchesAccess = value;
+
+        if (value)
+        {
+            _model.AllowedBranchIds = new List<int>();
+            _selectedBranchIds = new List<int>();
+        }
+        else if (_model.DefaultBranchId > 0)
+        {
+            _model.AllowedBranchIds = new List<int> { _model.DefaultBranchId };
+            _selectedBranchIds = new List<int> { _model.DefaultBranchId };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedBranchesChanged(IReadOnlyCollection<int> values)
+    {
+        _selectedBranchIds = values;
+        _model.AllowedBranchIds = values.Distinct().ToList();
+
+        if (_model.DefaultBranchId > 0 && !_model.AllowedBranchIds.Contains(_model.DefaultBranchId))
+        {
+            _model.DefaultBranchId = 0;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task Submit()
+    {
+        if (_isSaving)
+            return;
+
+        if (!Validate())
+            return;
+
+        try
+        {
+            _isSaving = true;
+
+            if (!_model.HasAllBranchesAccess &&
+                _model.DefaultBranchId > 0 &&
+                !_model.AllowedBranchIds.Contains(_model.DefaultBranchId))
+            {
+                _model.AllowedBranchIds.Add(_model.DefaultBranchId);
+            }
+
+            var res = await UserRepo.CreateUserAsync(_model);
+
+            if (res.IsSuccess)
+            {
+                Snackbar.Add("User created successfully.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+                return;
+            }
+
+            var body = await res.GetBodyPartAsync();
+
+            if (!string.IsNullOrWhiteSpace(body) &&
+                body.Contains("User created successfully", StringComparison.OrdinalIgnoreCase))
+            {
+                Snackbar.Add("User created successfully.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+                return;
+            }
+
+            Snackbar.Add(
+                string.IsNullOrWhiteSpace(body) || body == "{}"
+                    ? "Failed to create user. Check inputs."
+                    : body,
+                Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private bool Validate()
+    {
+        if (string.IsNullOrWhiteSpace(_model.FullName))
+        {
+            Snackbar.Add("Full name is required.", Severity.Warning);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Email))
+        {
+            Snackbar.Add("Email is required.", Severity.Warning);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Password))
+        {
+            Snackbar.Add("Password is required.", Severity.Warning);
+            return false;
+        }
+
+        if (_model.Password.Length < 6)
+        {
+            Snackbar.Add("Password must be at least 6 characters.", Severity.Warning);
+            return false;
+        }
+
+        if (_model.DefaultBranchId <= 0)
+        {
+            Snackbar.Add("Select a default branch.", Severity.Warning);
+            return false;
+        }
+
+        if (!_branches.Any(x => x.BranchId == _model.DefaultBranchId))
+        {
+            Snackbar.Add("Selected default branch is invalid.", Severity.Warning);
+            return false;
+        }
+
+        if (!_model.HasAllBranchesAccess && _model.AllowedBranchIds.Count == 0)
+        {
+            Snackbar.Add("Select at least one allowed branch.", Severity.Warning);
+            return false;
+        }
+
+        if (!_model.HasAllBranchesAccess &&
+            !_model.AllowedBranchIds.Contains(_model.DefaultBranchId))
+        {
+            Snackbar.Add("Default branch must be included in allowed branches.", Severity.Warning);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

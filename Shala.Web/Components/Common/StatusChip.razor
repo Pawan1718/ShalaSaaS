@@ -1,0 +1,21 @@
+﻿@using MudBlazor
+
+<MudChip T="string"
+         Color="@ResolvedColor"
+         Variant="@Variant"
+         Size="@Size">
+    @ResolvedText
+</MudChip>
+
+@code {
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public string ActiveText { get; set; } = "Active";
+    [Parameter] public string InactiveText { get; set; } = "Inactive";
+    [Parameter] public Color ActiveColor { get; set; } = Color.Success;
+    [Parameter] public Color InactiveColor { get; set; } = Color.Error;
+    [Parameter] public Variant Variant { get; set; } = Variant.Filled;
+    [Parameter] public Size Size { get; set; } = Size.Small;
+
+    private string ResolvedText => IsActive ? ActiveText : InactiveText;
+    private Color ResolvedColor => IsActive ? ActiveColor : InactiveColor;
+}
