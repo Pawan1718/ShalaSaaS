@@ -23,13 +23,20 @@ public sealed class TenantDashboardController : TenantApiControllerBase
 
     [HttpPost]
     public async Task<IActionResult> GetDashboard(
-        [FromBody] TenantDashboardRequest request,
+        [FromBody] TenantDashboardRequest? request,
         CancellationToken cancellationToken)
     {
+        request ??= new TenantDashboardRequest();
+
         var userId = CurrentUser.GetRequiredUserId();
 
-        // Validate selected/default branch before dashboard loads.
-        _ = await GetSafeBranchIdAsync(null, cancellationToken);
+        // Important:
+        // Dashboard can show All Branches.
+        // So validate only when specific branch is selected.
+        if (!request.IsAllBranches && request.BranchId.HasValue)
+        {
+            _ = await GetSafeBranchIdAsync(request.BranchId, cancellationToken);
+        }
 
         var result = await _dashboardService.GetAsync(
             TenantId,

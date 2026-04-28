@@ -35,13 +35,22 @@ public class ApiSession
     public int? TenantId { get; private set; }
     public string? TenantName { get; private set; }
 
-    public int? BranchId => SelectedBranchId;
+    // Backward-compatible property.
+    // Existing code that uses Session.BranchId will now respect "All Branches".
+    public int? BranchId => CurrentBranchId;
+
     public int? SelectedBranchId { get; private set; }
     public string? SelectedBranchName { get; private set; }
     public string? SelectedBranchCode { get; private set; }
     public bool IsAllBranchesSelected { get; private set; }
 
+    public int? CurrentBranchId => IsAllBranchesSelected ? null : SelectedBranchId;
+
     public List<TenantBranchOptionDto> AvailableBranches { get; private set; } = new();
+
+    public bool HasBranches => AvailableBranches.Count > 0;
+    public bool HasMultipleBranches => AvailableBranches.Count > 1;
+    public bool CanSwitchBranches => HasMultipleBranches;
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(Token);
     public bool IsInitialized { get; private set; }
@@ -82,6 +91,8 @@ public class ApiSession
             AvailableBranches = branchesResult.Success && branchesResult.Value is not null
                 ? branchesResult.Value
                 : new List<TenantBranchOptionDto>();
+
+            NormalizeBranchStateAfterLoad();
 
             IsInitialized = true;
             return true;
@@ -132,7 +143,6 @@ public class ApiSession
         await PersistSessionAsync();
     }
 
-    // Backward-compatible overload for old calls.
     public Task SetSessionAsync(
         string token,
         string? email,
@@ -153,7 +163,6 @@ public class ApiSession
             branchCode: null);
     }
 
-    // Backward-compatible overload if any old code passes BranchId only.
     public Task SetSessionAsync(
         string token,
         string? email,
@@ -175,23 +184,87 @@ public class ApiSession
             branchCode: null);
     }
 
-    public async Task SetAvailableBranchesAsync(List<TenantBranchOptionDto>? branches)
+    public async Task SetAvailableBranchesAsync(List<TenantBranchOptionDto>? branches, bool autoSelect = true)
     {
         AvailableBranches = branches ?? new List<TenantBranchOptionDto>();
+
         await _storage.SetAsync(AvailableBranchesKey, AvailableBranches);
+
+        if (!autoSelect)
+            return;
+
+        await EnsureValidBranchSelectionAsync(notify: false);
     }
 
-    public async Task SelectDefaultBranchAsync()
+    public async Task EnsureValidBranchSelectionAsync(bool notify = false)
+    {
+        if (AvailableBranches.Count == 0)
+        {
+            SelectedBranchId = null;
+            SelectedBranchName = null;
+            SelectedBranchCode = null;
+            IsAllBranchesSelected = false;
+
+            await PersistBranchStateAsync();
+
+            if (notify)
+                OnBranchChanged?.Invoke();
+
+            return;
+        }
+
+        if (IsAllBranchesSelected)
+        {
+            if (AvailableBranches.Count > 1)
+            {
+                SelectedBranchId = null;
+                SelectedBranchName = "All Branches";
+                SelectedBranchCode = null;
+
+                await PersistBranchStateAsync();
+
+                if (notify)
+                    OnBranchChanged?.Invoke();
+
+                return;
+            }
+
+            IsAllBranchesSelected = false;
+        }
+
+        if (SelectedBranchId.HasValue)
+        {
+            var existing = AvailableBranches.FirstOrDefault(x => x.BranchId == SelectedBranchId.Value);
+
+            if (existing is not null)
+            {
+                SelectedBranchName = Normalize(existing.BranchName);
+                SelectedBranchCode = Normalize(existing.BranchCode);
+                IsAllBranchesSelected = false;
+
+                await PersistBranchStateAsync();
+
+                if (notify)
+                    OnBranchChanged?.Invoke();
+
+                return;
+            }
+        }
+
+        await SelectDefaultBranchAsync(notify);
+    }
+
+    public async Task SelectDefaultBranchAsync(bool notify = false)
     {
         if (AvailableBranches.Count == 0)
             return;
 
         var selected =
-            AvailableBranches.FirstOrDefault(x => x.IsMainBranch) ??
             AvailableBranches.FirstOrDefault(x => x.IsDefault) ??
+            AvailableBranches.FirstOrDefault(x => x.IsMainBranch) ??
             AvailableBranches.First();
 
-        await SelectBranchAsync(selected, notify: false);
+        await SelectBranchAsync(selected, notify);
     }
 
     public async Task SelectBranchAsync(TenantBranchOptionDto branch, bool notify = true)
@@ -207,7 +280,17 @@ public class ApiSession
             OnBranchChanged?.Invoke();
     }
 
-    public async Task SelectAllBranchesAsync()
+    public async Task SelectBranchAsync(int branchId, bool notify = true)
+    {
+        var branch = AvailableBranches.FirstOrDefault(x => x.BranchId == branchId);
+
+        if (branch is null)
+            return;
+
+        await SelectBranchAsync(branch, notify);
+    }
+
+    public async Task SelectAllBranchesAsync(bool notify = true)
     {
         if (AvailableBranches.Count <= 1)
             return;
@@ -219,7 +302,8 @@ public class ApiSession
 
         await PersistBranchStateAsync();
 
-        OnBranchChanged?.Invoke();
+        if (notify)
+            OnBranchChanged?.Invoke();
     }
 
     public async Task ClearAsync()
@@ -272,6 +356,48 @@ public class ApiSession
         await _storage.SetAsync(BranchNameKey, SelectedBranchName ?? string.Empty);
         await _storage.SetAsync(BranchCodeKey, SelectedBranchCode ?? string.Empty);
         await _storage.SetAsync(IsAllBranchesKey, IsAllBranchesSelected);
+    }
+
+    private void NormalizeBranchStateAfterLoad()
+    {
+        if (AvailableBranches.Count == 0)
+        {
+            SelectedBranchId = null;
+            SelectedBranchName = null;
+            SelectedBranchCode = null;
+            IsAllBranchesSelected = false;
+            return;
+        }
+
+        if (IsAllBranchesSelected)
+        {
+            if (AvailableBranches.Count > 1)
+            {
+                SelectedBranchId = null;
+                SelectedBranchName = "All Branches";
+                SelectedBranchCode = null;
+                return;
+            }
+
+            IsAllBranchesSelected = false;
+        }
+
+        if (!SelectedBranchId.HasValue)
+            return;
+
+        var branch = AvailableBranches.FirstOrDefault(x => x.BranchId == SelectedBranchId.Value);
+
+        if (branch is null)
+        {
+            SelectedBranchId = null;
+            SelectedBranchName = null;
+            SelectedBranchCode = null;
+            IsAllBranchesSelected = false;
+            return;
+        }
+
+        SelectedBranchName = Normalize(branch.BranchName);
+        SelectedBranchCode = Normalize(branch.BranchCode);
     }
 
     private void ResetState()

@@ -408,12 +408,15 @@
         var branches = await TenantBranchRepository.GetMyBranchesAsync();
 
         await Session.SetAvailableBranchesAsync(branches);
-        await Session.SelectDefaultBranchAsync();
+
+        // Agar login response me branch already selected hai, woh preserve rahegi.
+        // Agar branch invalid/missing hai, default branch select ho jayegi.
+        await Session.EnsureValidBranchSelectionAsync();
 
         Snackbar.Add("Login successful", Severity.Success);
+
         Navigation.NavigateTo("/tenant/dashboard", true);
     }
-
     private void TogglePassword(MouseEventArgs _)
     {
         _showPassword = !_showPassword;

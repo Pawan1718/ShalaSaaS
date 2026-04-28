@@ -70,7 +70,7 @@
     private string DashboardSubtitle =>
         Session.IsAllBranchesSelected
             ? "Aggregated overview across all selected branches."
-            : "Branch-specific overview for selected branch.";
+            : $"Branch-specific overview for {Session.SelectedBranchName ?? "selected branch"}.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,20 +80,27 @@
 
     private void HandleBranchChanged()
     {
-        _ = InvokeAsync(LoadDashboardAsync);
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDashboardAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task LoadDashboardAsync()
     {
         _isLoading = true;
         _error = null;
+        await InvokeAsync(StateHasChanged);
 
         try
         {
             var request = new TenantDashboardRequest
             {
                 IsAllBranches = Session.IsAllBranchesSelected,
-                BranchId = Session.IsAllBranchesSelected ? null : Session.SelectedBranchId
+                BranchId = Session.IsAllBranchesSelected
+                    ? null
+                    : Session.SelectedBranchId
             };
 
             var response = await DashboardRepository.GetAsync(request);
@@ -116,6 +123,7 @@
         finally
         {
             _isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 

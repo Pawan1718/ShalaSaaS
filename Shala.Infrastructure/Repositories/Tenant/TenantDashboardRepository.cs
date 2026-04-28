@@ -56,7 +56,9 @@ public sealed class TenantDashboardRepository : ITenantDashboardRepository
 
         var selectedBranch = await _db.Branches
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId && scopeBranchIds.Contains(x.Id))
+            .Where(x =>
+                x.TenantId == tenantId &&
+                scopeBranchIds.Contains(x.Id))
             .OrderByDescending(x => x.IsMainBranch)
             .ThenBy(x => x.Name)
             .Select(x => new
@@ -69,7 +71,7 @@ public sealed class TenantDashboardRepository : ITenantDashboardRepository
         var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
         var monthStart = new DateTime(today.Year, today.Month, 1);
-        var trendStart = new DateTime(today.Year, today.Month, 1).AddMonths(-5);
+        var trendStart = monthStart.AddMonths(-5);
 
         var totalStudents = await _db.Students
             .AsNoTracking()
@@ -190,7 +192,9 @@ public sealed class TenantDashboardRepository : ITenantDashboardRepository
             .Select(i => trendStart.AddMonths(i))
             .Select(month =>
             {
-                var match = trendRaw.FirstOrDefault(x => x.Year == month.Year && x.Month == month.Month);
+                var match = trendRaw.FirstOrDefault(x =>
+                    x.Year == month.Year &&
+                    x.Month == month.Month);
 
                 return new TenantDashboardTrendPointResponse
                 {
@@ -265,30 +269,54 @@ public sealed class TenantDashboardRepository : ITenantDashboardRepository
     {
         if (IsTenantWideRole(role))
         {
-            return await _db.Branches
-                .AsNoTracking()
-                .Where(x => x.TenantId == tenantId && x.IsActive)
-                .OrderByDescending(x => x.IsMainBranch)
-                .ThenBy(x => x.Name)
-                .Select(x => x.Id)
-                .ToListAsync(cancellationToken);
+            return await GetAllActiveBranchIdsAsync(tenantId, cancellationToken);
+        }
+
+        var hasAllBranchesAccess = await _db.UserBranchAccesses
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.TenantId == tenantId &&
+                x.UserId == userId &&
+                x.IsActive &&
+                x.HasAllBranchesAccess,
+                cancellationToken);
+
+        if (hasAllBranchesAccess)
+        {
+            return await GetAllActiveBranchIdsAsync(tenantId, cancellationToken);
         }
 
         return await _db.UserBranchAccesses
-     .AsNoTracking()
-     .Where(x =>
-         x.TenantId == tenantId &&
-         x.UserId == userId &&
-         x.IsActive &&
-         x.BranchId.HasValue)
-     .Select(x => x.BranchId!.Value)
-     .Distinct()
-     .ToListAsync(cancellationToken);
+            .AsNoTracking()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.UserId == userId &&
+                x.IsActive &&
+                x.BranchId.HasValue)
+            .Select(x => x.BranchId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<List<int>> GetAllActiveBranchIdsAsync(
+        int tenantId,
+        CancellationToken cancellationToken)
+    {
+        return await _db.Branches
+            .AsNoTracking()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.IsActive)
+            .OrderByDescending(x => x.IsMainBranch)
+            .ThenBy(x => x.Name)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
     }
 
     private static bool IsTenantWideRole(string role)
     {
-        return role.Equals("TenantAdmin", StringComparison.OrdinalIgnoreCase)
+        return role.Equals("SchoolAdmin", StringComparison.OrdinalIgnoreCase)
+               || role.Equals("TenantAdmin", StringComparison.OrdinalIgnoreCase)
                || role.Equals("TenantOwner", StringComparison.OrdinalIgnoreCase)
                || role.Equals("Owner", StringComparison.OrdinalIgnoreCase)
                || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);

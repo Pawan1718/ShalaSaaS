@@ -4,31 +4,32 @@
 @using Shala.Shared.Responses.Tenant
 @using Shala.Web.Helpers
 @using Shala.Web.Services.State
+
 @inject NavigationManager Nav
 @inject ApiSession Session
 @inject ISnackbar Snackbar
 
 <MudThemeProvider Theme="@ShalaTheme.Default" />
+<MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
-<MudPopoverProvider />
 
 <MudLayout Class="tenant-layout-shell">
 
     <MudDrawer @bind-Open="_drawerOpen"
                Variant="DrawerVariant.Responsive"
                Breakpoint="Breakpoint.Md"
-               Width="292px"
+               Width="280px"
                Class="tenant-drawer">
 
         <div class="tenant-drawer-inner">
 
             <button class="tenant-logo-card" @onclick="GoDashboard">
-                <img src="/images/shala-crm-logo.jpg" />
+                <img src="/images/shala-crm-logo.jpg" alt="Shala CRM" />
             </button>
 
-            <MudNavMenu Dense="true">
-                <MudNavLink Href="/tenant/dashboard" Icon="@Icons.Material.Filled.SpaceDashboard">Dashboard</MudNavLink>
+            <MudNavMenu Dense="true" Class="tenant-nav">
+                <MudNavLink Href="/tenant/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SpaceDashboard">Dashboard</MudNavLink>
                 <MudNavLink Href="/tenant/students" Icon="@Icons.Material.Filled.Groups">Students</MudNavLink>
                 <MudNavLink Href="/tenant/students/create" Icon="@Icons.Material.Filled.PersonAddAlt1">Admissions</MudNavLink>
                 <MudNavLink Href="/tenant/fees/dashboard" Icon="@Icons.Material.Filled.AccountBalanceWallet">Fees</MudNavLink>
@@ -38,57 +39,109 @@
                 <MudNavLink Href="/tenant/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
             </MudNavMenu>
 
-            <div class="tenant-school-switcher">
-                <MudText Typo="Typo.caption" Class="tenant-switcher-label">CURRENT SCHOOL</MudText>
+            <div class="tenant-drawer-footer">
+                <MudText Typo="Typo.caption" Class="tenant-footer-label">SIGNED IN AS</MudText>
 
-                <div class="tenant-school-card">
-                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
-                    <div>
-                        <MudText Typo="Typo.body2" Class="tenant-school-name">@GetTenantDisplay()</MudText>
-                        <MudText Typo="Typo.caption" Class="tenant-school-location">@GetBranchDisplay()</MudText>
+                <div class="tenant-user-mini">
+                    <MudAvatar Size="Size.Small" Color="Color.Primary">
+                        @GetInitials()
+                    </MudAvatar>
+
+                    <div class="tenant-user-mini-text">
+                        <MudText Typo="Typo.body2" Class="tenant-user-name">@GetUserDisplay()</MudText>
+                        <MudText Typo="Typo.caption" Class="tenant-user-role">@GetRoleDisplay()</MudText>
                     </div>
                 </div>
-
-                @if (Session.AvailableBranches.Count > 1)
-                {
-                    <MudMenu FullWidth="true" Dense="true">
-                        <ActivatorContent>
-                            <MudButton FullWidth="true"
-                                       Variant="Variant.Outlined"
-                                       StartIcon="@Icons.Material.Filled.SwapHoriz"
-                                       EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
-                                       Class="tenant-switch-button">
-                                Switch Branch
-                            </MudButton>
-                        </ActivatorContent>
-
-                        <ChildContent>
-                            <MudMenuItem OnClick="SelectAllBranches">
-                                <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" Class="mr-2" />
-                                All Branches
-                            </MudMenuItem>
-
-                            <MudDivider />
-
-                            @foreach (var branch in Session.AvailableBranches)
-                            {
-                                <MudMenuItem OnClick="@(() => SelectBranch(branch))">
-                                    <MudIcon Icon="@(branch.IsMainBranch? Icons.Material.Filled.Star : Icons.Material.Filled.Store)" Size="Size.Small" Class="mr-2" />
-                                    @branch.BranchName (@branch.BranchCode)
-                                </MudMenuItem>
-                            }
-                        </ChildContent>
-                    </MudMenu>
-                }
             </div>
+
         </div>
     </MudDrawer>
 
-    <MudMainContent>
+    <MudMainContent Class="tenant-main">
 
-        <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                       OnClick="ToggleDrawer"
-                       Class="tenant-mobile-menu" />
+        <MudPaper Elevation="0" Class="tenant-topbar">
+
+            <div class="tenant-topbar-left">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                               OnClick="ToggleDrawer"
+                               Class="tenant-menu-button" />
+
+                <div>
+                    <MudText Typo="Typo.subtitle1" Class="tenant-title">@GetTenantDisplay()</MudText>
+                    <MudText Typo="Typo.caption" Class="tenant-subtitle">@GetBranchDisplay()</MudText>
+                </div>
+            </div>
+
+            <div class="tenant-topbar-right">
+
+                @if (Session.AvailableBranches.Count > 1)
+                {
+                    <MudSelect T="string"
+                               Value="@_branchDropdownValue"
+                               ValueChanged="OnBranchDropdownChanged"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Margin="Margin.Dense"
+                               Class="tenant-branch-select">
+
+                        <MudSelectItem T="string" Value="@AllBranchesValue">
+                            All Branches
+                        </MudSelectItem>
+
+                        @foreach (var branch in Session.AvailableBranches)
+                        {
+                            <MudSelectItem T="string" Value="@branch.BranchId.ToString()">
+                                @branch.BranchName (@branch.BranchCode)
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                else
+                {
+                    <MudChip T="string"
+                             Variant="Variant.Outlined"
+                             Color="Color.Primary"
+                             Icon="@Icons.Material.Filled.Store">
+                        @GetBranchShortDisplay()
+                    </MudChip>
+                }
+
+                <MudMenu Dense="true"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight">
+
+                    <ActivatorContent>
+                        <MudAvatar Color="Color.Primary" Class="tenant-avatar">
+                            @GetInitials()
+                        </MudAvatar>
+                    </ActivatorContent>
+
+                    <ChildContent>
+                        <div class="tenant-profile-menu">
+                            <MudText Typo="Typo.body2" Class="tenant-user-name">@GetUserDisplay()</MudText>
+                            <MudText Typo="Typo.caption" Class="tenant-user-role">@GetRoleDisplay()</MudText>
+                        </div>
+
+                        <MudDivider />
+
+                        <MudMenuItem Icon="@Icons.Material.Filled.Person">Profile</MudMenuItem>
+
+                        <MudMenuItem Icon="@Icons.Material.Filled.Settings"
+                                     OnClick="@(() => Nav.NavigateTo("/tenant/settings"))">
+                            Settings
+                        </MudMenuItem>
+
+                        <MudDivider />
+
+                        <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
+                            Logout
+                        </MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+
+            </div>
+
+        </MudPaper>
 
         <div class="tenant-page-container">
             @Body
@@ -98,9 +151,197 @@
 
 </MudLayout>
 
+<style>
+    .tenant-layout-shell {
+        min-height: 100vh;
+        background: #f8fafc;
+    }
+
+    .tenant-drawer {
+        border-right: 1px solid #e2e8f0;
+        background: #ffffff;
+    }
+
+    .tenant-drawer-inner {
+        min-height: 100vh;
+        padding: 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .tenant-logo-card {
+        border: 0;
+        width: 100%;
+        padding: 12px;
+        border-radius: 18px;
+        background: #f8fafc;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .tenant-logo-card img {
+            max-width: 150px;
+            max-height: 58px;
+            object-fit: contain;
+        }
+
+    .tenant-nav {
+        flex: 1;
+    }
+
+    .tenant-drawer-footer {
+        padding: 14px;
+        border-radius: 18px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .tenant-footer-label {
+        display: block;
+        color: #64748b;
+        margin-bottom: 10px;
+        font-weight: 700;
+        letter-spacing: .06em;
+    }
+
+    .tenant-user-mini {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .tenant-user-mini-text {
+        min-width: 0;
+    }
+
+    .tenant-user-name {
+        font-weight: 700;
+        color: #0f172a;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tenant-user-role {
+        color: #64748b;
+    }
+
+    .tenant-main {
+        min-height: 100vh;
+        background: #f8fafc;
+    }
+
+    .tenant-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 1200;
+        height: 72px;
+        padding: 0 24px;
+        border-bottom: 1px solid #e2e8f0;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .tenant-topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .tenant-topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .tenant-menu-button {
+        display: none;
+    }
+
+    .tenant-title {
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .tenant-subtitle {
+        color: #64748b;
+    }
+
+    .tenant-branch-select {
+        min-width: 220px;
+        max-width: 280px;
+        background: #ffffff;
+        border-radius: 12px;
+    }
+
+    .tenant-avatar {
+        cursor: pointer;
+        font-weight: 800;
+    }
+
+    .tenant-profile-menu {
+        padding: 12px 16px;
+        min-width: 210px;
+    }
+
+    .tenant-page-container {
+        padding: 24px;
+    }
+
+    @@media (max-width: 960px) {
+        .tenant-menu-button {
+            display: inline-flex;
+        }
+
+        .tenant-topbar {
+            padding: 0 14px;
+        }
+
+        .tenant-title {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tenant-branch-select {
+            min-width: 170px;
+            max-width: 200px;
+        }
+
+        .tenant-page-container {
+            padding: 16px;
+        }
+    }
+
+    @@media (max-width: 600px) {
+        .tenant-subtitle {
+            display: none;
+        }
+
+        .tenant-branch-select {
+            min-width: 140px;
+            max-width: 150px;
+        }
+    }
+</style>
+
 @code {
+    private const string AllBranchesValue = "all";
+
     private bool _drawerOpen = true;
     private bool _initialized;
+    private string _branchDropdownValue = string.Empty;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -113,7 +354,7 @@
 
         if (!ok)
         {
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
@@ -125,7 +366,48 @@
 
         Session.OnBranchChanged += HandleBranchChanged;
 
-        StateHasChanged();
+        SyncBranchDropdownValue();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnBranchDropdownChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        _branchDropdownValue = value;
+
+        if (value == AllBranchesValue)
+        {
+            await Session.SelectAllBranchesAsync();
+            Snackbar.Add("Switched to all branches", Severity.Success);
+            return;
+        }
+
+        if (!int.TryParse(value, out var branchId))
+            return;
+
+        var branch = Session.AvailableBranches.FirstOrDefault(x => x.BranchId == branchId);
+
+        if (branch is null)
+            return;
+
+        await Session.SelectBranchAsync(branch);
+        Snackbar.Add($"Switched to {branch.BranchName}", Severity.Success);
+    }
+
+    private void SyncBranchDropdownValue()
+    {
+        _branchDropdownValue = Session.IsAllBranchesSelected
+            ? AllBranchesValue
+            : Session.SelectedBranchId?.ToString() ?? string.Empty;
+    }
+
+    private void HandleBranchChanged()
+    {
+        SyncBranchDropdownValue();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void ToggleDrawer()
@@ -143,21 +425,6 @@
         await Session.ClearAsync();
         Snackbar.Add("Logged out successfully", Severity.Success);
         Nav.NavigateTo("/tenant/login", true);
-    }
-
-    private async Task SelectBranch(TenantBranchOptionDto branch)
-    {
-        await Session.SelectBranchAsync(branch);
-    }
-
-    private async Task SelectAllBranches()
-    {
-        await Session.SelectAllBranchesAsync();
-    }
-
-    private void HandleBranchChanged()
-    {
-        InvokeAsync(StateHasChanged);
     }
 
     private string GetTenantDisplay()
@@ -179,6 +446,52 @@
             return Session.SelectedBranchName;
 
         return $"{Session.SelectedBranchName} ({Session.SelectedBranchCode})";
+    }
+
+    private string GetBranchShortDisplay()
+    {
+        if (Session.IsAllBranchesSelected)
+            return "All Branches";
+
+        if (string.IsNullOrWhiteSpace(Session.SelectedBranchName))
+            return "Select Branch";
+
+        return Session.SelectedBranchName;
+    }
+
+    private string GetUserDisplay()
+    {
+        if (!string.IsNullOrWhiteSpace(Session.FullName))
+            return Session.FullName;
+
+        if (!string.IsNullOrWhiteSpace(Session.Email))
+            return Session.Email;
+
+        return "User";
+    }
+
+    private string GetRoleDisplay()
+    {
+        return string.IsNullOrWhiteSpace(Session.Role)
+            ? "Tenant User"
+            : Session.Role;
+    }
+
+    private string GetInitials()
+    {
+        var name = GetUserDisplay();
+
+        var parts = name.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant();
+
+        if (parts.Length == 1 && parts[0].Length > 0)
+            return parts[0][0].ToString().ToUpperInvariant();
+
+        return "U";
     }
 
     public void Dispose()
