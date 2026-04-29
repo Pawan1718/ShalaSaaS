@@ -1,0 +1,231 @@
+﻿@page "/platform/tenants/{TenantId:int}/edit"
+@layout Shala.Web.Components.Layouts.PlatformMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests
+@using Shala.Shared.Requests.Platform
+@using Shala.Shared.Responses
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject ITenantRepository TenantRepository
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Tenant</PageTitle>
+
+<AppPageHeader Title="Edit Tenant"
+               Subtitle="Update school name and subscription plan">
+    <Actions>
+        <AppButton Variant="Variant.Outlined"
+                   OnClick="GoBack">
+            Back
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+@if (_isLoading)
+{
+    <AppCard Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+            <MudText Typo="Typo.body1">Loading tenant details...</MudText>
+        </MudStack>
+    </AppCard>
+}
+else if (_notFound)
+{
+    <AppCard Class="pa-6">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            Tenant not found.
+        </MudAlert>
+
+        <MudStack Row="true" Class="mt-4">
+            <AppButton OnClick="GoBack">Back to Tenants</AppButton>
+        </MudStack>
+    </AppCard>
+}
+else
+{
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="8">
+            <AppCard Class="pa-4">
+                <MudForm @ref="_form">
+                    <MudText Typo="Typo.h6" Class="mb-4">Basic Information</MudText>
+
+                    <MudTextField T="string"
+                                  Label="School Name"
+                                  Variant="Variant.Outlined"
+                                  @bind-Value="_model.SchoolName"
+                                  Required="true"
+                                  RequiredError="School name is required"
+                                  Class="mb-4" />
+
+                    <MudSelect T="string"
+                               Label="Subscription Plan"
+                               Variant="Variant.Outlined"
+                               @bind-Value="_model.SubscriptionPlan"
+                               Required="true"
+                               RequiredError="Subscription plan is required"
+                               Class="mb-4">
+                        <MudSelectItem T="string" Value="@("Free")">Free</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Basic")">Basic</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Standard")">Standard</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Premium")">Premium</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Enterprise")">Enterprise</MudSelectItem>
+                    </MudSelect>
+
+                    <MudStack Row="true" Spacing="2">
+                        <AppButton OnClick="SaveAsync"
+                                   Disabled="_isSaving"
+                                   StartIcon="@Icons.Material.Filled.Save">
+                            @_saveButtonText
+                        </AppButton>
+
+                        <AppButton Variant="Variant.Outlined"
+                                   OnClick="GoBack"
+                                   Disabled="_isSaving">
+                            Cancel
+                        </AppButton>
+                    </MudStack>
+                </MudForm>
+            </AppCard>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <AppCard Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-4">Tenant Info</MudText>
+
+                <MudStack Spacing="2">
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Email</MudText>
+                        <MudText Typo="Typo.body1">@(_tenant?.Email ?? "-")</MudText>
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Business Category</MudText>
+                        <MudText Typo="Typo.body1">@(_tenant?.BusinessCategory ?? "-")</MudText>
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                        <MudChip T="string"
+                                 Color="@(_tenant?.IsActive == true ? Color.Success : Color.Error)"
+                                 Variant="Variant.Filled">
+                            @(_tenant?.IsActive == true ? "Active" : "Inactive")
+                        </MudChip>
+                    </div>
+
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Created</MudText>
+                        <MudText Typo="Typo.body1">
+                            @(_tenant is null ? "-" : _tenant.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy hh:mm tt"))
+                        </MudText>
+                    </div>
+                </MudStack>
+            </AppCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public int TenantId { get; set; }
+
+    private MudForm? _form;
+    private TenantDetailResponse? _tenant;
+    private UpdateTenantBasicInfoRequest _model = new();
+
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _notFound;
+
+    private string _saveButtonText => _isSaving ? "Saving..." : "Save Changes";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTenantAsync();
+    }
+
+    private async Task LoadTenantAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _notFound = false;
+
+            var response = await TenantRepository.GetTenantByIdAsync(TenantId);
+
+            if (response.IsSuccess && response.ServerResponse is not null)
+            {
+                _tenant = response.ServerResponse;
+
+                _model = new UpdateTenantBasicInfoRequest
+                {
+                    SchoolName = _tenant.SchoolName,
+                    SubscriptionPlan = _tenant.SubscriptionPlan
+                };
+            }
+            else
+            {
+                _notFound = true;
+                var body = await response.GetBodyPartAsync();
+                Snackbar.Add(string.IsNullOrWhiteSpace(body) ? "Tenant not found." : body, Severity.Error);
+            }
+        }
+        catch
+        {
+            _notFound = true;
+            Snackbar.Add("Failed to load tenant details.", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_form is null)
+            return;
+
+        await _form.Validate();
+
+        if (!_form.IsValid)
+            return;
+
+        _isSaving = true;
+
+        try
+        {
+            var response = await TenantRepository.UpdateTenantBasicInfoAsync(TenantId, _model);
+
+            if (response.IsSuccess)
+            {
+                var body = await response.GetBodyPartAsync();
+                Snackbar.Add(string.IsNullOrWhiteSpace(body) ? "Tenant updated successfully." : body, Severity.Success);
+                Navigation.NavigateTo("/platform/tenants");
+                return;
+            }
+
+            var errorBody = await response.GetBodyPartAsync();
+            Snackbar.Add(string.IsNullOrWhiteSpace(errorBody) ? "Failed to update tenant." : errorBody, Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Something went wrong while updating tenant.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/platform/tenants");
+    }
+}

@@ -1,0 +1,317 @@
+@page "/tenant/login"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Identity
+@using Shala.Shared.Responses.Identity
+@using Shala.Web.Models.Auth
+@using Shala.Web.Repositories.AuthRepo
+@using Shala.Web.Services.State
+
+@inject IAuthRepository AuthRepository
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ApiSession Session
+@layout Shala.Web.Components.Layouts.AuthLayout
+
+<PageTitle>Tenant Login</PageTitle>
+
+<div class="tenant-login-page">
+    <MudPaper Class="tenant-login-card" Elevation="0">
+
+        <div class="tenant-login-left">
+            <div class="brand-wrap">
+                <MudAvatar Size="Size.Large" Class="brand-avatar">
+                    <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Large" />
+                </MudAvatar>
+
+                <MudText Typo="Typo.h4" Class="brand-title">School Login</MudText>
+                <MudText Typo="Typo.body1" Class="brand-subtitle">
+                    Sign in with your user ID or email and continue into your tenant workspace.
+                </MudText>
+
+                <MudStack Spacing="2" Class="brand-points">
+                    <MudPaper Class="feature-pill" Outlined="true">
+                        <MudIcon Icon="@Icons.Material.Filled.Domain" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Tenant-aware access</MudText>
+                    </MudPaper>
+
+                    <MudPaper Class="feature-pill" Outlined="true">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Fixed branch sign in</MudText>
+                    </MudPaper>
+
+                    <MudPaper Class="feature-pill" Outlined="true">
+                        <MudIcon Icon="@Icons.Material.Filled.Security" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Secure authenticated session</MudText>
+                    </MudPaper>
+                </MudStack>
+            </div>
+        </div>
+
+        <div class="tenant-login-right">
+            <div class="form-wrap">
+                <MudText Typo="Typo.h5" Class="form-title">
+                    Welcome Back
+                </MudText>
+
+                <MudText Typo="Typo.body2" Class="form-subtitle">
+                    Enter your credentials to access your school account.
+                </MudText>
+
+                @if (!string.IsNullOrWhiteSpace(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">
+                        @_errorMessage
+                    </MudAlert>
+                }
+
+                <EditForm Model="_model" OnValidSubmit="HandleLoginAsync">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <MudTextField T="string"
+                                  @bind-Value="_model.UserIdOrEmail"
+                                  Label="User ID or Email"
+                                  Placeholder="Enter user ID or email"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Person"
+                                  Class="mb-4"
+                                  Immediate="true" />
+
+                    <MudTextField T="string"
+                                  @bind-Value="_model.Password"
+                                  Label="Password"
+                                  Placeholder="Enter password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Lock"
+                                  AdornmentEnd="Adornment.End"
+                                  AdornmentAriaLabel="Toggle password visibility"
+                                  OnAdornmentClick="@TogglePassword"
+                                  Class="mb-2" />
+
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                        <MudCheckBox T="bool"
+                                     @bind-Value="_rememberMe"
+                                     Label="Remember me"
+                                     Color="Color.Primary" />
+
+                        <MudText Typo="Typo.caption" Class="helper-text">
+                            Tenant and branch are auto-detected from your account
+                        </MudText>
+                    </MudStack>
+
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               Disabled="_isLoading"
+                               Class="submit-btn">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" />
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Sign In</span>
+                        }
+                    </MudButton>
+                </EditForm>
+            </div>
+        </div>
+
+    </MudPaper>
+</div>
+<style>
+    .tenant-login-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        background:
+            radial-gradient(circle at top left, rgba(79, 70, 229, 0.16), transparent 30%),
+            radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.14), transparent 28%),
+            linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    }
+
+    .tenant-login-card {
+        width: 100%;
+        max-width: 980px;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        border-radius: 24px;
+        overflow: hidden;
+        background: rgba(255,255,255,0.96);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+    }
+
+    .tenant-login-left {
+        padding: 44px 38px;
+        background:
+            linear-gradient(160deg, rgba(79, 70, 229, 0.95), rgba(37, 99, 235, 0.92));
+        color: white;
+        display: flex;
+        align-items: center;
+    }
+
+    .tenant-login-right {
+        padding: 44px 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.96);
+    }
+
+    .brand-wrap,
+    .form-wrap {
+        width: 100%;
+    }
+
+    .brand-avatar {
+        background: rgba(255,255,255,0.18);
+        color: white;
+        width: 72px;
+        height: 72px;
+        margin-bottom: 18px;
+    }
+
+    .brand-title {
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .brand-subtitle {
+        opacity: 0.92;
+        max-width: 420px;
+        line-height: 1.6;
+        margin-bottom: 26px;
+    }
+
+    .brand-points {
+        max-width: 420px;
+    }
+
+    .feature-pill {
+        padding: 12px 14px;
+        border-radius: 14px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background: rgba(255,255,255,0.08);
+        border-color: rgba(255,255,255,0.22) !important;
+        color: white;
+    }
+
+    .form-title {
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: #0f172a;
+    }
+
+    .form-subtitle {
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    .submit-btn {
+        height: 50px;
+        border-radius: 12px;
+        font-weight: 600;
+        text-transform: none;
+        font-size: 15px;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+    }
+
+    .helper-text {
+        color: #64748b;
+    }
+
+    .selected-user-box {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #f8fafc;
+    }
+
+    @@media (max-width: 900px) {
+        .tenant-login-card {
+            grid-template-columns: 1fr;
+        }
+
+        .tenant-login-left,
+        .tenant-login-right {
+            padding: 28px 22px;
+        }
+    }
+</style>
+@code {
+    private readonly TenantLoginVm _model = new();
+    private bool _isLoading;
+    private bool _showPassword;
+    private bool _rememberMe = true;
+    private string? _errorMessage;
+
+    private async Task HandleLoginAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var request = new TenantLoginRequest
+            {
+                UserIdOrEmail = _model.UserIdOrEmail,
+                Password = _model.Password
+            };
+
+            var response = await AuthRepository.TenantLoginAsync(request);
+
+            if (!response.IsSuccess || response.ServerResponse is null)
+            {
+                var body = await response.GetBodyPartAsync();
+                _errorMessage = string.IsNullOrWhiteSpace(body) ? "Login failed." : body;
+                Snackbar.Add(_errorMessage, Severity.Error);
+                return;
+            }
+
+            await CompleteLoginAsync(response.ServerResponse);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CompleteLoginAsync(PlatformLoginResponse response)
+    {
+        await Session.SetSessionAsync(
+            response.Token,
+            response.Email,
+            response.Role,
+            response.FullName,
+            response.TenantId,
+            response.TenantName,
+            response.BranchId,
+            response.BranchName,
+            response.BranchCode);
+
+        Snackbar.Add("Login successful", Severity.Success);
+        Navigation.NavigateTo("/tenant/dashboard", true);
+    }
+
+    private void TogglePassword(MouseEventArgs _)
+    {
+        _showPassword = !_showPassword;
+    }
+}

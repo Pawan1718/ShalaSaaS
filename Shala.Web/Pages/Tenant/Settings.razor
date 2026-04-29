@@ -1,0 +1,182 @@
+﻿@page "/tenant/settings"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Web.Components.Common
+@inject NavigationManager Nav
+
+<PageTitle>Settings & Configuration</PageTitle>
+
+<AppPageShell>
+
+    <AppPageHeader Title="Settings & Configuration"
+                   Subtitle="Manage school setup, academics, users, finance, documents and operations" />
+
+    <div class="settings-layout">
+
+        <!-- 🔹 SIDEBAR -->
+        <aside class="settings-sidebar">
+            <AppSectionSidebar Title="Settings"
+                               Subtitle="Manage modules"
+                               Items="_sections"
+                               SelectedKey="_selectedSection"
+                               OnSelected="SelectSection" />
+        </aside>
+
+        <!-- 🔹 CONTENT -->
+        <main class="settings-content">
+
+            @switch (_selectedSection)
+            {
+                case "branding":
+                    @RenderBranding()
+                    break;
+
+                case "academic":
+                    @RenderAcademic()
+                    break;
+
+                case "admissions":
+                    @RenderAdmissions()
+                    break;
+
+                case "users":
+                    @RenderUsers()
+                    break;
+
+                case "finance":
+                    @RenderFinance()
+                    break;
+
+                case "documents":
+                    @RenderDocuments()
+                    break;
+
+                case "supplies":
+                    @RenderSupplies()
+                    break;
+
+                default:
+                    @RenderBranding()
+                    break;
+            }
+
+        </main>
+    </div>
+
+</AppPageShell>
+
+@code {
+
+    private string _selectedSection = "branding";
+
+    private readonly List<AppSectionSidebarItem> _sections =
+    [
+        new() { Key = "branding", Text = "School & Branding", Icon = Icons.Material.Filled.Business },
+        new() { Key = "academic", Text = "Academic Setup", Icon = Icons.Material.Filled.School },
+        new() { Key = "admissions", Text = "Admissions", Icon = Icons.Material.Filled.HowToReg },
+        new() { Key = "users", Text = "Users & Access", Icon = Icons.Material.Filled.Group },
+        new() { Key = "finance", Text = "Finance", Icon = Icons.Material.Filled.AccountBalanceWallet },
+        new() { Key = "documents", Text = "Documents", Icon = Icons.Material.Filled.Description },
+        new() { Key = "supplies", Text = "Supplies", Icon = Icons.Material.Filled.Inventory2 }
+    ];
+
+    private Task SelectSection(string key)
+    {
+        _selectedSection = key;
+        return Task.CompletedTask;
+    }
+
+    // 🔹 SECTION RENDERERS
+
+    private RenderFragment RenderBranding() => @<MudGrid Spacing="3">
+
+        <MudItem xs="12" md="6">
+            <AppCard>
+                <MudText Typo="Typo.h6">Branch Document Profile</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Configure receipt branding, logo, colors and behavior
+                </MudText>
+
+                <AppButton Class="mt-3"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo("/tenant/settings/branch-document-profile"))">
+                    Open
+                </AppButton>
+            </AppCard>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <AppCard>
+                <MudText Typo="Typo.h6">Document Models</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Manage checklist and reusable document templates
+                </MudText>
+
+                <AppButton Class="mt-3"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo("/tenant/settings/document-models"))">
+                    Open
+                </AppButton>
+            </AppCard>
+        </MudItem>
+
+    </MudGrid>;
+
+    private RenderFragment RenderAcademic() => @<MudGrid Spacing="3">
+
+        @Card("Academic Years", "/students/setup/academic-years", Icons.Material.Filled.CalendarMonth)
+        @Card("Classes", "/students/setup/classes", Icons.Material.Filled.Class)
+        @Card("Sections", "/students/setup/sections", Icons.Material.Filled.ViewWeek)
+        @Card("Roll Number Settings", "/students/setup/roll-number-settings", Icons.Material.Filled.FormatListNumbered)
+
+    </MudGrid>;
+
+    private RenderFragment RenderAdmissions() => @<MudGrid Spacing="3">
+
+        @Card("Registration Configuration", "/settings/registration-configuration", Icons.Material.Filled.HowToReg)
+
+    </MudGrid>;
+
+    private RenderFragment RenderUsers() => @<MudGrid Spacing="3">
+
+        @Card("Users", "/tenant/users", Icons.Material.Filled.Group)
+
+    </MudGrid>;
+
+    private RenderFragment RenderFinance() => @<MudGrid Spacing="3">
+
+        @Card("Fee Heads", "/tenant/settings/fees/heads", Icons.Material.Filled.ReceiptLong)
+        @Card("Fee Structures", "/tenant/settings/fees/structures", Icons.Material.Filled.AccountBalanceWallet)
+
+    </MudGrid>;
+
+    private RenderFragment RenderDocuments() => @<MudGrid Spacing="3">
+
+        @Card("Document Models", "/tenant/settings/document-models", Icons.Material.Filled.Description)
+
+    </MudGrid>;
+
+    private RenderFragment RenderSupplies() => @<MudGrid Spacing="3">
+
+        @Card("Supplies Dashboard", "/tenant/supplies", Icons.Material.Filled.Inventory2)
+
+    </MudGrid>;
+
+    // 🔹 reusable card helper
+    private RenderFragment Card(string title, string url, string icon) => @<MudItem xs="12" md="4">
+        <AppCard>
+            <MudStack Spacing="2">
+                <MudIcon Icon="@icon" />
+
+                <MudText Typo="Typo.subtitle1">@title</MudText>
+
+                <AppButton EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="@(() => Nav.NavigateTo(url))">
+                    Open
+                </AppButton>
+            </MudStack>
+        </AppCard>
+    </MudItem>;
+}

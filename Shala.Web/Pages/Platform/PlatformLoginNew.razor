@@ -1,0 +1,192 @@
+﻿@page "/platform/login"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Identity
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.AuthRepo
+@using Shala.Web.Services.State
+
+@inject IAuthRepository AuthRepository
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ApiSession Session
+
+<PageTitle>Platform Login</PageTitle>
+
+<div class="login-page">
+    <AppCard Class="login-card" Elevation="6" PaddingClass="pa-0">
+        <div class="login-card-body">
+
+            <div class="login-header">
+                <MudAvatar Size="Size.Large" Class="login-avatar">
+                    <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Large" />
+                </MudAvatar>
+
+                <MudText Typo="Typo.h4" Class="login-title">Shala Platform</MudText>
+                <MudText Typo="Typo.body2" Class="login-subtitle">
+                    Sign in to access your platform dashboard
+                </MudText>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_errorMessage))
+            {
+                <AppError Message="@_errorMessage" Class="mb-4" />
+            }
+
+            <EditForm Model="_model" OnValidSubmit="HandleLoginAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <AppTextField @bind-Value="_model.Email"
+                              Label="Email Address"
+                              Placeholder="Enter your email"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Email"
+                              Class="mb-4"
+                              autocomplete="username" />
+
+                <AppTextField @bind-Value="_model.Password"
+                              Label="Password"
+                              Placeholder="Enter your password"
+                              IsPassword="true"
+                              Class="mb-2"
+                              autocomplete="current-password" />
+
+                <AppButton ButtonType="ButtonType.Submit"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Disabled="_isLoading"
+                           Class="login-button">
+                    @if (_isLoading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" />
+                        <span>Signing in...</span>
+                    }
+                    else
+                    {
+                        <span>Sign In</span>
+                    }
+                </AppButton>
+            </EditForm>
+        </div>
+    </AppCard>
+</div>
+
+<style>
+    .login-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.16), transparent 30%), radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.14), transparent 28%), linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 430px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+    }
+
+    .login-card-body {
+        padding: 32px 28px;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .login-avatar {
+        margin: 0 auto 16px auto;
+        background: linear-gradient(135deg, #4f46e5, #2563eb);
+        color: white;
+        width: 64px;
+        height: 64px;
+    }
+
+    .login-title {
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: #0f172a;
+    }
+
+    .login-subtitle {
+        color: #64748b;
+    }
+
+    .login-button {
+        height: 50px;
+        border-radius: 12px;
+        font-weight: 600;
+        text-transform: none;
+        font-size: 15px;
+    }
+</style>
+
+@code {
+    private PlatformLoginRequest _model = new();
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    private async Task HandleLoginAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var response = await AuthRepository.PlatformLoginAsync(_model);
+
+            if (!response.IsSuccess || response.ServerResponse is null)
+            {
+                _errorMessage = !string.IsNullOrWhiteSpace(response.Message)
+                    ? response.Message
+                    : "Login failed.";
+
+                Snackbar.Add(_errorMessage, Severity.Error);
+                return;
+            }
+
+            var login = response.ServerResponse;
+
+            if (string.IsNullOrWhiteSpace(login.Token))
+            {
+                _errorMessage = "Login token was not returned.";
+                Snackbar.Add(_errorMessage, Severity.Error);
+                return;
+            }
+
+            await Session.SetSessionAsync(
+       login.Token,
+       login.Email,
+       login.Role,
+       login.FullName,
+       login.TenantId,
+       login.TenantName ?? "Platform",
+       branchId: login.BranchId,
+       branchName: login.BranchName,
+       branchCode: login.BranchCode);
+
+            Snackbar.Add(response.Message ?? "Login successful.", Severity.Success);
+            Navigation.NavigateTo("/platform/dashboard", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? "Unable to sign in right now."
+                : ex.Message;
+
+            Snackbar.Add(_errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

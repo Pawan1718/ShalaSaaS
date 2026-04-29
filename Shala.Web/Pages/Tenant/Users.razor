@@ -1,0 +1,121 @@
+﻿@page "/tenant/users"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories.TenantRepo
+
+@inject TenantUserRepository UserRepo
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Users</PageTitle>
+
+<AppPageShell>
+    <AppPageHeader Title="Users"
+                   Subtitle="Manage your staff users">
+        <Actions>
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenCreateDialog">
+                Add User
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
+
+    <AppCard>
+        <MudTable Items="@_users" Dense="true" Hover="true" Loading="@_isLoading">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Role</MudTh>
+                <MudTh>Default Branch</MudTh>
+                <MudTh>Allowed Branches</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Role">@string.Join(", ", context.Roles)</MudTd>
+                <MudTd DataLabel="Default Branch">@context.DefaultBranchName</MudTd>
+                <MudTd DataLabel="Allowed Branches">@string.Join(", ", context.AllowedBranchNames)</MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <AppEmptyState Title="No users found"
+                               Message="Add your first staff user to get started." />
+            </NoRecordsContent>
+
+            <LoadingContent>
+                <AppLoader Message="Loading users..." />
+            </LoadingContent>
+        </MudTable>
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">
+                @_errorMessage
+            </MudAlert>
+        }
+    </AppCard>
+</AppPageShell>
+
+@code {
+    private List<UserListItemResponse> _users = new();
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var res = await UserRepo.GetUsersAsync();
+
+            if (res.IsSuccess && res.ServerResponse is not null)
+            {
+                _users = res.ServerResponse;
+                return;
+            }
+
+            _errorMessage = "Failed to load users.";
+            Snackbar.Add(_errorMessage, Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            Snackbar.Add("Failed to load users", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var dialog = await DialogService.ShowAsync<CreateTenantUserDialog>(
+            "Create User",
+            new DialogOptions
+            {
+                FullWidth = true,
+                MaxWidth = MaxWidth.Medium
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadUsers();
+        }
+    }
+}

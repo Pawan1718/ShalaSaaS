@@ -1,0 +1,369 @@
+﻿@page "/tenant/supplies/give"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Domain.Enums
+@using Shala.Shared.Requests.Students
+@using Shala.Shared.Requests.Supplies
+@using Shala.Shared.Responses.Students
+@using Shala.Shared.Responses.Supplies
+@using Shala.Web.Components.Common
+@using Shala.Web.Models.Supplies
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Repositories.Supplies
+@using Shala.Web.Services.State
+
+@inject ISuppliesWebRepository SuppliesRepo
+@inject IStudentRepository StudentRepo
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Give Items</PageTitle>
+
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppPageHeader Title="Give Items"
+                   Subtitle="Search student, add items, take payment, save bill" />
+
+    <AppCard>
+        <AppToolbar>
+            <Filters>
+                <div class="give-search">
+                    <AppSearchBox Label="Search Student"
+                                  Placeholder="Name / admission no / mobile"
+                                  @bind-Value="_studentSearch" />
+                </div>
+            </Filters>
+
+            <Actions>
+                <AppButton StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="@((MouseEventArgs _) => SearchStudentsAsync())">
+                    Search
+                </AppButton>
+            </Actions>
+        </AppToolbar>
+
+        @if (_students.Any())
+        {
+            <MudTable T="StudentListItemResponse" Items="@_students" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Admission No</MudTh>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Mobile</MudTh>
+                    <MudTh Align="Align.Right">Action</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>@context.FullName</MudTd>
+                    <MudTd>@context.AdmissionNo</MudTd>
+                    <MudTd>@context.CurrentClass - @context.CurrentSection</MudTd>
+                    <MudTd>@context.Mobile</MudTd>
+                    <MudTd Align="Align.Right">
+                        <AppButton Size="Size.Small"
+                                   OnClick="@((MouseEventArgs _) => SelectStudentAsync(context))">
+                            Select
+                        </AppButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+
+        @if (_selectedStudent is not null)
+        {
+            <AppError Message="@($"Selected: {_selectedStudent.FullName} | Adm No: {_selectedStudent.AdmissionNo}")"
+                      Severity="Severity.Success"
+                      Variant="Variant.Outlined"
+                      Class="mt-3" />
+        }
+    </AppCard>
+
+    <AppTableCard TItem="SupplyIssueRowVm"
+                  Class="mt-4"
+                  Title="Items"
+                  Subtitle="@($"{_rows.Count} item row(s)")"
+                  IsLoading="false"
+                  IsEmpty="@(!_rows.Any())"
+                  EmptyTitle="No items added"
+                  EmptyMessage="Add at least one item to create bill.">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@((MouseEventArgs _) => AddRow())">
+                Add Item
+            </AppButton>
+        </Actions>
+
+        <EmptyActions>
+            <AppButton StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@((MouseEventArgs _) => AddRow())">
+                Add Item
+            </AppButton>
+        </EmptyActions>
+
+        <ChildContent>
+            <MudTable T="SupplyIssueRowVm" Items="@_rows" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Item</MudTh>
+                    <MudTh>Qty</MudTh>
+                    <MudTh Align="Align.Right">Price</MudTh>
+                    <MudTh Align="Align.Right">Total</MudTh>
+                    <MudTh Align="Align.Right">Action</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd>
+                        <AppFilterSelect TValue="int"
+                                         TItem="SupplyItemResponse"
+                                         Label="Item"
+                                         Value="@context.SupplyItemId"
+                                         ValueChanged="@(v => OnItemChanged(context, v))"
+                                         Items="@_items"
+                                         ValueSelector="@(x => x.Id)"
+                                         TextSelector="@(x => $"{x.Name} | Stock: {x.CurrentStock}")"
+                                         Clearable="false" />
+                    </MudTd>
+
+                    <MudTd>
+                        <MudNumericField T="decimal"
+                                         Value="@context.Quantity"
+                                         ValueChanged="@((decimal v) => OnQuantityChanged(context, v))"
+                                         Variant="Variant.Outlined"
+                                         Margin="Margin.Dense"
+                                         Min="0" />
+                    </MudTd>
+
+                    <MudTd Align="Align.Right">₹@context.UnitPrice.ToString("N2")</MudTd>
+                    <MudTd Align="Align.Right">₹@context.LineTotal.ToString("N2")</MudTd>
+
+                    <MudTd Align="Align.Right">
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       OnClick="@(() => RemoveRow(context))" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudDivider Class="my-4" />
+
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <AppStatCard Label="Total"
+                                 Value="@Total.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.ReceiptLong" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="decimal"
+                                     Label="Paid"
+                                     @bind-Value="_paidAmount"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     Min="0" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppStatCard Label="Due"
+                                 Value="@Due.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.PendingActions"
+                                 Color="Color.Warning" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudSelect T="SupplyPaymentMode"
+                               Label="Payment Mode"
+                               @bind-Value="_paymentMode"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense">
+                        <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Cash">Cash</MudSelectItem>
+                        <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Upi">UPI</MudSelectItem>
+                        <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Bank">Bank</MudSelectItem>
+                        <MudSelectItem T="SupplyPaymentMode" Value="SupplyPaymentMode.Card">Card</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <AppButton Class="mt-4"
+                       Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Print"
+                       Disabled="@_saving"
+                       OnClick="@((MouseEventArgs _) => SaveAsync())">
+                @(_saving ? "Saving..." : "Save & Print")
+            </AppButton>
+        </ChildContent>
+    </AppTableCard>
+</AppPageShell>
+
+@if (_lastIssue is not null)
+{
+    <Shala.Web.Components.Supplies.SupplyBillPrint Issue="_lastIssue" />
+}
+
+@code {
+    private bool _saving;
+    private string? _studentSearch;
+    private int _academicYearId = 1;
+    private StudentListItemResponse? _selectedStudent;
+    private int _selectedAdmissionId;
+
+    private List<StudentListItemResponse> _students = [];
+    private List<SupplyItemResponse> _items = [];
+    private List<SupplyIssueRowVm> _rows = [];
+
+    private decimal _paidAmount;
+    private SupplyPaymentMode _paymentMode = SupplyPaymentMode.Cash;
+    private StudentSupplyIssueResponse? _lastIssue;
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Supplies", "/tenant/supplies"),
+        new("Give Items", null, true)
+    ];
+
+    private decimal Total => _rows.Sum(x => x.LineTotal);
+    private decimal Due => Total - _paidAmount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+
+        _items = await SuppliesRepo.GetItemsAsync(true);
+
+        if (!_rows.Any())
+            AddRow();
+    }
+
+    private async Task SearchStudentsAsync()
+    {
+        var res = await StudentRepo.GetPagedAsync(new StudentListRequest
+        {
+            Search = _studentSearch,
+            PageNumber = 1,
+            PageSize = 10
+        });
+
+        _students = res?.Data?.Items?.ToList() ?? [];
+    }
+
+    private async Task SelectStudentAsync(StudentListItemResponse student)
+    {
+        _selectedStudent = student;
+        _students.Clear();
+
+        var detail = await StudentRepo.GetByIdAsync(student.Id, Session.TenantId ?? 0);
+
+        var admission = detail?.Data?.Admissions?
+            .FirstOrDefault(x => string.Equals(x.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            ?? detail?.Data?.Admissions?.FirstOrDefault();
+
+        _selectedAdmissionId = admission?.Id ?? 0;
+
+        _academicYearId = 1;
+    }
+
+    private void AddRow()
+    {
+        _rows.Add(new SupplyIssueRowVm
+        {
+            Quantity = 1
+        });
+    }
+
+    private void RemoveRow(SupplyIssueRowVm row)
+    {
+        _rows.Remove(row);
+    }
+
+    private void OnItemChanged(SupplyIssueRowVm row, int itemId)
+    {
+        var item = _items.FirstOrDefault(x => x.Id == itemId);
+
+        row.SupplyItemId = itemId;
+        row.Item = item;
+        row.UnitPrice = item?.SalePrice ?? 0;
+    }
+
+    private void OnQuantityChanged(SupplyIssueRowVm row, decimal quantity)
+    {
+        row.Quantity = quantity;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_selectedStudent is null || _selectedAdmissionId <= 0)
+        {
+            Snackbar.Add("Please select student.", Severity.Warning);
+            return;
+        }
+
+        if (_rows.Count == 0 || _rows.Any(x => x.SupplyItemId <= 0))
+        {
+            Snackbar.Add("Please select items.", Severity.Warning);
+            return;
+        }
+
+        if (_rows.Any(x => x.Quantity <= 0))
+        {
+            Snackbar.Add("Quantity must be greater than zero.", Severity.Warning);
+            return;
+        }
+
+        foreach (var row in _rows)
+        {
+            if (row.Item is not null && row.Quantity > row.Item.CurrentStock)
+            {
+                Snackbar.Add($"{row.Item.Name} stock available: {row.Item.CurrentStock}", Severity.Error);
+                return;
+            }
+        }
+
+        if (_paidAmount > Total)
+        {
+            Snackbar.Add("Paid amount cannot be greater than total.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            _lastIssue = await SuppliesRepo.CreateIssueAsync(new CreateStudentSupplyIssueRequest
+            {
+                AcademicYearId = _academicYearId,
+                StudentId = _selectedStudent.Id,
+                StudentAdmissionId = _selectedAdmissionId,
+                PaidAmount = _paidAmount,
+                PaymentMode = _paymentMode,
+                Items = _rows.Select(x => new CreateStudentSupplyIssueItemRequest
+                {
+                    SupplyItemId = x.SupplyItemId,
+                    Quantity = x.Quantity,
+                    UnitPrice = x.UnitPrice
+                }).ToList()
+            });
+
+            Snackbar.Add("Bill saved.", Severity.Success);
+
+            await Task.Delay(300);
+            await JSPrintAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task JSPrintAsync()
+    {
+        await JS.InvokeVoidAsync("supplyPrint.print", "supply-bill-print");
+    }
+}

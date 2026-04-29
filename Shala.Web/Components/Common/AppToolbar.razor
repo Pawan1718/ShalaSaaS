@@ -1,0 +1,27 @@
+﻿@using MudBlazor
+
+<AppCard Class="@Class" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default);">
+    <MudStack Row="true"
+              Spacing="2"
+              AlignItems="AlignItems.End"
+              Justify="Justify.SpaceBetween"
+              Wrap="Wrap.Wrap">
+
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Wrap="Wrap.Wrap" Class="flex-grow-1">
+            @Filters
+        </MudStack>
+
+        @if (Actions is not null)
+        {
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                @Actions
+            </MudStack>
+        }
+    </MudStack>
+</AppCard>
+
+@code {
+    [Parameter] public RenderFragment? Filters { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public string? Class { get; set; } = "mb-4";
+}

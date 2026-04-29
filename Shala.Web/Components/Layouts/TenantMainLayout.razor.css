@@ -1,0 +1,230 @@
+﻿.tenant-layout-shell {
+    min-height: 100vh;
+    background: #f5f7fb;
+}
+
+.tenant-drawer {
+    background: linear-gradient(180deg, #111827 0%, #1f2937 100%) !important;
+    color: #ffffff;
+}
+
+.tenant-drawer-inner {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+}
+
+.tenant-brand-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 0;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.08);
+    cursor: pointer;
+    text-align: left;
+    margin-bottom: 16px;
+}
+
+    .tenant-brand-card img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 4px;
+    }
+
+.tenant-brand-text {
+    overflow: hidden;
+}
+
+.tenant-brand-title {
+    color: #ffffff;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tenant-brand-subtitle {
+    color: rgba(255,255,255,0.68);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tenant-nav-menu {
+    margin-top: 4px;
+}
+
+    .tenant-nav-menu .mud-nav-link {
+        color: rgba(255,255,255,0.78) !important;
+        border-radius: 14px;
+        margin: 4px 0;
+        padding: 10px 12px;
+    }
+
+        .tenant-nav-menu .mud-nav-link .mud-icon-root {
+            color: rgba(255,255,255,0.78) !important;
+        }
+
+        .tenant-nav-menu .mud-nav-link.active,
+        .tenant-nav-menu .mud-nav-link.mud-nav-link-active {
+            background: #ffffff !important;
+            color: #111827 !important;
+            font-weight: 800;
+        }
+
+            .tenant-nav-menu .mud-nav-link.active .mud-nav-link-text,
+            .tenant-nav-menu .mud-nav-link.mud-nav-link-active .mud-nav-link-text,
+            .tenant-nav-menu .mud-nav-link.active .mud-icon-root,
+            .tenant-nav-menu .mud-nav-link.mud-nav-link-active .mud-icon-root {
+                color: #111827 !important;
+            }
+
+.tenant-sidebar-bottom {
+    margin-top: auto;
+    padding-top: 16px;
+}
+
+.tenant-section-label {
+    color: rgba(255,255,255,0.56);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+}
+
+.tenant-user-card,
+.tenant-branch-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.08);
+    margin-bottom: 12px;
+}
+
+.tenant-user-info {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.tenant-user-name,
+.tenant-branch-title {
+    color: #ffffff;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tenant-user-email,
+.tenant-branch-subtitle {
+    color: rgba(255,255,255,0.68);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tenant-role-pill {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(59,130,246,0.24);
+    color: #bfdbfe;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.tenant-branch-icon {
+    color: #ffffff !important;
+}
+
+.tenant-divider {
+    background: rgba(255,255,255,0.16);
+    margin: 12px 0;
+}
+
+.tenant-logout-btn {
+    margin-top: 10px;
+    border-radius: 14px;
+    font-weight: 800;
+}
+
+.tenant-main {
+    min-height: 100vh;
+}
+
+.tenant-topbar {
+    height: 72px;
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-bottom: 1px solid rgba(17,24,39,0.08);
+    padding: 0 20px;
+}
+
+.tenant-menu-btn {
+    margin-right: 10px;
+}
+
+.tenant-topbar-school {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.tenant-topbar-title {
+    font-weight: 900;
+    color: #111827;
+}
+
+.tenant-topbar-subtitle {
+    color: #6b7280;
+}
+
+.tenant-topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: 14px;
+}
+
+.tenant-topbar-user-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.tenant-topbar-user-name {
+    font-weight: 800;
+    color: #111827;
+}
+
+.tenant-topbar-user-role {
+    color: #6b7280;
+}
+
+.tenant-topbar-logout {
+    font-weight: 800;
+}
+
+.tenant-page-container {
+    padding: 24px;
+}
+
+@media (max-width: 768px) {
+    .tenant-topbar-user,
+    .tenant-topbar-logout {
+        display: none;
+    }
+
+    .tenant-page-container {
+        padding: 16px;
+    }
+}

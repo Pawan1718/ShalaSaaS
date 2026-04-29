@@ -1,0 +1,64 @@
+@using MudBlazor
+
+<MudPaper Class="pa-3 report-sidebar" Elevation="1">
+    <MudStack Spacing="1">
+        @foreach (var grp in Sections)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 px-2">
+                @grp.Title
+            </MudText>
+
+            @foreach (var item in grp.Items)
+            {
+                <MudButton FullWidth="true"
+                           Variant="@(ActiveReportKey == item.Key ? Variant.Filled : Variant.Text)"
+                           Color="Color.Primary"
+                           StartIcon="@item.Icon"
+                           OnClick="() => OnReportChanged.InvokeAsync(item.Key)">
+                    @item.Label
+                </MudButton>
+            }
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string ActiveReportKey { get; set; } = "dashboard";
+    [Parameter] public EventCallback<string> OnReportChanged { get; set; }
+
+    private static readonly List<ReportSection> Sections = new()
+    {
+        new("Overview", new()
+        {
+            new("dashboard", "Dashboard", Icons.Material.Filled.Dashboard)
+        }),
+        new("Students", new()
+        {
+            new("student-master", "Student Master", Icons.Material.Filled.Groups),
+            new("student-dob-age", "DOB & Age", Icons.Material.Filled.Cake)
+        }),
+
+        new("Admissions", new()
+        {
+            new("admission-register", "Admission Register", Icons.Material.Filled.AppRegistration)
+        }),
+        new("Fees", new()
+        {
+            new("fee-collection", "Fee Collection", Icons.Material.Filled.Payments),
+            new("outstanding-fees", "Outstanding", Icons.Material.Filled.WarningAmber),
+            new("student-ledger", "Student Ledger", Icons.Material.Filled.AccountBalanceWallet),
+            new("receipt-register", "Receipt Register", Icons.Material.Filled.ReceiptLong)
+        }),
+        new("Academic", new()
+        {
+            new("academic-strength", "Class Strength", Icons.Material.Filled.Class)
+        }),
+        new("Documents", new()
+        {
+            new("pending-documents", "Pending Documents", Icons.Material.Filled.FolderCopy)
+        })
+    };
+
+    private sealed record ReportSection(string Title, List<ReportMenuItem> Items);
+    private sealed record ReportMenuItem(string Key, string Label, string Icon);
+}

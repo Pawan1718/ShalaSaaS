@@ -1,0 +1,126 @@
+﻿@using MudBlazor
+@using Shala.Shared.Requests
+@using Shala.Shared.Requests.Platform
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject ITenantRepository TenantRepository
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.SchoolName"
+                              Label="School Name" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.BusinessCategory"
+                              Label="Business Category" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.Email"
+                              Label="Tenant Email" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.MobileNumber"
+                              Label="Mobile Number" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="string"
+                           @bind-Value="_model.SubscriptionPlan"
+                           Label="Subscription Plan"
+                           Variant="Variant.Outlined"
+                           FullWidth="true">
+                    <MudSelectItem T="string" Value="@("Basic")">Basic</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Premium")">Premium</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.AdminFullName"
+                              Label="Admin Full Name" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.AdminEmail"
+                              Label="Admin Email" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <AppTextField @bind-Value="_model.AdminPassword"
+                              Label="Admin Password"
+                              IsPassword="true"
+                              InputType="InputType.Password" />
+
+                <MudText Typo="Typo.caption" Class="mt-1 text-warning">
+                    Password must be at least 8 characters and include uppercase, lowercase, number, and special character.
+                </MudText>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel"
+                   Variant="Variant.Text">
+            Cancel
+        </MudButton>
+
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_isSubmitting">
+            Create
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private CreateTenantRequest _model = new();
+    private bool _isSubmitting;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+
+        try
+        {
+            var response = await TenantRepository.CreateTenantAsync(_model);
+
+            if (response.IsSuccess && response.ServerResponse is not null)
+            {
+                Snackbar.Add("Tenant created successfully", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(response.ServerResponse.TenantId));
+            }
+            else
+            {
+                var body = await response.GetBodyPartAsync();
+                Snackbar.Add(
+                    string.IsNullOrWhiteSpace(body) ? "Failed to create tenant" : body,
+                    Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

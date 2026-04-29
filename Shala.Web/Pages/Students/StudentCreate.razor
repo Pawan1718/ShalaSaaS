@@ -1,0 +1,299 @@
+﻿
+
+@page "/tenant/students/create"
+
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Students
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+
+@inject IStudentRepository StudentRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@layout Components.Layouts.TenantMainLayout
+
+<PageTitle>Add Student</PageTitle>
+
+<AppPageShell>
+
+    <AppPageHeader Title="Add Student"
+                   Subtitle="Create a new student profile with guardian details">
+        <Actions>
+            <AppButton Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@((MouseEventArgs _) => GoBack())">
+                Back
+            </AppButton>
+        </Actions>
+    </AppPageHeader>
+
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <!-- BASIC INFO -->
+        <AppCard>
+            <MudText Typo="Typo.h6" Class="mb-3">Basic Information</MudText>
+
+            <MudGrid Spacing="2">
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="First Name"
+                                  @bind-Value="_model.FirstName"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Middle Name"
+                                  @bind-Value="_model.MiddleName" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Last Name"
+                                  @bind-Value="_model.LastName"
+                                  Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudSelect T="int"
+                               Label="Gender"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               @bind-Value="_model.Gender"
+                               Required="true">
+                        <MudSelectItem Value="1">Male</MudSelectItem>
+                        <MudSelectItem Value="2">Female</MudSelectItem>
+                        <MudSelectItem Value="3">Other</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="Date of Birth"
+                                   Variant="Variant.Outlined"
+                                   Margin="Margin.Dense"
+                                   Date="_dateOfBirth"
+                                   DateChanged="OnDateChanged" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Aadhaar No"
+                                  @bind-Value="_model.AadhaarNo" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Blood Group"
+                                  @bind-Value="_model.BloodGroup" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Mobile"
+                                  @bind-Value="_model.Mobile" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <AppTextField Label="Email"
+                                  @bind-Value="_model.Email" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <AppTextField Label="Photo URL"
+                                  @bind-Value="_model.PhotoUrl" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <AppTextField Label="Address"
+                                  Lines="3"
+                                  @bind-Value="_model.Address" />
+                </MudItem>
+
+            </MudGrid>
+        </AppCard>
+
+        <!-- GUARDIAN -->
+        <AppCard Class="mt-4">
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.h6">Guardian Details</MudText>
+
+                <AppButton StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@((MouseEventArgs _) => AddGuardian())">
+                    Add Guardian
+                </AppButton>
+            </MudStack>
+
+            @if (_guardianValidationError)
+            {
+                <AppError Message="At least one guardian is required and one must be primary." Class="mb-3" />
+            }
+
+            @for (var i = 0; i < _model.Guardians.Count; i++)
+            {
+                var index = i;
+                var guardian = _model.Guardians[index];
+                var displayNumber = index + 1;
+
+                <AppCard Class="mb-3" PaddingClass="pa-3" @key="guardian">
+
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1">Guardian @displayNumber</MudText>
+
+                        <AppButton Variant="Variant.Text"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Disabled="@(_model.Guardians.Count == 1)"
+                                   OnClick="@((MouseEventArgs _) => RemoveGuardian(index))">
+                            Remove
+                        </AppButton>
+                    </MudStack>
+
+                    <MudGrid Spacing="2">
+
+                        <MudItem xs="12" md="3">
+                            <AppTextField Label="Name"
+                                          @bind-Value="guardian.Name"
+                                          Required="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int"
+                                       Label="Relation"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense"
+                                       @bind-Value="guardian.RelationType">
+                                <MudSelectItem Value="1">Father</MudSelectItem>
+                                <MudSelectItem Value="2">Mother</MudSelectItem>
+                                <MudSelectItem Value="3">Guardian</MudSelectItem>
+                                <MudSelectItem Value="4">Other</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" md="3">
+                            <AppTextField Label="Mobile"
+                                          @bind-Value="guardian.Mobile"
+                                          Required="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="3">
+                            <MudCheckBox T="bool"
+                                         Label="Primary"
+                                         @bind-Value="guardian.IsPrimary" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <AppTextField Label="Email"
+                                          @bind-Value="guardian.Email" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <AppTextField Label="Occupation"
+                                          @bind-Value="guardian.Occupation" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <AppTextField Label="Address"
+                                          @bind-Value="guardian.Address" />
+                        </MudItem>
+
+                    </MudGrid>
+                </AppCard>
+            }
+        </AppCard>
+
+        <!-- ACTION -->
+        <AppCard Class="mt-4">
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+
+                <AppButton Variant="Variant.Text"
+                           OnClick="@((MouseEventArgs _) => GoBack())">
+                    Cancel
+                </AppButton>
+
+                <AppButton ButtonType="ButtonType.Submit"
+                           Disabled="_saving"
+                           StartIcon="@Icons.Material.Filled.Save">
+                    @(_saving ? "Saving..." : "Save Student")
+                </AppButton>
+
+            </MudStack>
+        </AppCard>
+
+    </EditForm>
+
+</AppPageShell>
+
+@code {
+    private CreateStudentRequest _model = new();
+    private DateTime? _dateOfBirth = DateTime.Today;
+    private bool _saving;
+    private bool _guardianValidationError;
+
+    protected override void OnInitialized()
+    {
+        _model = new CreateStudentRequest();
+
+        _model.Gender = 1;
+        _model.DateOfBirth = DateTime.Today;
+        _dateOfBirth = DateTime.Today;
+
+        _model.Guardians.Clear();
+        _model.Guardians.Add(CreateDefaultGuardian(true));
+    }
+    private void OnDateChanged(DateTime? value)
+    {
+        _dateOfBirth = value;
+        _model.DateOfBirth = value ?? DateTime.Today;
+    }
+
+    private void AddGuardian()
+    {
+        _model.Guardians.Add(CreateDefaultGuardian(false));
+    }
+    private void RemoveGuardian(int index)
+    {
+        if (_model.Guardians.Count <= 1)
+            return;
+
+        if (index < 0 || index >= _model.Guardians.Count)
+            return;
+
+        var wasPrimary = _model.Guardians[index].IsPrimary;
+
+        _model.Guardians.RemoveAt(index);
+
+        if (wasPrimary && _model.Guardians.Count > 0)
+            _model.Guardians[0].IsPrimary = true;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _guardianValidationError = false;
+
+        if (!_model.Guardians.Any(x => x.IsPrimary))
+        {
+            _guardianValidationError = true;
+            return;
+        }
+
+        _saving = true;
+
+        var response = await StudentRepository.CreateAsync(_model);
+
+        if (response?.Success == true)
+            Navigation.NavigateTo($"/tenant/students/{response.Data.Id}");
+
+        _saving = false;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/tenant/students");
+
+    private static CreateGuardianRequest CreateDefaultGuardian(bool isPrimary = false)
+      => new()
+      {
+          RelationType = 1,
+          IsPrimary = isPrimary
+      };
+}

@@ -1,0 +1,778 @@
+﻿@page "/tenant/reports"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using MudBlazor
+@using Shala.Shared.Common
+@using Shala.Shared.Requests.Reports
+@using Shala.Shared.Responses.Reports
+@using Shala.Shared.Responses.Students
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Interfaces
+@using Shala.Web.Services.State
+@using Shala.Web.Components.Reports
+@using Shala.Web.Repositories.Reports
+@using Shala.Web.Services.Http
+
+@inject IReportsWebRepository ReportsRepo
+@inject IStudentLookupRepository StudentLookupRepository
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Reports & Analytics</PageTitle>
+
+<style>
+    .reports-print-hide { }
+    .reports-shell { max-width: 1600px; margin: 0 auto; }
+    .report-sidebar, .report-toolbar, .report-metric-card, .report-filter-card, .report-table-card { border-radius: 18px; }
+    .report-header { border-radius: 22px; background: linear-gradient(135deg, rgba(25,118,210,.10), rgba(76,175,80,.10)); }
+    @@media print {
+        .reports-print-hide, .mud-drawer, .mud-appbar, .mud-button-root { display: none !important; }
+        .mud-main-content { padding: 0 !important; }
+        .report-table-card, .report-metric-card { box-shadow: none !important; border: 1px solid #ddd; }
+        body { background: #fff !important; }
+    }
+</style>
+
+<MudStack Class="reports-shell" Spacing="3">
+    <MudPaper Class="pa-5 pa-md-6 report-header reports-print-hide" Elevation="2">
+        <MudGrid Spacing="3" AlignItems="AlignItems.Center">
+            <MudItem xs="12" md="8">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudAvatar Color="Color.Primary" Variant="Variant.Filled" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.QueryStats" />
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.h4">Reports & Analytics</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Simple reports center for students, admissions, fees, academics and documents.
+                        </MudText>
+                    </div>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="1" Wrap="Wrap.Wrap">
+                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@CurrentTitle</MudChip>
+                    <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined">@NowText</MudChip>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Dense="true">@_error</MudAlert>
+    }
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="3" Class="reports-print-hide">
+<AppSectionSidebar Title="Reports"
+                   Subtitle="Choose report type"
+                   Items="@ReportSidebarItems"
+                   SelectedKey="@_activeReportKey"
+                   OnSelected="ChangeReportAsync" />
+               </MudItem>
+
+        <MudItem xs="12" lg="9">
+            <MudStack Spacing="3">
+                <ReportToolbar Title="@CurrentTitle"
+                               Subtitle="@CurrentSubtitle"
+                               DisableExport="@(_activeReportKey == ReportKeys.Dashboard || _exporting)"
+                               OnApply="LoadCurrentReportAsync"
+                               OnReset="ResetAsync"
+                               OnExcel="ExportExcelAsync"
+                               OnPrint="PrintAsync"
+                               OnShare="ShareAsync" />
+
+                <ReportFilters Request="@_request"
+                               ShowAcademicFilters="@ShowAcademicFilters"
+                               ShowDateFilters="@ShowDateFilters"
+                               ShowStatusFilter="@ShowStatusFilter"
+                               ShowPaymentModeFilter="@ShowPaymentModeFilter"
+                               ShowStudentFilter="@(_activeReportKey == ReportKeys.StudentLedger)"
+                               AcademicYears="@_academicYears"
+                               Classes="@_classes"
+                               Sections="@_sections"
+                               StatusOptions="@StatusOptions"
+                               OnAcademicYearChanged="OnAcademicYearChangedAsync"
+                               OnClassChanged="OnClassChangedAsync"
+                               OnSectionChanged="OnSectionChangedAsync"
+                               OnPageSizeChanged="OnPageSizeChangedAsync" />
+
+                @RenderSummaryCards()
+
+                @if (_loading)
+                {
+                    <MudPaper Class="pa-8 d-flex justify-center" Elevation="0">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Color="Color.Secondary">Loading report...</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+                else
+                {
+                    @RenderCurrentTable()
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private static class ReportKeys
+    {
+        public const string Dashboard = "dashboard";
+        public const string StudentMaster = "student-master";
+        public const string AdmissionRegister = "admission-register";
+        public const string FeeCollection = "fee-collection";
+        public const string OutstandingFees = "outstanding-fees";
+        public const string StudentLedger = "student-ledger";
+        public const string ReceiptRegister = "receipt-register";
+        public const string AcademicStrength = "academic-strength";
+        public const string PendingDocuments = "pending-documents";
+        public const string StudentDobAge = "student-dob-age";
+    }
+
+    private string _activeReportKey = ReportKeys.Dashboard;
+    private ReportFilterRequest _request = new() { PageNumber = 1, PageSize = 10 };
+    private bool _loading;
+    private bool _exporting;
+    private string? _error;
+
+    private List<LookupItemResponse> _academicYears = new();
+    private List<LookupItemResponse> _classes = new();
+    private List<LookupItemResponse> _sections = new();
+
+    private ReportsDashboardResponse? _dashboard;
+    private PagedResult<StudentMasterReportResponse> _students = Empty<StudentMasterReportResponse>();
+    private PagedResult<AdmissionRegisterReportResponse> _admissions = Empty<AdmissionRegisterReportResponse>();
+    private PagedResult<FeeCollectionReportResponse> _collection = Empty<FeeCollectionReportResponse>();
+    private PagedResult<OutstandingFeeReportResponse> _outstanding = Empty<OutstandingFeeReportResponse>();
+    private PagedResult<StudentFeeLedgerReportResponse> _ledger = Empty<StudentFeeLedgerReportResponse>();
+    private PagedResult<ReceiptRegisterReportResponse> _receipts = Empty<ReceiptRegisterReportResponse>();
+    private PagedResult<AcademicStrengthReportResponse> _strength = Empty<AcademicStrengthReportResponse>();
+    private PagedResult<PendingDocumentReportResponse> _documents = Empty<PendingDocumentReportResponse>();
+    private PagedResult<StudentDobAgeReportResponse> _studentDobAge =
+    Empty<StudentDobAgeReportResponse>();
+
+    private string NowText => DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+    private string CurrentTitle => _activeReportKey switch
+    {
+        ReportKeys.Dashboard => "Dashboard",
+        ReportKeys.StudentMaster => "Student Master List",
+        ReportKeys.AdmissionRegister => "Admission Register",
+        ReportKeys.FeeCollection => "Fee Collection",
+        ReportKeys.OutstandingFees => "Outstanding / Defaulters",
+        ReportKeys.StudentLedger => "Student Fee Ledger",
+        ReportKeys.ReceiptRegister => "Receipt Register",
+        ReportKeys.AcademicStrength => "Class / Section Strength",
+        ReportKeys.PendingDocuments => "Pending Documents",
+        _ => "Reports"
+    };
+
+    private string CurrentSubtitle => _activeReportKey switch
+    {
+        ReportKeys.Dashboard => "Quick summary of school activity.",
+        ReportKeys.StudentLedger => "Use Student Id filter for a specific student ledger.",
+        _ => "Apply filters, review records, export Excel, print or share."
+    };
+
+    private bool ShowDateFilters => _activeReportKey is ReportKeys.AdmissionRegister or ReportKeys.FeeCollection or ReportKeys.StudentLedger or ReportKeys.ReceiptRegister;
+    private bool ShowPaymentModeFilter => _activeReportKey is ReportKeys.FeeCollection or ReportKeys.ReceiptRegister;
+    private bool ShowStatusFilter => _activeReportKey is ReportKeys.StudentMaster or ReportKeys.AdmissionRegister or ReportKeys.ReceiptRegister;
+    private bool ShowAcademicFilters =>
+    _activeReportKey is ReportKeys.StudentMaster
+        or ReportKeys.StudentDobAge
+        or ReportKeys.AdmissionRegister
+        or ReportKeys.OutstandingFees
+        or ReportKeys.AcademicStrength
+        or ReportKeys.PendingDocuments;
+
+    private IEnumerable<string> StatusOptions => _activeReportKey switch
+    {
+        ReportKeys.StudentMaster => new[] { "Active", "Inactive", "Left" },
+        ReportKeys.AdmissionRegister => new[] { "Active", "Cancelled", "Transferred" },
+        ReportKeys.ReceiptRegister => new[] { "Active", "Cancelled" },
+        _ => Array.Empty<string>()
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLookupsAsync();
+        await LoadCurrentReportAsync();
+    }
+
+    private static PagedResult<T> Empty<T>() => new() { Items = new List<T>(), PageNumber = 1, PageSize = 10, TotalCount = 0 };
+
+    private async Task LoadLookupsAsync()
+    {
+        try
+        {
+            await Session.InitializeAsync();
+
+            if (Session.TenantId is null)
+            {
+                Snackbar.Add("Tenant session not found. Please login again.", Severity.Error);
+                return;
+            }
+
+            var academicYearsResponse = await StudentLookupRepository.GetAcademicYearsAsync(Session.TenantId.Value);
+            _academicYears = academicYearsResponse?.Success == true && academicYearsResponse.Data is not null
+                ? academicYearsResponse.Data
+                : new List<LookupItemResponse>();
+
+            var classesResponse = await StudentLookupRepository.GetClassesAsync(Session.TenantId.Value);
+            _classes = classesResponse?.Success == true && classesResponse.Data is not null
+                ? classesResponse.Data
+                : new List<LookupItemResponse>();
+
+
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Unable to load report filters: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadSectionsAsync()
+    {
+        _sections.Clear();
+
+        if (Session.TenantId is null || Session.BranchId is null || !_request.ClassId.HasValue)
+            return;
+
+        var sectionsResponse = await StudentLookupRepository.GetSectionsByClassAsync(
+            Session.TenantId.Value,
+            Session.BranchId.Value,
+            _request.ClassId.Value);
+
+        _sections = sectionsResponse?.Success == true && sectionsResponse.Data is not null
+            ? sectionsResponse.Data
+            : new List<LookupItemResponse>();
+    }
+
+    private async Task OnAcademicYearChangedAsync(int? academicYearId)
+    {
+        _request.AcademicYearId = academicYearId;
+        _request.PageNumber = 1;
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task OnClassChangedAsync(int? classId)
+    {
+        _request.ClassId = classId;
+        _request.SectionId = null;
+        _request.PageNumber = 1;
+
+        await LoadSectionsAsync();
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task OnSectionChangedAsync(int? sectionId)
+    {
+        _request.SectionId = sectionId;
+        _request.PageNumber = 1;
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task ChangeReportAsync(string reportKey)
+    {
+        _activeReportKey = reportKey;
+        _request.PageNumber = 1;
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task OnPageSizeChangedAsync(int pageSize)
+    {
+        _request.PageSize = pageSize;
+        _request.PageNumber = 1;
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task OnPageChangedAsync(int pageNumber)
+    {
+        _request.PageNumber = pageNumber;
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        _request = new ReportFilterRequest { PageNumber = 1, PageSize = 10 };
+        _sections.Clear();
+        await LoadCurrentReportAsync();
+    }
+
+    private async Task LoadCurrentReportAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            switch (_activeReportKey)
+            {
+                case ReportKeys.Dashboard:
+                    _dashboard = Extract(await ReportsRepo.GetDashboardAsync(_request), new ReportsDashboardResponse());
+                    break;
+                case ReportKeys.StudentMaster:
+                    _students = Extract(await ReportsRepo.GetStudentMasterAsync(_request), Empty<StudentMasterReportResponse>());
+                    break;
+                case ReportKeys.AdmissionRegister:
+                    _admissions = Extract(await ReportsRepo.GetAdmissionRegisterAsync(_request), Empty<AdmissionRegisterReportResponse>());
+                    break;
+                case ReportKeys.FeeCollection:
+                    _collection = Extract(await ReportsRepo.GetFeeCollectionAsync(_request), Empty<FeeCollectionReportResponse>());
+                    break;
+                case ReportKeys.OutstandingFees:
+                    _outstanding = Extract(await ReportsRepo.GetOutstandingFeesAsync(_request), Empty<OutstandingFeeReportResponse>());
+                    break;
+                case ReportKeys.StudentLedger:
+                    _ledger = Extract(await ReportsRepo.GetStudentFeeLedgerAsync(_request), Empty<StudentFeeLedgerReportResponse>());
+                    break;
+                case ReportKeys.ReceiptRegister:
+                    _receipts = Extract(await ReportsRepo.GetReceiptRegisterAsync(_request), Empty<ReceiptRegisterReportResponse>());
+                    break;
+                case ReportKeys.AcademicStrength:
+                    _strength = Extract(await ReportsRepo.GetAcademicStrengthAsync(_request), Empty<AcademicStrengthReportResponse>());
+                    break;
+                case ReportKeys.PendingDocuments:
+                    _documents = Extract(await ReportsRepo.GetPendingDocumentsAsync(_request), Empty<PendingDocumentReportResponse>());
+                    break;
+                    case ReportKeys.StudentDobAge:
+    _studentDobAge = Extract(
+        await ReportsRepo.GetStudentDobAgeReportAsync(_request),
+        Empty<StudentDobAgeReportResponse>());
+    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private T Extract<T>(ServerResponseHelper<T> response, T fallback)
+    {
+        if (response.IsSuccess && response.ServerResponse is not null)
+            return response.ServerResponse;
+
+        var message = string.IsNullOrWhiteSpace(response.Message) ? "Unable to load report." : response.Message;
+        _error = message;
+        Snackbar.Add(message, Severity.Error);
+        return fallback;
+    }
+
+    private async Task ExportExcelAsync()
+    {
+        if (_activeReportKey == ReportKeys.Dashboard)
+            return;
+
+        _exporting = true;
+        try
+        {
+            var request = new ReportExportRequest
+            {
+                ReportKey = _activeReportKey,
+                ExportType = "excel",
+                AcademicYearId = _request.AcademicYearId,
+                ClassId = _request.ClassId,
+                SectionId = _request.SectionId,
+                StudentId = _request.StudentId,
+                FromDate = _request.FromDate,
+                ToDate = _request.ToDate,
+                SearchText = _request.SearchText,
+                Status = _request.Status,
+                PaymentMode = _request.PaymentMode,
+                PageNumber = 1,
+                PageSize = 10000
+            };
+
+            var file = await ReportsRepo.ExportAsync(request);
+            if (!file.IsSuccess)
+            {
+                Snackbar.Add(file.Message ?? "Unable to export report.", Severity.Error);
+                return;
+            }
+
+            await EnsureDownloadScriptAsync();
+            var base64 = Convert.ToBase64String(file.Content);
+            await JS.InvokeVoidAsync("shalaReports.downloadFileFromBase64", file.FileName, file.ContentType, base64);
+            Snackbar.Add("Report downloaded.", Severity.Success);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("print");
+
+    private async Task ShareAsync()
+    {
+        var url = Navigation.Uri;
+        await JS.InvokeVoidAsync("eval", $"navigator.clipboard && navigator.clipboard.writeText('{url.Replace("'", "\\'")}')");
+        Snackbar.Add("Report link copied.", Severity.Success);
+    }
+
+    private async Task EnsureDownloadScriptAsync()
+    {
+        const string script = @"
+            window.shalaReports = window.shalaReports || {};
+            window.shalaReports.downloadFileFromBase64 = function(fileName, contentType, base64) {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = 'data:' + contentType + ';base64,' + base64;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };";
+
+        await JS.InvokeVoidAsync("eval", script);
+    }
+
+
+    private static int? CalculateAge(DateTime? dob)
+{
+    if (!dob.HasValue)
+        return null;
+
+    var today = DateTime.Today;
+    var age = today.Year - dob.Value.Year;
+
+    if (dob.Value.Date > today.AddYears(-age))
+        age--;
+
+    return age;
+}
+
+    private RenderFragment RenderSummaryCards() => @<MudGrid Spacing="3">
+        @foreach (var card in GetSummaryCards())
+        {
+            <MudItem xs="12" sm="6" md="3">
+                <ReportMetricCard Title="@card.Title" Value="@card.Value" Icon="@card.Icon" Color="@card.Color" />
+            </MudItem>
+        }
+    </MudGrid>;
+
+    private IEnumerable<SummaryCard> GetSummaryCards() => _activeReportKey switch
+    {
+        ReportKeys.Dashboard => new[]
+        {
+            new SummaryCard("Total Students", (_dashboard?.TotalStudents ?? 0).ToString("N0"), Icons.Material.Filled.Groups, Color.Primary),
+            new SummaryCard("Current Admissions", (_dashboard?.CurrentAdmissions ?? 0).ToString("N0"), Icons.Material.Filled.VerifiedUser, Color.Success),
+            new SummaryCard("Today Collection", Money(_dashboard?.TodayCollection ?? 0), Icons.Material.Filled.Payments, Color.Info),
+            new SummaryCard("Outstanding", Money(_dashboard?.TotalOutstanding ?? 0), Icons.Material.Filled.WarningAmber, Color.Error),
+            new SummaryCard("Defaulters", (_dashboard?.DefaulterCount ?? 0).ToString("N0"), Icons.Material.Filled.ReportProblem, Color.Warning),
+            new SummaryCard("Pending Docs", (_dashboard?.PendingDocuments ?? 0).ToString("N0"), Icons.Material.Filled.FolderCopy, Color.Secondary),
+        },
+        ReportKeys.FeeCollection => new[]
+        {
+            new SummaryCard("Receipts", _collection.TotalCount.ToString("N0"), Icons.Material.Filled.ReceiptLong, Color.Primary),
+            new SummaryCard("Amount", Money(_collection.Items.Sum(x => x.Amount)), Icons.Material.Filled.Payments, Color.Success),
+            new SummaryCard("Cash", Money(_collection.Items.Where(x => x.PaymentMode.Contains("Cash", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Amount)), Icons.Material.Filled.Money, Color.Info),
+            new SummaryCard("Online", Money(_collection.Items.Where(x => !x.PaymentMode.Contains("Cash", StringComparison.OrdinalIgnoreCase)).Sum(x => x.Amount)), Icons.Material.Filled.AccountBalance, Color.Secondary),
+        },
+        ReportKeys.OutstandingFees => new[]
+        {
+            new SummaryCard("Defaulters", _outstanding.TotalCount.ToString("N0"), Icons.Material.Filled.Groups, Color.Warning),
+            new SummaryCard("Net Amount", Money(_outstanding.Items.Sum(x => x.NetAmount)), Icons.Material.Filled.Calculate, Color.Primary),
+            new SummaryCard("Paid", Money(_outstanding.Items.Sum(x => x.TotalPaid)), Icons.Material.Filled.CheckCircle, Color.Success),
+            new SummaryCard("Balance", Money(_outstanding.Items.Sum(x => x.Balance)), Icons.Material.Filled.WarningAmber, Color.Error),
+        },
+        ReportKeys.ReceiptRegister => new[]
+        {
+            new SummaryCard("Receipts", _receipts.TotalCount.ToString("N0"), Icons.Material.Filled.ReceiptLong, Color.Primary),
+            new SummaryCard("Amount", Money(_receipts.Items.Sum(x => x.TotalAmount)), Icons.Material.Filled.Payments, Color.Success),
+            new SummaryCard("Active", _receipts.Items.Count(x => !x.IsCancelled).ToString("N0"), Icons.Material.Filled.CheckCircle, Color.Info),
+            new SummaryCard("Cancelled", _receipts.Items.Count(x => x.IsCancelled).ToString("N0"), Icons.Material.Filled.Cancel, Color.Error),
+        },
+        ReportKeys.StudentLedger => new[]
+        {
+            new SummaryCard("Entries", _ledger.TotalCount.ToString("N0"), Icons.Material.Filled.ListAlt, Color.Primary),
+            new SummaryCard("Debit", Money(_ledger.Items.Sum(x => x.DebitAmount)), Icons.Material.Filled.NorthEast, Color.Error),
+            new SummaryCard("Credit", Money(_ledger.Items.Sum(x => x.CreditAmount)), Icons.Material.Filled.SouthWest, Color.Success),
+            new SummaryCard("Balance", Money(_ledger.Items.LastOrDefault()?.RunningBalance ?? 0), Icons.Material.Filled.AccountBalanceWallet, Color.Warning),
+        },
+        ReportKeys.AcademicStrength => new[]
+        {
+            new SummaryCard("Groups", _strength.TotalCount.ToString("N0"), Icons.Material.Filled.Class, Color.Primary),
+            new SummaryCard("Students", _strength.Items.Sum(x => x.StudentCount).ToString("N0"), Icons.Material.Filled.Groups, Color.Success),
+        },
+        ReportKeys.PendingDocuments => new[]
+        {
+            new SummaryCard("Students", _documents.TotalCount.ToString("N0"), Icons.Material.Filled.Groups, Color.Primary),
+            new SummaryCard("Required", _documents.Items.Sum(x => x.RequiredDocumentCount).ToString("N0"), Icons.Material.Filled.FolderCopy, Color.Info),
+            new SummaryCard("Received", _documents.Items.Sum(x => x.ReceivedDocumentCount).ToString("N0"), Icons.Material.Filled.CheckCircle, Color.Success),
+            new SummaryCard("Pending", _documents.Items.Sum(x => x.PendingDocumentCount).ToString("N0"), Icons.Material.Filled.WarningAmber, Color.Warning),
+        },
+        ReportKeys.StudentDobAge => new[]
+{
+    new SummaryCard("Students", _studentDobAge.TotalCount.ToString("N0"), Icons.Material.Filled.Groups, Color.Primary),
+    new SummaryCard("DOB Available", _studentDobAge.Items.Count(x => x.DateOfBirth.HasValue).ToString("N0"), Icons.Material.Filled.Cake, Color.Success),
+    new SummaryCard("DOB Missing", _studentDobAge.Items.Count(x => !x.DateOfBirth.HasValue).ToString("N0"), Icons.Material.Filled.WarningAmber, Color.Warning),
+},
+        _ => new[] { new SummaryCard("Total", CurrentPagedTotal.ToString("N0"), Icons.Material.Filled.Analytics, Color.Primary) }
+    };
+
+    private int CurrentPagedTotal => _activeReportKey switch
+    {
+        ReportKeys.StudentMaster => _students.TotalCount,
+        ReportKeys.AdmissionRegister => _admissions.TotalCount,
+        ReportKeys.FeeCollection => _collection.TotalCount,
+        ReportKeys.OutstandingFees => _outstanding.TotalCount,
+        ReportKeys.StudentLedger => _ledger.TotalCount,
+        ReportKeys.ReceiptRegister => _receipts.TotalCount,
+        ReportKeys.AcademicStrength => _strength.TotalCount,
+        ReportKeys.PendingDocuments => _documents.TotalCount,
+        ReportKeys.StudentDobAge => _studentDobAge.TotalCount,
+        _ => 0
+    };
+
+    private RenderFragment RenderCurrentTable() => _activeReportKey switch
+    {
+        ReportKeys.Dashboard => @<MudPaper Class="pa-5 report-table-card" Elevation="1"><MudText Color="Color.Secondary">Select any report from the left menu to view detailed records.</MudText></MudPaper>,
+        ReportKeys.StudentMaster => RenderStudents(),
+        ReportKeys.AdmissionRegister => RenderAdmissions(),
+        ReportKeys.FeeCollection => RenderCollection(),
+        ReportKeys.OutstandingFees => RenderOutstanding(),
+        ReportKeys.StudentLedger => RenderLedger(),
+        ReportKeys.ReceiptRegister => RenderReceipts(),
+        ReportKeys.AcademicStrength => RenderStrength(),
+        ReportKeys.PendingDocuments => RenderDocuments(),
+        ReportKeys.StudentDobAge => RenderStudentDobAge(),
+        _ => @<MudText>No report selected.</MudText>
+    };
+
+    private RenderFragment RenderStudents() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="StudentMasterReportResponse" Items="_students.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Student</MudTh><MudTh>Class</MudTh><MudTh>Roll</MudTh><MudTh>Guardian</MudTh><MudTh>Mobile</MudTh><MudTh>Status</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.ClassName @row.SectionName</MudTd>
+                <MudTd>@row.RollNo</MudTd>
+                <MudTd>@row.GuardianName</MudTd>
+                <MudTd>@(row.GuardianMobile ?? row.Mobile)</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@row.StudentStatus</MudChip></MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_students.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderAdmissions() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="AdmissionRegisterReportResponse" Items="_admissions.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Date</MudTh><MudTh>Student</MudTh><MudTh>Academic Year</MudTh><MudTh>Class</MudTh><MudTh>Roll</MudTh><MudTh>Status</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd>@row.AdmissionDate.ToString("dd-MMM-yyyy")</MudTd>
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.AcademicYearName</MudTd>
+                <MudTd>@row.ClassName @row.SectionName</MudTd>
+                <MudTd>@row.RollNo</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="@(row.IsCurrent ? Color.Success : Color.Default)" Variant="Variant.Outlined">@row.AdmissionStatus</MudChip></MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_admissions.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderCollection() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="FeeCollectionReportResponse" Items="_collection.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Receipt</MudTh><MudTh>Date</MudTh><MudTh>Student</MudTh><MudTh>Class</MudTh><MudTh>Mode</MudTh><MudTh Style="text-align:right">Amount</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd>@row.ReceiptNo</MudTd>
+                <MudTd>@row.ReceiptDate.ToString("dd-MMM-yyyy")</MudTd>
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.ClassName @row.SectionName</MudTd>
+                <MudTd>@row.PaymentMode</MudTd>
+                <MudTd Style="text-align:right">@Money(row.Amount)</MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_collection.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderOutstanding() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="OutstandingFeeReportResponse" Items="_outstanding.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Student</MudTh><MudTh>Class</MudTh><MudTh Style="text-align:right">Net</MudTh><MudTh Style="text-align:right">Paid</MudTh><MudTh Style="text-align:right">Balance</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.ClassName @row.SectionName</MudTd>
+                <MudTd Style="text-align:right">@Money(row.NetAmount)</MudTd>
+                <MudTd Style="text-align:right">@Money(row.TotalPaid)</MudTd>
+                <MudTd Style="text-align:right"><MudText Color="Color.Error">@Money(row.Balance)</MudText></MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_outstanding.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderLedger() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">For best results, enter Student Id in filter before loading ledger.</MudAlert>
+        <MudTable T="StudentFeeLedgerReportResponse" Items="_ledger.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Date</MudTh><MudTh>Type</MudTh><MudTh>Reference</MudTh><MudTh Style="text-align:right">Debit</MudTh><MudTh Style="text-align:right">Credit</MudTh><MudTh Style="text-align:right">Balance</MudTh><MudTh>Remarks</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd>@row.EntryDate.ToString("dd-MMM-yyyy")</MudTd>
+                <MudTd>@row.EntryType</MudTd>
+                <MudTd>@row.ReferenceNo</MudTd>
+                <MudTd Style="text-align:right">@Money(row.DebitAmount)</MudTd>
+                <MudTd Style="text-align:right">@Money(row.CreditAmount)</MudTd>
+                <MudTd Style="text-align:right">@Money(row.RunningBalance)</MudTd>
+                <MudTd>@row.Remarks</MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_ledger.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderReceipts() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="ReceiptRegisterReportResponse" Items="_receipts.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Receipt</MudTh><MudTh>Date</MudTh><MudTh>Student</MudTh><MudTh>Mode</MudTh><MudTh Style="text-align:right">Amount</MudTh><MudTh>Status</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd>@row.ReceiptNo</MudTd>
+                <MudTd>@row.ReceiptDate.ToString("dd-MMM-yyyy")</MudTd>
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.PaymentMode</MudTd>
+                <MudTd Style="text-align:right">@Money(row.TotalAmount)</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="@(row.IsCancelled ? Color.Error : Color.Success)" Variant="Variant.Outlined">@(row.IsCancelled ? "Cancelled" : "Active")</MudChip></MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_receipts.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderStrength() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="AcademicStrengthReportResponse" Items="_strength.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Academic Year</MudTh><MudTh>Class</MudTh><MudTh>Section</MudTh><MudTh Style="text-align:right">Students</MudTh></HeaderContent>
+            <RowTemplate Context="row"><MudTd>@row.AcademicYearName</MudTd><MudTd>@row.ClassName</MudTd><MudTd>@row.SectionName</MudTd><MudTd Style="text-align:right">@row.StudentCount</MudTd></RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_strength.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderDocuments() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+        <MudTable T="PendingDocumentReportResponse" Items="_documents.Items" Dense="true" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent><MudTh>Student</MudTh><MudTh>Academic Year</MudTh><MudTh>Class</MudTh><MudTh Style="text-align:right">Required</MudTh><MudTh Style="text-align:right">Received</MudTh><MudTh Style="text-align:right">Pending</MudTh></HeaderContent>
+            <RowTemplate Context="row">
+                <MudTd><b>@row.StudentName</b><br /><small>@row.AdmissionNo</small></MudTd>
+                <MudTd>@row.AcademicYearName</MudTd>
+                <MudTd>@row.ClassName @row.SectionName</MudTd>
+                <MudTd Style="text-align:right">@row.RequiredDocumentCount</MudTd>
+                <MudTd Style="text-align:right">@row.ReceivedDocumentCount</MudTd>
+                <MudTd Style="text-align:right"><MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">@row.PendingDocumentCount</MudChip></MudTd>
+            </RowTemplate>
+        </MudTable>
+        <ReportPager TotalCount="_documents.TotalCount" PageNumber="_request.PageNumber" PageSize="_request.PageSize" PageChanged="OnPageChangedAsync" />
+    </MudPaper>;
+
+    private RenderFragment RenderStudentDobAge() => @<MudPaper Class="pa-3 report-table-card" Elevation="1">
+    <MudTable T="StudentDobAgeReportResponse"
+              Items="_studentDobAge.Items"
+              Dense="true"
+              Hover="true"
+              Striped="true"
+              Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Student</MudTh>
+            <MudTh>Class</MudTh>
+            <MudTh>Roll</MudTh>
+            <MudTh>DOB</MudTh>
+            <MudTh>Age</MudTh>
+        </HeaderContent>
+        <RowTemplate Context="row">
+            <MudTd>
+                <b>@row.StudentName</b><br />
+                <small>@row.AdmissionNo</small>
+            </MudTd>
+            <MudTd>@row.ClassName @row.SectionName</MudTd>
+            <MudTd>@row.RollNo</MudTd>
+            <MudTd>@(row.DateOfBirth?.ToString("dd-MMM-yyyy") ?? "-")</MudTd>
+            <MudTd>
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@(row.DateOfBirth.HasValue ? Color.Success : Color.Default)"
+                         Variant="Variant.Outlined">
+                    @row.AgeText
+                </MudChip>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <ReportPager TotalCount="_studentDobAge.TotalCount"
+                 PageNumber="_request.PageNumber"
+                 PageSize="_request.PageSize"
+                 PageChanged="OnPageChangedAsync" />
+</MudPaper>;
+    private static string Money(decimal amount) => amount.ToString("N2");
+    private sealed record SummaryCard(string Title, string Value, string Icon, Color Color);
+
+
+
+
+    private IReadOnlyList<AppSectionSidebarItem> ReportSidebarItems => new List<AppSectionSidebarItem>
+{
+    new()
+    {
+        Key = ReportKeys.Dashboard,
+        Text = "Dashboard",
+        Icon = Icons.Material.Filled.Dashboard
+    },
+    new()
+    {
+        Key = ReportKeys.StudentMaster,
+        Text = "Student Master",
+        Icon = Icons.Material.Filled.Groups
+    },
+    new()
+    {
+        Key = ReportKeys.AdmissionRegister,
+        Text = "Admission Register",
+        Icon = Icons.Material.Filled.AppRegistration
+    },
+    new()
+    {
+        Key = ReportKeys.FeeCollection,
+        Text = "Fee Collection",
+        Icon = Icons.Material.Filled.Payments
+    },
+    new()
+    {
+        Key = ReportKeys.OutstandingFees,
+        Text = "Outstanding Fees",
+        Icon = Icons.Material.Filled.WarningAmber
+    },
+    new()
+    {
+        Key = ReportKeys.StudentLedger,
+        Text = "Student Ledger",
+        Icon = Icons.Material.Filled.AccountBalanceWallet
+    },
+    new()
+    {
+        Key = ReportKeys.ReceiptRegister,
+        Text = "Receipt Register",
+        Icon = Icons.Material.Filled.ReceiptLong
+    },
+    new()
+    {
+        Key = ReportKeys.AcademicStrength,
+        Text = "Academic Strength",
+        Icon = Icons.Material.Filled.Class
+    },
+    new()
+    {
+        Key = ReportKeys.PendingDocuments,
+        Text = "Pending Documents",
+        Icon = Icons.Material.Filled.FolderCopy
+    },
+    new()
+    {
+        Key = ReportKeys.StudentDobAge,
+        Text = "Student DOB / Age",
+        Icon = Icons.Material.Filled.Cake
+    }
+};
+
+}

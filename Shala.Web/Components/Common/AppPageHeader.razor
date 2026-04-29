@@ -1,0 +1,52 @@
+﻿@using MudBlazor
+
+<MudStack Row="true"
+          Justify="Justify.SpaceBetween"
+          AlignItems="AlignItems.Center"
+          Class="mb-4 app-page-header">
+    <div>
+        <MudText Typo="@TitleTypo" Class="fw-bold">@Title</MudText>
+
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @Subtitle
+            </MudText>
+        }
+    </div>
+
+    @if (Actions is not null)
+    {
+        <div class="app-page-header-actions">
+            @Actions
+        </div>
+    }
+</MudStack>
+
+<style>
+    .app-page-header {
+        gap: 12px;
+    }
+
+    .fw-bold {
+        font-weight: 700;
+    }
+
+    @@media (max-width: 768px) {
+        .app-page-header {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .app-page-header-actions {
+            width: 100%;
+        }
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public Typo TitleTypo { get; set; } = Typo.h4;
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

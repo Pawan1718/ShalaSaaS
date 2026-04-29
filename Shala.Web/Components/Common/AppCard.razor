@@ -1,0 +1,20 @@
+@using MudBlazor
+
+<MudPaper Class="@BuildClass()"
+          Elevation="@Elevation"
+          Style="@Style">
+    @ChildContent
+</MudPaper>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public int Elevation { get; set; } = 0;
+    [Parameter] public bool Hover { get; set; } = true;
+    [Parameter] public string PaddingClass { get; set; } = "pa-4";
+    [Parameter] public string RadiusClass { get; set; } = "rounded-lg";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private string BuildClass()
+        => $"shala-card {(Hover ? "shala-card-hover" : string.Empty)} {PaddingClass} {RadiusClass} {Class}".Trim();
+}

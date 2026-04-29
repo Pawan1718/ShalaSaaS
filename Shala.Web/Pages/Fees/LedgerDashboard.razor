@@ -1,0 +1,428 @@
+﻿
+
+@page "/tenant/ledger"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Fees
+
+@inject IFeeWebRepository FeeRepo
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Ledger Dashboard</PageTitle>
+
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="false">
+        <ChildContent>
+            <AppPageHeader Title="Ledger Dashboard"
+                           Subtitle="Read-only fee ledger view. Closing balance comes from backend summary.">
+                <Actions>
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
+                               OnClick="@((MouseEventArgs _) => GoToFeesDashboard())">
+                        Fees Dashboard
+                    </AppButton>
+                </Actions>
+            </AppPageHeader>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Entries"
+                                 Value="@_data.Summary.TotalEntries.ToString()"
+                                 Icon="@Icons.Material.Filled.MenuBook" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Debit"
+                                 Value="@_data.Summary.TotalDebit.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.TrendingDown"
+                                 Color="Color.Error" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Credit"
+                                 Value="@_data.Summary.TotalCredit.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.TrendingUp"
+                                 Color="Color.Success" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Closing Balance"
+                                 Value="@_data.Summary.ClosingBalance.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.AccountBalance"
+                                 Color="Color.Primary" />
+                </MudItem>
+            </MudGrid>
+
+            <AppToolbar>
+                <Filters>
+                    <MudNumericField T="int?"
+                                     Label="Student Id"
+                                     Value="@_request.StudentId"
+                                     ValueChanged="OnStudentChanged"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" />
+
+                    <MudNumericField T="int?"
+                                     Label="Admission Id"
+                                     Value="@_request.AdmissionId"
+                                     ValueChanged="OnAdmissionChanged"
+                                     Margin="Margin.Dense"
+                                     Variant="Variant.Outlined" />
+
+                    <div class="ledger-search">
+                        <AppSearchBox Label="Search"
+                                      Placeholder="Student, admission, reference, remarks"
+                                      @bind-Value="_request.SearchText" />
+                    </div>
+
+                    <AppFilterSelect TValue="string"
+                                     TItem="string"
+                                     Label="Entry Type"
+                                     Value="@_request.EntryType"
+                                     ValueChanged="OnEntryTypeChanged"
+                                     Items="@_entryTypes"
+                                     ValueSelector="@(x => x)"
+                                     TextSelector="@(x => x)" />
+
+                    <MudDatePicker Label="From"
+                                   Date="@_fromDate"
+                                   DateChanged="OnFromDateChanged"
+                                   Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" />
+
+                    <MudDatePicker Label="To"
+                                   Date="@_toDate"
+                                   DateChanged="OnToDateChanged"
+                                   Margin="Margin.Dense"
+                                   Variant="Variant.Outlined" />
+
+                    <AppFilterSelect TValue="int"
+                                     TItem="int"
+                                     Label="Rows"
+                                     Value="@_request.PageSize"
+                                     ValueChanged="OnPageSizeChangedAsync"
+                                     Items="@_pageSizeOptions"
+                                     ValueSelector="@(x => x)"
+                                     TextSelector="@(x => x == -1 ? "All" : x.ToString())" />
+                </Filters>
+
+                <Actions>
+                    <AppButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="@_loading"
+                               OnClick="@((MouseEventArgs _) => ResetAsync())">
+                        Reset
+                    </AppButton>
+
+                    <AppButton StartIcon="@Icons.Material.Filled.Search"
+                               Disabled="@_loading"
+                               OnClick="@((MouseEventArgs _) => SearchAsync())">
+                        Search
+                    </AppButton>
+                </Actions>
+            </AppToolbar>
+
+            <AppError Message="Closing balance above comes from backend summary. Sorting rows below does not recompute it on UI."
+                      Severity="Severity.Info"
+                      Variant="Variant.Outlined"
+                      Dense="true"
+                      Class="mb-4" />
+
+            <AppTableCard TItem="FeeLedgerRowResponse"
+                          Title="Ledger Entries"
+                          Subtitle="@GetPagingText()"
+                          IsLoading="false"
+                          ErrorMessage="@null"
+                          IsEmpty="@(!_data.Entries.Items.Any())"
+                          EmptyTitle="No ledger entries found"
+                          EmptyMessage="Adjust filters or wait for ledger posting activity.">
+                <ChildContent>
+                    <MudTable T="FeeLedgerRowResponse"
+                              Items="@_data.Entries.Items"
+                              Dense="true"
+                              Hover="true"
+                              Striped="true"
+                              Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Date</MudTh>
+                            <MudTh>Student</MudTh>
+                            <MudTh>Admission</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh Align="Align.Right">Debit</MudTh>
+                            <MudTh Align="Align.Right">Credit</MudTh>
+                            <MudTh Align="Align.Right">Balance</MudTh>
+                            <MudTh>Reference</MudTh>
+                            <MudTh>Remarks</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd DataLabel="Date">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2">@context.EntryDate.ToString("dd MMM yyyy")</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.EntryDate.ToString("hh:mm tt")
+                                    </MudText>
+                                </MudStack>
+                            </MudTd>
+
+                            <MudTd DataLabel="Student">@context.StudentName</MudTd>
+                            <MudTd DataLabel="Admission">@context.AdmissionNo</MudTd>
+
+                            <MudTd DataLabel="Type">
+                                <MudChip T="string"
+                                         Variant="Variant.Filled"
+                                         Size="Size.Small"
+                                         Color="@GetEntryTypeColor(context.EntryType)">
+                                    @context.EntryType
+                                </MudChip>
+                            </MudTd>
+
+                            <MudTd DataLabel="Debit" Align="Align.Right">
+                                <MudText Color="@(context.DebitAmount > 0 ? Color.Error : Color.Default)">
+                                    @context.DebitAmount.ToString("N2")
+                                </MudText>
+                            </MudTd>
+
+                            <MudTd DataLabel="Credit" Align="Align.Right">
+                                <MudText Color="@(context.CreditAmount > 0 ? Color.Success : Color.Default)">
+                                    @context.CreditAmount.ToString("N2")
+                                </MudText>
+                            </MudTd>
+
+                            <MudTd DataLabel="Balance" Align="Align.Right">
+                                <MudText Typo="Typo.subtitle2">
+                                    @context.RunningBalance.ToString("N2")
+                                </MudText>
+                            </MudTd>
+
+                            <MudTd DataLabel="Reference">@DisplayText(context.ReferenceNo)</MudTd>
+                            <MudTd DataLabel="Remarks">@DisplayText(context.Remarks)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </ChildContent>
+
+                <Footer>
+                    <MudStack Row="true"
+                              Justify="Justify.SpaceBetween"
+                              AlignItems="AlignItems.Center"
+                              Wrap="Wrap.Wrap"
+                              Spacing="2">
+
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @GetPagingText()
+                        </MudText>
+
+                        <MudStack Row="true" Spacing="1">
+                            <AppButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.NavigateBefore"
+                                       Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber <= 1)"
+                                       OnClick="@((MouseEventArgs _) => PreviousPageAsync())">
+                                Prev
+                            </AppButton>
+
+                            <AppButton Variant="Variant.Outlined"
+                                       EndIcon="@Icons.Material.Filled.NavigateNext"
+                                       Disabled="@(_data.Entries.PageSize == -1 || _data.Entries.PageNumber >= _totalPages)"
+                                       OnClick="@((MouseEventArgs _) => NextPageAsync())">
+                                Next
+                            </AppButton>
+                        </MudStack>
+                    </MudStack>
+                </Footer>
+            </AppTableCard>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
+
+@code {
+    private readonly FeeLedgerDashboardRequest _request = new()
+    {
+        PageNumber = 1,
+        PageSize = 25
+    };
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Ledger", null, true)
+    ];
+
+    private readonly List<string> _entryTypes =
+    [
+        "Charge",
+        "ChargeCancel",
+        "Receipt",
+        "ReceiptCancel",
+        "Discount",
+        "Fine",
+        "Adjustment"
+    ];
+
+    private readonly List<int> _pageSizeOptions = [10, 25, 50, 100, -1];
+
+    private FeeLedgerDashboardResponse _data = new();
+    private bool _loading = true;
+    private string? _error;
+
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+
+    private int _totalPages => _data.Entries.PageSize <= 0 || _data.Entries.TotalCount <= 0
+        ? 1
+        : (int)Math.Ceiling((double)_data.Entries.TotalCount / _data.Entries.PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+
+            _request.FromDate = _fromDate;
+            _request.ToDate = _toDate;
+
+            _data = await FeeRepo.GetFeeLedgerDashboardAsync(_request);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        _request.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        _request.StudentId = null;
+        _request.AdmissionId = null;
+        _request.SearchText = null;
+        _request.EntryType = null;
+        _request.PageNumber = 1;
+        _request.PageSize = 25;
+
+        _fromDate = null;
+        _toDate = null;
+
+        await LoadAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_request.PageSize == -1 || _request.PageNumber <= 1)
+            return;
+
+        _request.PageNumber--;
+        await LoadAsync();
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_request.PageSize == -1 || _request.PageNumber >= _totalPages)
+            return;
+
+        _request.PageNumber++;
+        await LoadAsync();
+    }
+
+    private async Task OnPageSizeChangedAsync(int value)
+    {
+        _request.PageSize = value;
+        _request.PageNumber = 1;
+
+        await LoadAsync();
+    }
+
+    private Task OnFromDateChanged(DateTime? value)
+    {
+        _fromDate = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnToDateChanged(DateTime? value)
+    {
+        _toDate = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnStudentChanged(int? value)
+    {
+        _request.StudentId = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnAdmissionChanged(int? value)
+    {
+        _request.AdmissionId = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnEntryTypeChanged(string? value)
+    {
+        _request.EntryType = value;
+        return Task.CompletedTask;
+    }
+
+    private void GoToFeesDashboard()
+    {
+        Navigation.NavigateTo("/tenant/fees/dashboard");
+    }
+
+    private static Color GetEntryTypeColor(string? entryType)
+    {
+        return entryType?.Trim() switch
+        {
+            "Charge" => Color.Error,
+            "ChargeCancel" => Color.Default,
+            "Receipt" => Color.Success,
+            "ReceiptCancel" => Color.Warning,
+            "Discount" => Color.Info,
+            "Fine" => Color.Secondary,
+            "Adjustment" => Color.Primary,
+            _ => Color.Default
+        };
+    }
+
+    private static string DisplayText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private string GetPagingText()
+    {
+        if (_data.Entries.TotalCount <= 0)
+            return "No records";
+
+        if (_data.Entries.PageSize == -1)
+            return $"Showing all {_data.Entries.TotalCount} records";
+
+        var start = ((_data.Entries.PageNumber - 1) * _data.Entries.PageSize) + 1;
+        var end = Math.Min(_data.Entries.PageNumber * _data.Entries.PageSize, _data.Entries.TotalCount);
+
+        return $"Showing {start}-{end} of {_data.Entries.TotalCount} records";
+    }
+}

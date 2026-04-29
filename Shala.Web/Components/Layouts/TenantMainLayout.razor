@@ -1,0 +1,293 @@
+@inherits LayoutComponentBase
+@using MudBlazor
+@using Shala.Web.Helpers
+@using Shala.Web.Services.State
+@inject NavigationManager Nav
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<MudThemeProvider Theme="@ShalaTheme.Default" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout Class="tenant-layout-shell">
+
+    <MudDrawer @bind-Open="_drawerOpen"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md"
+               Width="292px"
+               Class="tenant-drawer">
+
+        <div class="tenant-drawer-inner">
+
+            <button class="tenant-brand-card" @onclick="GoDashboard">
+                <img src="/images/school-logo.png"
+                     alt="School Logo"
+                     onerror="this.src='/images/shala-crm-logo.jpg'" />
+
+                <div class="tenant-brand-text">
+                    <MudText Typo="Typo.subtitle2" Class="tenant-brand-title">
+                        @GetTenantDisplay()
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="tenant-brand-subtitle">
+                        @GetBranchDisplay()
+                    </MudText>
+                </div>
+            </button>
+
+            <MudNavMenu Dense="true" Class="tenant-nav-menu">
+
+                <MudNavLink Href="/tenant/dashboard"
+                            Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Filled.SpaceDashboard">
+                    Dashboard
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/students"
+                            Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Filled.Groups">
+                    Students
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/students/create"
+                            Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Filled.PersonAddAlt1">
+                    New Admission
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/fees/dashboard"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                    Fees
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/supplies"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Inventory2">
+                    Supplies
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/ledger"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.AccountBalance">
+                    Ledger
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/reports"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.BarChart">
+                    Reports
+                </MudNavLink>
+
+                <MudNavLink Href="/tenant/settings"
+                            Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Settings">
+                    Settings
+                </MudNavLink>
+
+            </MudNavMenu>
+
+            <div class="tenant-sidebar-bottom">
+
+                <MudText Typo="Typo.caption" Class="tenant-section-label">
+                    LOGGED IN USER
+                </MudText>
+
+                <div class="tenant-user-card">
+                    <MudAvatar Size="Size.Medium" Color="Color.Primary" Class="tenant-user-avatar">
+                        @GetInitials()
+                    </MudAvatar>
+
+                    <div class="tenant-user-info">
+                        <MudText Typo="Typo.body2" Class="tenant-user-name">
+                            @GetUserName()
+                        </MudText>
+
+                        <MudText Typo="Typo.caption" Class="tenant-user-email">
+                            @GetUserEmail()
+                        </MudText>
+
+                        <span class="tenant-role-pill">
+                            @GetUserRole()
+                        </span>
+                    </div>
+                </div>
+
+                <MudDivider Class="tenant-divider" />
+
+                <MudText Typo="Typo.caption" Class="tenant-section-label">
+                    CURRENT BRANCH
+                </MudText>
+
+                <div class="tenant-branch-card">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Class="tenant-branch-icon" />
+                    <div>
+                        <MudText Typo="Typo.body2" Class="tenant-branch-title">
+                            @GetTenantDisplay()
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="tenant-branch-subtitle">
+                            @GetBranchDisplay()
+                        </MudText>
+                    </div>
+                </div>
+
+                <MudButton FullWidth="true"
+                           Variant="Variant.Filled"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.Logout"
+                           OnClick="LogoutAsync"
+                           Class="tenant-logout-btn">
+                    Logout
+                </MudButton>
+
+            </div>
+
+        </div>
+    </MudDrawer>
+
+    <MudMainContent Class="tenant-main">
+
+        <MudAppBar Elevation="0" Class="tenant-topbar">
+
+            <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                           OnClick="ToggleDrawer"
+                           Class="tenant-menu-btn" />
+
+            <div class="tenant-topbar-school">
+                <MudText Typo="Typo.subtitle1" Class="tenant-topbar-title">
+                    @GetTenantDisplay()
+                </MudText>
+                <MudText Typo="Typo.caption" Class="tenant-topbar-subtitle">
+                    @GetBranchDisplay()
+                </MudText>
+            </div>
+
+            <MudSpacer />
+
+            <div class="tenant-topbar-user">
+                <MudAvatar Size="Size.Small" Color="Color.Primary">
+                    @GetInitials()
+                </MudAvatar>
+
+                <div class="tenant-topbar-user-text">
+                    <MudText Typo="Typo.body2" Class="tenant-topbar-user-name">
+                        @GetUserName()
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="tenant-topbar-user-role">
+                        @GetUserRole()
+                    </MudText>
+                </div>
+            </div>
+
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Logout"
+                       OnClick="LogoutAsync"
+                       Class="tenant-topbar-logout">
+                Logout
+            </MudButton>
+
+        </MudAppBar>
+
+        <div class="tenant-page-container">
+            @Body
+        </div>
+
+    </MudMainContent>
+
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized)
+            return;
+
+        _initialized = true;
+
+        var ok = await Session.InitializeAsync();
+
+        if (!ok || !Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/tenant/login", true);
+            return;
+        }
+
+        StateHasChanged();
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void GoDashboard()
+    {
+        Nav.NavigateTo("/tenant/dashboard");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Session.ClearAsync();
+        Snackbar.Add("Logged out successfully", Severity.Success);
+        Nav.NavigateTo("/tenant/login", true);
+    }
+
+    private string GetTenantDisplay()
+    {
+        return string.IsNullOrWhiteSpace(Session.TenantName)
+            ? "School"
+            : Session.TenantName;
+    }
+
+    private string GetBranchDisplay()
+    {
+        if (string.IsNullOrWhiteSpace(Session.BranchName))
+            return "Primary Branch";
+
+        if (string.IsNullOrWhiteSpace(Session.BranchCode))
+            return Session.BranchName;
+
+        return $"{Session.BranchName} ({Session.BranchCode})";
+    }
+
+    private string GetUserName()
+    {
+        return string.IsNullOrWhiteSpace(Session.FullName)
+            ? "User"
+            : Session.FullName;
+    }
+
+    private string GetUserEmail()
+    {
+        return string.IsNullOrWhiteSpace(Session.Email)
+            ? "No email"
+            : Session.Email;
+    }
+
+    private string GetUserRole()
+    {
+        return string.IsNullOrWhiteSpace(Session.Role)
+            ? "User"
+            : Session.Role;
+    }
+
+    private string GetInitials()
+    {
+        var name = GetUserName();
+
+        if (string.IsNullOrWhiteSpace(name) || name == "User")
+            return "U";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0][0].ToString().ToUpper();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+}

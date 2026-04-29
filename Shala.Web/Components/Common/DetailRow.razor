@@ -1,0 +1,9 @@
+﻿<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="detail-row">
+    <MudText Typo="Typo.body2" Color="Color.Secondary">@Label</MudText>
+    <MudText Typo="Typo.body2" Class="fw-medium text-right">@Value</MudText>
+</MudStack>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "-";
+}

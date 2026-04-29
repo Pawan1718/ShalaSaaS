@@ -1,0 +1,411 @@
+﻿
+@page "/tenant/fees/dashboard"
+@layout Shala.Web.Components.Layouts.TenantMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Requests.Fees
+@using Shala.Shared.Responses.Fees
+@using Shala.Web.Components.Common
+@using Shala.Web.Repositories.Fees
+
+@inject IFeeWebRepository FeeRepo
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Fees Dashboard</PageTitle>
+
+<AppPageShell>
+    <AppBreadcrumbs Items="_breadcrumbs" />
+
+    <AppDataState Loading="@_loading"
+                  Error="@_error"
+                  Empty="false">
+        <ChildContent>
+            <AppPageHeader Title="Fees Dashboard"
+                           Subtitle="Monitor assignment coverage, collectible students, and admission-level fee workflow from one screen">
+                <Actions>
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.MenuBook"
+                               OnClick="@((MouseEventArgs _) => GoToLedger())">
+                        Open Ledger
+                    </AppButton>
+                </Actions>
+            </AppPageHeader>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Total Amount"
+                                 Value="@_data.Summary.TotalAmount.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.AccountBalanceWallet" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Collected"
+                                 Value="@_data.Summary.TotalPaid.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.Payments"
+                                 Color="Color.Success" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Outstanding"
+                                 Value="@_data.Summary.TotalBalance.ToString("N2")"
+                                 Icon="@Icons.Material.Filled.PendingActions"
+                                 Color="Color.Error" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Coverage"
+                                 Value="@($"{GetCoveragePercent():0.##}%")"
+                                 Hint="Assignments / students"
+                                 Icon="@Icons.Material.Filled.PieChart"
+                                 Color="Color.Info" />
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3" Class="mb-4">
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Students"
+                                 Value="@_data.Students.TotalCount.ToString()"
+                                 Icon="@Icons.Material.Filled.Groups" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Assigned Plans"
+                                 Value="@_data.Summary.AssignedPlans.ToString()"
+                                 Icon="@Icons.Material.Filled.AssignmentTurnedIn"
+                                 Color="Color.Info" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Collectible"
+                                 Value="@_data.Summary.CollectibleStudents.ToString()"
+                                 Icon="@Icons.Material.Filled.RequestQuote"
+                                 Color="Color.Warning" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" lg="3">
+                    <AppStatCard Label="Fully Paid"
+                                 Value="@_data.Summary.FullyPaidStudents.ToString()"
+                                 Icon="@Icons.Material.Filled.Verified"
+                                 Color="Color.Success" />
+                </MudItem>
+            </MudGrid>
+
+            <AppToolbar>
+                <Filters>
+                    <div class="fees-search">
+                        <AppSearchBox Label="Search"
+                                      Placeholder="Student name, admission no, roll no"
+                                      @bind-Value="_request.SearchText" />
+                    </div>
+
+                    <AppFilterSelect TValue="string"
+                                     TItem="string"
+                                     Label="Workflow Status"
+                                     Value="@_request.WorkflowStatus"
+                                     ValueChanged="OnWorkflowStatusChanged"
+                                     Items="@_workflowStatusOptions"
+                                     ValueSelector="@(x => x)"
+                                     TextSelector="@(x => x)" />
+
+                    <AppFilterSelect TValue="int"
+                                     TItem="int"
+                                     Label="Rows"
+                                     Value="@_request.PageSize"
+                                     ValueChanged="OnPageSizeChangedAsync"
+                                     Items="@_pageSizeOptions"
+                                     ValueSelector="@(x => x)"
+                                     TextSelector="@(x => x == -1 ? "All" : x.ToString())" />
+                </Filters>
+
+                <Actions>
+                    <AppButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="@_loading"
+                               OnClick="@((MouseEventArgs _) => ResetAsync())">
+                        Reset
+                    </AppButton>
+
+                    <AppButton StartIcon="@Icons.Material.Filled.Search"
+                               Disabled="@_loading"
+                               OnClick="@((MouseEventArgs _) => SearchAsync())">
+                        Search
+                    </AppButton>
+                </Actions>
+            </AppToolbar>
+
+            <AppTableCard TItem="FeeDashboardRowResponse"
+                          Title="Student Fee Records"
+                          Subtitle="@GetPagingText()"
+                          IsLoading="false"
+                          ErrorMessage="@null"
+                          IsEmpty="@(!_data.Students.Items.Any())"
+                          EmptyTitle="No student fee records found"
+                          EmptyMessage="Adjust search or workflow filters and try again.">
+                <ChildContent>
+                    <MudTable T="FeeDashboardRowResponse"
+                              Items="@_data.Students.Items"
+                              Dense="true"
+                              Hover="true"
+                              Striped="true"
+                              Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Student</MudTh>
+                            <MudTh>Academic</MudTh>
+                            <MudTh>Plan</MudTh>
+                            <MudTh Align="right">Total</MudTh>
+                            <MudTh Align="right">Paid</MudTh>
+                            <MudTh Align="right">Balance</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh Align="right">Actions</MudTh>
+                        </HeaderContent>
+
+                        <RowTemplate>
+                            <MudTd DataLabel="Student">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.subtitle2">@context.StudentName</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Admission: @context.AdmissionNo
+                                        @if (!string.IsNullOrWhiteSpace(context.RollNo))
+                                        {
+                                            <span> | Roll: @context.RollNo</span>
+                                        }
+                                    </MudText>
+                                </MudStack>
+                            </MudTd>
+
+                            <MudTd DataLabel="Academic">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2">@context.ClassName</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.AcademicYear
+                                        @if (!string.IsNullOrWhiteSpace(context.SectionName))
+                                        {
+                                            <span> | @context.SectionName</span>
+                                        }
+                                    </MudText>
+                                </MudStack>
+                            </MudTd>
+
+                            <MudTd DataLabel="Plan">
+                                <MudText Typo="Typo.body2" Color="@(string.IsNullOrWhiteSpace(context.FeeStructureName) ? Color.Secondary : Color.Default)">
+                                    @(string.IsNullOrWhiteSpace(context.FeeStructureName) ? "Not Assigned" : context.FeeStructureName)
+                                </MudText>
+                            </MudTd>
+
+                            <MudTd DataLabel="Total" Align="right">
+                                @context.TotalAmount.ToString("N2")
+                            </MudTd>
+
+                            <MudTd DataLabel="Paid" Align="right">
+                                @context.TotalPaid.ToString("N2")
+                            </MudTd>
+
+                            <MudTd DataLabel="Balance" Align="right">
+                                <MudText Color="@(context.TotalBalance > 0 ? Color.Error : Color.Success)">
+                                    @context.TotalBalance.ToString("N2")
+                                </MudText>
+                            </MudTd>
+
+                            <MudTd DataLabel="Status">
+                                <MudChip T="string"
+                                         Variant="Variant.Filled"
+                                         Size="Size.Small"
+                                         Color="@GetWorkflowColor(context.WorkflowStatus)">
+                                    @context.WorkflowStatus
+                                </MudChip>
+                            </MudTd>
+
+                            <MudTd DataLabel="Actions" Align="right">
+                                <AppButton Variant="Variant.Text"
+                                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                                           OnClick="@((MouseEventArgs _) => OpenAdmissionWorkspace(context))">
+                                    Open
+                                </AppButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </ChildContent>
+
+                <Footer>
+                    <MudStack Row="true"
+                              Justify="Justify.SpaceBetween"
+                              AlignItems="AlignItems.Center"
+                              Wrap="Wrap.Wrap"
+                              Spacing="2">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @GetPagingText()
+                        </MudText>
+
+                        <MudStack Row="true" Spacing="1">
+                            <AppButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.NavigateBefore"
+                                       Disabled="@(_data.Students.PageSize == -1 || _data.Students.PageNumber <= 1)"
+                                       OnClick="@((MouseEventArgs _) => PreviousPageAsync())">
+                                Prev
+                            </AppButton>
+
+                            <AppButton Variant="Variant.Outlined"
+                                       EndIcon="@Icons.Material.Filled.NavigateNext"
+                                       Disabled="@(_data.Students.PageSize == -1 || _data.Students.PageNumber >= _totalPages)"
+                                       OnClick="@((MouseEventArgs _) => NextPageAsync())">
+                                Next
+                            </AppButton>
+                        </MudStack>
+                    </MudStack>
+                </Footer>
+            </AppTableCard>
+        </ChildContent>
+    </AppDataState>
+</AppPageShell>
+
+@code {
+    private readonly FeeDashboardRequest _request = new()
+    {
+        PageNumber = 1,
+        PageSize = 25
+    };
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", "/tenant/dashboard"),
+        new("Fees Dashboard", null, true)
+    ];
+
+    private readonly List<string> _workflowStatusOptions =
+    [
+        "Plan Missing",
+        "Charges Pending",
+        "Collectible",
+        "Partial",
+        "Paid"
+    ];
+
+    private readonly List<int> _pageSizeOptions = [10, 25, 50, 100, -1];
+
+    private FeeDashboardResponse _data = new();
+    private bool _loading = true;
+    private string? _error;
+
+    private int _totalPages => _data.Students.PageSize <= 0 || _data.Students.TotalCount <= 0
+        ? 1
+        : (int)Math.Ceiling((double)_data.Students.TotalCount / _data.Students.PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+            _data = await FeeRepo.GetDashboardAsync(_request);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnWorkflowStatusChanged(string? value)
+    {
+        _request.WorkflowStatus = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task SearchAsync()
+    {
+        _request.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        _request.SearchText = null;
+        _request.WorkflowStatus = null;
+        _request.PageNumber = 1;
+        _request.PageSize = 25;
+        await LoadAsync();
+    }
+
+    private async Task OnPageSizeChangedAsync(int size)
+    {
+        _request.PageSize = size;
+        _request.PageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (_request.PageSize == -1 || _request.PageNumber <= 1)
+            return;
+
+        _request.PageNumber--;
+        await LoadAsync();
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (_request.PageSize == -1 || _request.PageNumber >= _totalPages)
+            return;
+
+        _request.PageNumber++;
+        await LoadAsync();
+    }
+
+    private void OpenAdmissionWorkspace(FeeDashboardRowResponse row)
+    {
+        Navigation.NavigateTo($"/tenant/students/{row.StudentId}/admissions/{row.AdmissionId}/fees");
+    }
+
+    private void GoToLedger()
+    {
+        Navigation.NavigateTo("/tenant/ledger");
+    }
+
+    private double GetCoveragePercent()
+    {
+        if (_data.Summary.TotalStudents <= 0)
+            return 0;
+
+        var value = (_data.Summary.AssignedPlans / (decimal)_data.Summary.TotalStudents) * 100m;
+        return (double)Math.Min(100m, Math.Max(0m, value));
+    }
+
+    private static Color GetWorkflowColor(string? workflowStatus)
+    {
+        return workflowStatus?.Trim() switch
+        {
+            "Plan Missing" => Color.Default,
+            "Charges Pending" => Color.Info,
+            "Collectible" => Color.Warning,
+            "Partial" => Color.Secondary,
+            "Paid" => Color.Success,
+            _ => Color.Primary
+        };
+    }
+
+    private string GetPagingText()
+    {
+        if (_data.Students.TotalCount <= 0)
+            return "No records";
+
+        if (_data.Students.PageSize == -1)
+            return $"Showing all {_data.Students.TotalCount} records";
+
+        var start = ((_data.Students.PageNumber - 1) * _data.Students.PageSize) + 1;
+        var end = Math.Min(_data.Students.PageNumber * _data.Students.PageSize, _data.Students.TotalCount);
+
+        return $"Showing {start}-{end} of {_data.Students.TotalCount} records";
+    }
+}

@@ -1,0 +1,108 @@
+﻿@inherits LayoutComponentBase
+@using MudBlazor
+@using Shala.Web.Helpers
+@using Shala.Web.Services.State
+@inject NavigationManager Navigation
+@inject ApiSession Session
+@inject ISnackbar Snackbar
+
+<MudThemeProvider Theme="@ShalaTheme.Default" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout Class="platform-layout">
+
+    <MudAppBar Elevation="1" Color="Color.Primary" Dense="true" Class="platform-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="ToggleDrawer" />
+
+        <MudText Typo="Typo.h6" Class="platform-brand">
+            Shala Platform
+        </MudText>
+
+        <MudSpacer />
+
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudText Typo="Typo.body2" Class="platform-top-text">
+                Super Admin Panel
+            </MudText>
+        </MudHidden>
+
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit">
+            <MudMenuItem Icon="@Icons.Material.Filled.Dashboard" Href="/platform/dashboard">
+                Dashboard
+            </MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.Business" Href="/platform/tenants">
+                Tenants
+            </MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.Business" Href="/platform/configuration/tenant">
+                Tenants Config
+            </MudMenuItem>
+            <MudDivider />
+            <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
+                Logout
+            </MudMenuItem>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen"
+               Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md"
+               Elevation="1"
+               ClipMode="DrawerClipMode.Always"
+               Class="platform-drawer">
+
+        <div class="platform-drawer-header">
+            <MudText Typo="Typo.subtitle1" Class="fw-700">Navigation</MudText>
+            <MudText Typo="Typo.caption" Class="platform-drawer-subtitle">
+                Manage your platform
+            </MudText>
+        </div>
+
+        <MudNavMenu Class="platform-nav-menu">
+            <MudNavLink Href="/platform/dashboard" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+
+            <MudNavLink Href="/platform/tenants" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Business">
+                Tenants
+            </MudNavLink>
+
+            <MudNavLink Href="/platform/configuration/tenant" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Business">
+                Tenants Config
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="platform-main-content">
+        <MudContainer MaxWidth="MaxWidth.False" Class="platform-page-container">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+
+</MudLayout>
+
+<style>
+    .platform-layout { min-height: 100vh; background: #f8fafc; }
+    .platform-appbar { backdrop-filter: blur(8px); box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08); z-index: 1301; }
+    .platform-brand { font-weight: 700; }
+    .platform-drawer { border-right: 1px solid rgba(148,163,184,0.18); }
+    .platform-main-content { min-height: 100vh; background: #f8fafc; }
+    .platform-page-container { padding: 24px; }
+</style>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private async Task LogoutAsync()
+    {
+        await Session.ClearAsync();
+        Snackbar.Add("Logged out successfully", Severity.Success);
+        Navigation.NavigateTo("/platform/login", true);
+    }
+}

@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Shala.Api/Shala.Api.csproj" />
+  <Project Path="Shala.Application/Shala.Application.csproj" Id="4bb37102-7c40-43c0-b967-3ee9476f774e" />
+  <Project Path="Shala.Domain/Shala.Domain.csproj" Id="1b3dc7e1-1a27-4533-8dfa-c86408d6269e" />
+  <Project Path="Shala.Infrastructure/Shala.Infrastructure.csproj" Id="cd789dbd-e011-4a38-b6d3-25ceac90debe" />
+  <Project Path="Shala.Shared/Shala.Shared.csproj" Id="f96a5d9b-9821-46ca-be4b-b48cc67ebcd1" />
+  <Project Path="Shala.Web/Shala.Web.csproj" />
+</Solution>

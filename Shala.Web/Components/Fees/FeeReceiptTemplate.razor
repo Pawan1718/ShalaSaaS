@@ -1,0 +1,237 @@
+﻿@using MudBlazor
+@using Shala.Web.Models.Fees
+@using Shala.Shared.Responses.Settings
+
+@if (Receipt is null)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined">
+        Receipt preview is not available.
+    </MudAlert>
+}
+else
+{
+    <div class="professional-fee-receipt">
+        <div class="receipt-sheet">
+
+            <div class="receipt-accent" style="@GetAccentStyle()"></div>
+
+            <div class="receipt-header">
+                <div class="receipt-header-left">
+                    @if ((Profile?.ShowLogo ?? true) && !string.IsNullOrWhiteSpace(Profile?.LogoUrl))
+                    {
+                        <img src="@Profile!.LogoUrl" alt="School Logo" class="receipt-logo" />
+                    }
+                    else
+                    {
+                        <div class="receipt-logo-placeholder">
+                            <MudIcon Icon="@Icons.Material.Filled.School" />
+                        </div>
+                    }
+                </div>
+
+                <div class="receipt-header-center">
+                    <div class="school-name">@GetSchoolName()</div>
+
+                    @if ((Profile?.ShowAddress ?? true) && !string.IsNullOrWhiteSpace(Profile?.AddressLine))
+                    {
+                        <div class="school-line">@Profile.AddressLine</div>
+                    }
+
+                    @if ((Profile?.ShowContactInfo ?? true) && HasContactInfo())
+                    {
+                        <div class="school-line">@GetContactLine()</div>
+                    }
+                </div>
+
+                <div class="receipt-header-right">
+                    <div class="receipt-badge">FEE RECEIPT</div>
+                    <div class="receipt-badge-sub">PAID</div>
+                </div>
+            </div>
+
+            <div class="receipt-meta-strip">
+                <div class="meta-item">
+                    <span class="meta-label">Receipt No</span>
+                    <span class="meta-value">@DisplayText(Receipt.ReceiptNo)</span>
+                </div>
+
+                <div class="meta-item">
+                    <span class="meta-label">Receipt Date</span>
+                    <span class="meta-value">@FormatDate(Receipt.ReceiptDate)</span>
+                </div>
+
+                <div class="meta-item">
+                    <span class="meta-label">Payment Mode</span>
+                    <span class="meta-value">@DisplayText(Receipt.PaymentMode)</span>
+                </div>
+
+                <div class="meta-item">
+                    <span class="meta-label">Txn Ref</span>
+                    <span class="meta-value">@DisplayText(Receipt.TransactionReference)</span>
+                </div>
+            </div>
+
+            <div class="receipt-section">
+                <div class="section-heading">Student Information</div>
+
+                <div class="student-grid">
+                    <div class="student-item student-item-wide">
+                        <span class="student-label">Student Name</span>
+                        <span class="student-value">@DisplayText(Receipt.StudentName)</span>
+                    </div>
+
+                    <div class="student-item">
+                        <span class="student-label">Admission No</span>
+                        <span class="student-value">@DisplayText(Receipt.AdmissionNo)</span>
+                    </div>
+
+                    <div class="student-item">
+                        <span class="student-label">Class / Section</span>
+                        <span class="student-value">@BuildClassSection()</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="receipt-section">
+                <div class="section-heading">Fee Details</div>
+
+                <div class="table-wrap">
+                    <table class="receipt-table">
+                        <thead>
+                            <tr>
+                                <th class="col-sl">#</th>
+                                <th>Particular</th>
+                                <th>Due Date</th>
+                                <th class="text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Receipt.Lines is not null && Receipt.Lines.Any())
+                            {
+                                var index = 1;
+                                foreach (var line in Receipt.Lines)
+                                {
+                                    <tr>
+                                        <td class="col-sl">@index</td>
+                                        <td>@DisplayText(line.Label)</td>
+                                        <td>@FormatNullableDate(line.DueDate)</td>
+                                        <td class="text-right amount-cell">₹ @line.Amount.ToString("N2")</td>
+                                    </tr>
+                                    index++;
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td class="col-sl">1</td>
+                                    <td>Fee Payment</td>
+                                    <td>-</td>
+                                    <td class="text-right amount-cell">₹ @Receipt.TotalAmount.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="receipt-bottom">
+                <div class="receipt-bottom-left">
+                    @if (!string.IsNullOrWhiteSpace(Receipt.ReceiptFooterNote))
+                    {
+                        <div class="footer-note">
+                            @Receipt.ReceiptFooterNote
+                        </div>
+                    }
+                </div>
+
+                <div class="receipt-bottom-right">
+                    <div class="total-card">
+                        <span class="total-label">Total Paid</span>
+                        <span class="total-value">₹ @Receipt.TotalAmount.ToString("N2")</span>
+                    </div>
+
+                    @if (Profile?.ShowSignature ?? true)
+                    {
+                        <div class="signature-block">
+                            <div class="signature-line"></div>
+                            <div class="signature-label">
+                                @(string.IsNullOrWhiteSpace(Profile?.SignatureLabel) ? "Authorized Signatory" : Profile!.SignatureLabel)
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public FeeReceiptPrintVm? Receipt { get; set; }
+    [Parameter] public BranchDocumentProfileResponse? Profile { get; set; }
+
+    private string GetSchoolName()
+    {
+        return string.IsNullOrWhiteSpace(Profile?.DisplayName)
+            ? "School Name"
+            : Profile!.DisplayName!;
+    }
+
+    private bool HasContactInfo()
+    {
+        return !string.IsNullOrWhiteSpace(Profile?.Phone) || !string.IsNullOrWhiteSpace(Profile?.Email);
+    }
+
+    private string GetContactLine()
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(Profile?.Phone))
+            parts.Add(Profile.Phone!);
+
+        if (!string.IsNullOrWhiteSpace(Profile?.Email))
+            parts.Add(Profile.Email!);
+
+        return string.Join(" | ", parts);
+    }
+
+    private string BuildClassSection()
+    {
+        var className = DisplayText(Receipt?.ClassName);
+        var section = DisplayText(Receipt?.SectionName);
+
+        if (className == "-" && section == "-")
+            return "-";
+
+        if (section == "-")
+            return className;
+
+        if (className == "-")
+            return section;
+
+        return $"{className} / {section}";
+    }
+
+    private string GetAccentStyle()
+    {
+        var color = string.IsNullOrWhiteSpace(Profile?.PrimaryColorHex)
+            ? "#1d4ed8"
+            : Profile!.PrimaryColorHex!;
+
+        return $"background:{color};";
+    }
+
+    private static string DisplayText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatDate(DateTime value)
+    {
+        return value == default ? "-" : value.ToString("dd MMM yyyy");
+    }
+
+    private static string FormatNullableDate(DateTime? value)
+    {
+        return value is null || value == default ? "-" : value.Value.ToString("dd MMM yyyy");
+    }
+}

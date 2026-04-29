@@ -1,0 +1,485 @@
+﻿@page "/platform/tenants/{TenantId:int}"
+@layout Shala.Web.Components.Layouts.PlatformMainLayout
+
+@using Microsoft.AspNetCore.Components.Web
+@using MudBlazor
+@using Shala.Shared.Responses
+@using Shala.Shared.Responses.Platform
+@using Shala.Web.Components.Common
+@using Shala.Web.Components.Dialogs
+@using Shala.Web.Repositories
+@using Shala.Web.Repositories.PlatformRepo
+
+@inject ITenantRepository TenantRepository
+@inject IBranchRepository BranchRepository
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Tenant Workspace</PageTitle>
+
+<AppPageHeader Title="@PageTitleText"
+               Subtitle="Manage tenant workspace, branches, users and settings">
+    <Actions>
+        <AppButton Variant="Variant.Outlined" OnClick="GoBack">
+            Back
+        </AppButton>
+    </Actions>
+</AppPageHeader>
+
+@if (_isLoading)
+{
+    <AppLoader Rows="5" />
+}
+else if (_notFound || _tenant is null)
+{
+    <AppCard Class="pa-6">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            Tenant not found.
+        </MudAlert>
+    </AppCard>
+}
+else
+{
+    <MudGrid Spacing="3">
+
+        <MudItem xs="12">
+            <AppCard Class="pa-4">
+                <MudStack Row="true"
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center"
+                          Wrap="Wrap.Wrap"
+                          Spacing="3">
+
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.h5">@(_tenant.SchoolName ?? "-")</MudText>
+
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @(!string.IsNullOrWhiteSpace(_tenant.Email) ? _tenant.Email : "-")
+                        </MudText>
+
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap" Class="mt-1">
+                            <MudChip T="string" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+                                Tenant Id: @_tenant.Id
+                            </MudChip>
+
+                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+                                Subdomain: @GetSubdomain()
+                            </MudChip>
+
+                            <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+                                Branches: @_branches.Count
+                            </MudChip>
+                        </MudStack>
+                    </MudStack>
+
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        @if (!string.IsNullOrWhiteSpace(_tenant.BusinessCategory))
+                        {
+                            <MudChip T="string" Variant="Variant.Outlined">
+                                @_tenant.BusinessCategory
+                            </MudChip>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_tenant.SubscriptionPlan))
+                        {
+                            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">
+                                @_tenant.SubscriptionPlan
+                            </MudChip>
+                        }
+
+                        <MudChip T="string"
+                                 Color="@(_tenant.IsActive ? Color.Success : Color.Error)"
+                                 Variant="Variant.Filled">
+                            @(_tenant.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudStack>
+                </MudStack>
+            </AppCard>
+        </MudItem>
+
+        <MudItem xs="12">
+            <AppCard Class="pa-2">
+                <MudTabs Rounded="true"
+                         Elevation="0"
+                         ActivePanelIndex="@_activeTabIndex"
+                         ActivePanelIndexChanged="OnTabChanged">
+
+                    <MudTabPanel Text="Overview" Icon="@Icons.Material.Filled.Dashboard">
+                        <MudGrid Spacing="3" Class="pa-4">
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Tenant Name</MudText>
+                                    <MudText Typo="Typo.h6">@(_tenant.SchoolName ?? "-")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Tenant Id</MudText>
+                                    <MudText Typo="Typo.h6">@_tenant.Id</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Subdomain</MudText>
+                                    <MudText Typo="Typo.h6">@GetSubdomain()</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Plan</MudText>
+                                    <MudText Typo="Typo.h6">@(!string.IsNullOrWhiteSpace(_tenant.SubscriptionPlan) ? _tenant.SubscriptionPlan : "-")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                                    <MudText Typo="Typo.h6">@(_tenant.IsActive ? "Active" : "Inactive")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Email</MudText>
+                                    <MudText Typo="Typo.body1">@(!string.IsNullOrWhiteSpace(_tenant.Email) ? _tenant.Email : "-")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Mobile</MudText>
+                                    <MudText Typo="Typo.body1">@(!string.IsNullOrWhiteSpace(_tenant.MobileNumber) ? _tenant.MobileNumber : "-")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12" md="6">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Created</MudText>
+                                    <MudText Typo="Typo.body1">@_tenant.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy hh:mm tt")</MudText>
+                                </MudPaper>
+                            </MudItem>
+
+                            <MudItem xs="12">
+                                <MudPaper Class="pa-4" Outlined="true">
+                                    <MudStack Row="true"
+                                              Justify="Justify.SpaceBetween"
+                                              AlignItems="AlignItems.Center"
+                                              Wrap="Wrap.Wrap"
+                                              Class="mb-3">
+                                        <MudText Typo="Typo.subtitle1">Branches</MudText>
+
+                                        <AppButton Variant="Variant.Outlined"
+                                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                                   OnClick="OpenBranches">
+                                            Manage Branches
+                                        </AppButton>
+                                    </MudStack>
+
+                                    @if (_branches.Count == 0)
+                                    {
+                                        <MudAlert Severity="Severity.Info" Dense="true">
+                                            No branches configured for this tenant.
+                                        </MudAlert>
+                                    }
+                                    else
+                                    {
+                                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                                            @foreach (var branch in _branches)
+                                            {
+                                                <MudChip T="string"
+                                                         Color="@(branch.IsMainBranch ? Color.Primary : Color.Default)"
+                                                         Variant="Variant.Outlined">
+                                                    @branch.Name (@branch.Code)
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    }
+                                </MudPaper>
+                            </MudItem>
+
+                        </MudGrid>
+                    </MudTabPanel>
+
+                    <MudTabPanel Text="Branches" Icon="@Icons.Material.Filled.AccountTree">
+                        <MudGrid Spacing="3" Class="pa-4">
+                            <MudItem xs="12">
+                                <MudStack Row="true"
+                                          Justify="Justify.SpaceBetween"
+                                          AlignItems="AlignItems.Center"
+                                          Wrap="Wrap.Wrap">
+                                    <MudStack Spacing="1">
+                                        <MudText Typo="Typo.h6">Branch Management</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            View branch names and branch codes for this tenant.
+                                        </MudText>
+                                    </MudStack>
+
+                                    <AppButton StartIcon="@Icons.Material.Filled.OpenInNew"
+                                               OnClick="OpenBranches">
+                                        Open Branches Page
+                                    </AppButton>
+                                </MudStack>
+                            </MudItem>
+
+                            @if (_branches.Count == 0)
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        No branches configured for this tenant.
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                            else
+                            {
+                                @foreach (var branch in _branches)
+                                {
+                                    <MudItem xs="12" md="6" lg="4">
+                                        <MudPaper Class="pa-4 h-100" Outlined="true">
+                                            <MudStack Spacing="2">
+                                                <MudStack Row="true"
+                                                          Justify="Justify.SpaceBetween"
+                                                          AlignItems="AlignItems.Center"
+                                                          Wrap="Wrap.Wrap">
+                                                    <MudText Typo="Typo.subtitle1">@branch.Name</MudText>
+
+                                                    @if (branch.IsMainBranch)
+                                                    {
+                                                        <MudChip T="string"
+                                                                 Color="Color.Primary"
+                                                                 Variant="Variant.Filled"
+                                                                 Size="Size.Small">
+                                                            Main
+                                                        </MudChip>
+                                                    }
+                                                </MudStack>
+
+                                                <div>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Branch Code</MudText>
+                                                    <MudText Typo="Typo.body1">@branch.Code</MudText>
+                                                </div>
+
+                                                <div>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">City</MudText>
+                                                    <MudText Typo="Typo.body1">@(!string.IsNullOrWhiteSpace(branch.City) ? branch.City : "-")</MudText>
+                                                </div>
+
+                                                <div>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Principal</MudText>
+                                                    <MudText Typo="Typo.body1">@(!string.IsNullOrWhiteSpace(branch.PrincipalName) ? branch.PrincipalName : "-")</MudText>
+                                                </div>
+
+                                                <MudChip T="string"
+                                                         Color="@(branch.IsActive ? Color.Success : Color.Error)"
+                                                         Variant="Variant.Outlined"
+                                                         Size="Size.Small">
+                                                    @(branch.IsActive ? "Active" : "Inactive")
+                                                </MudChip>
+                                            </MudStack>
+                                        </MudPaper>
+                                    </MudItem>
+                                }
+                            }
+                        </MudGrid>
+                    </MudTabPanel>
+
+                    <MudTabPanel Text="Users" Icon="@Icons.Material.Filled.People">
+                        <MudStack Spacing="3" AlignItems="AlignItems.Center" Class="pa-6">
+                            <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6">Tenant Users</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                View and manage users assigned to this tenant.
+                            </MudText>
+
+                            <AppButton StartIcon="@Icons.Material.Filled.Visibility"
+                                       OnClick="OpenUsersDialog">
+                                View Users
+                            </AppButton>
+                        </MudStack>
+                    </MudTabPanel>
+
+                    <MudTabPanel Text="Settings" Icon="@Icons.Material.Filled.Settings">
+                        <MudStack Spacing="3" AlignItems="AlignItems.Center" Class="pa-6">
+                            <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Large" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6">Tenant Settings</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Update basic info and tenant-level settings.
+                            </MudText>
+
+                            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                                <AppButton StartIcon="@Icons.Material.Filled.Edit"
+                                           OnClick="OpenBasicSettings">
+                                    Edit Basic Info
+                                </AppButton>
+
+                                <AppButton Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.Mail"
+                                           OnClick="OpenEmailUpdateDialog">
+                                    Update Email
+                                </AppButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudTabPanel>
+
+                </MudTabs>
+            </AppCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public int TenantId { get; set; }
+
+    private TenantDetailResponse? _tenant;
+    private List<BranchResponse> _branches = new();
+    private bool _isLoading = true;
+    private bool _notFound;
+    private int _activeTabIndex;
+
+    private string PageTitleText =>
+        _tenant is null ? "Tenant Workspace" : $"{_tenant.SchoolName ?? "Tenant"} Workspace";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadWorkspaceAsync();
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _notFound = false;
+            _tenant = null;
+            _branches = new();
+
+            var tenantResponse = await TenantRepository.GetTenantByIdAsync(TenantId);
+
+            if (tenantResponse is null || !tenantResponse.IsSuccess || tenantResponse.ServerResponse is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _tenant = tenantResponse.ServerResponse;
+
+            try
+            {
+                var branches = await BranchRepository.GetAllAsync(TenantId);
+                _branches = branches ?? new List<BranchResponse>();
+            }
+            catch
+            {
+                _branches = new List<BranchResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _tenant = null;
+            _branches = new();
+            _notFound = true;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task OnTabChanged(int index)
+    {
+        _activeTabIndex = index;
+        return Task.CompletedTask;
+    }
+
+    private void OpenBranches()
+    {
+        Navigation.NavigateTo($"/platform/tenants/{TenantId}/branches");
+    }
+
+    private async Task OpenUsersDialog()
+    {
+        if (_tenant is null)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["TenantId"] = TenantId,
+            ["TenantName"] = _tenant.SchoolName ?? "Tenant"
+        };
+
+        await DialogService.ShowAsync<TenantUsersDialog>(
+            "Users",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+    }
+
+    private void OpenBasicSettings()
+    {
+        Navigation.NavigateTo($"/platform/tenants/{TenantId}/edit");
+    }
+
+    private async Task OpenEmailUpdateDialog()
+    {
+        if (_tenant is null)
+            return;
+
+        var parameters = new DialogParameters
+        {
+            ["TenantId"] = TenantId,
+            ["CurrentEmail"] = _tenant.Email ?? string.Empty
+        };
+
+        var dialog = await DialogService.ShowAsync<UpdateTenantEmailDialog>(
+            "Update Email",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseOnEscapeKey = true
+            });
+
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+            await LoadWorkspaceAsync();
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/platform/tenants");
+    }
+
+    private string GetSubdomain()
+    {
+        if (_tenant is null)
+            return "-";
+
+        var property = _tenant.GetType().GetProperty("Subdomain");
+        var value = property?.GetValue(_tenant)?.ToString();
+
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private string GetMobileNumber()
+    {
+        if (_tenant is null)
+            return "-";
+
+        var property = _tenant.GetType().GetProperty("MobileNumber");
+        var value = property?.GetValue(_tenant)?.ToString();
+
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+}
